@@ -753,7 +753,7 @@
         <label class="toggle">
           <input type="checkbox" id="pays-chips-samecolor" onchange="Pays.toggleChipsSameColor()">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-text">Match bet colors</span>
+          <span class="toggle-text">No chips larger than bet</span>
         </label>
       </div>
 
@@ -1812,13 +1812,17 @@ const Pays = (() => {
   let chipsMin15   = true;
   let chipsSameColor = false;
 
-  // Returns the unique chip colors used in a bet (no duplicates), or null if the bet
-  // amount itself can't be made with chips.
-  function betColorsFor(payIndex) {
+  // Returns chip names allowed for payout under "no chip larger than bet" mode:
+  // any denomination whose value is <= the largest chip in the bet. This includes
+  // the bet's own colors plus every smaller denom (so a $75 bet of 3 green allows
+  // green/red/pink/white for the payout, but not black or purple). Returns null
+  // if the bet amount itself can't be made with chips.
+  function allowedPayoutColors(payIndex) {
     const bet = parseAmount(PAYS[payIndex].bet);
     const chips = chipsForAmount(bet);
     if (!chips) return null;
-    return [...new Set(chips)];
+    const maxValue = Math.max(...chips.map(n => CHIP_BY_NAME[n].value));
+    return CHIP_VALUES.filter(c => c.value <= maxValue).map(c => c.name);
   }
 
   function buildChipsQueue() {
@@ -1827,9 +1831,11 @@ const Pays = (() => {
       indices = indices.filter(i => parseAmount(PAYS[i].bet) >= 15);
     }
     if (chipsSameColor) {
-      // Only keep hands whose payout can be paid using the bet's colors.
+      // Keep hands whose payout is achievable using only chips no larger than
+      // the bet's largest. (E.g. a $3 white-only bet has no pink available, so
+      // its $4.50 payout is unreachable and gets filtered out.)
       indices = indices.filter(i => {
-        const colors = betColorsFor(i);
+        const colors = allowedPayoutColors(i);
         if (!colors) return false;
         return chipsForAmountUsingColors(targetPayoutAmount(i), colors) !== null;
       });
@@ -1860,8 +1866,8 @@ const Pays = (() => {
     document.getElementById("chips-bet-amount").textContent = formatAmount(bet);
     renderChipStack("chips-bet-stack", betChips, false);
 
-    // Restrict the chip-button row to the bet's colors when same-color mode is on.
-    renderChipButtons(chipsSameColor ? [...new Set(betChips)] : null);
+    // Restrict the chip-button row to chips no larger than the bet's biggest.
+    renderChipButtons(chipsSameColor ? allowedPayoutColors(chipsIndex) : null);
 
     renderUserStack();
     updateUserTotal();
@@ -1886,9 +1892,9 @@ const Pays = (() => {
   function chipsPay() {
     const target = targetPayoutAmount(chipsIndex);
     const userTotal = chipsUserChips.reduce((s, n) => s + CHIP_BY_NAME[n].value, 0);
-    const betColors = chipsSameColor ? betColorsFor(chipsIndex) : null;
+    const allowed = chipsSameColor ? allowedPayoutColors(chipsIndex) : null;
     const optimal = chipsSameColor
-      ? chipsForAmountUsingColors(target, betColors)
+      ? chipsForAmountUsingColors(target, allowed)
       : chipsForAmount(target);
     const optimalCount = optimal.length;
     const userCount = chipsUserChips.length;
@@ -1899,11 +1905,11 @@ const Pays = (() => {
     document.getElementById("chips-user-amount").style.visibility = "visible";
     const fb = document.getElementById("chips-feedback");
 
-    // In same-color mode, defensively check that no chip outside the bet's colors slipped in.
-    const usedDisallowed = chipsSameColor && chipsUserChips.some(c => !betColors.includes(c));
+    // Defensive: the chip-button row already hides oversized denoms, but double-check.
+    const usedDisallowed = chipsSameColor && chipsUserChips.some(c => !allowed.includes(c));
 
     if (usedDisallowed) {
-      fb.textContent = `✗ Used a chip color not in the bet`;
+      fb.textContent = `✗ Used a chip larger than the bet's biggest`;
       fb.className = "feedback bad";
     } else if (Math.abs(userTotal - target) > 0.001) {
       fb.textContent = `✗ Wrong total: ${formatAmount(userTotal)} — expected ${formatAmount(target)}`;
