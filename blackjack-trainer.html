@@ -306,9 +306,219 @@
     border-color: var(--bad);
   }
 
+  /* Count Card Total: playing cards (diagonal cascade, dealer's-eye view) */
+  .card-display {
+    position: relative;
+    margin: 24px auto 12px;
+    padding: 0;
+    /* width & height set in JS based on hand size */
+  }
+  .playing-card {
+    position: absolute;
+    width: 74px;
+    height: 104px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: -2px 3px 6px rgba(0,0,0,0.45);
+  }
+  .playing-card.red   { color: #dc2626; }
+  .playing-card.black { color: #111827; }
+  .playing-card .corner {
+    position: absolute;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  .playing-card .corner-tl {
+    top: 6px;
+    left: 7px;
+    font-size: 0.95rem;
+  }
+  .playing-card .corner-br {
+    bottom: 6px;
+    right: 7px;
+    font-size: 0.95rem;
+    transform: rotate(180deg);
+  }
+  .playing-card .corner small {
+    display: block;
+    font-size: 0.75rem;
+    margin-top: 1px;
+  }
+  .playing-card .center-suit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.2rem;
+    line-height: 1;
+  }
+  .count-total {
+    text-align: center;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--good);
+    min-height: 70px;
+    visibility: hidden;
+    margin-top: 4px;
+  }
+  .count-options {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--muted);
+    user-select: none;
+    padding: 6px 4px;
+  }
+  .toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+  }
+  .toggle-track {
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.15s, border-color 0.15s;
+    flex: 0 0 auto;
+  }
+  .toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .toggle input:checked + .toggle-track {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .toggle input:checked + .toggle-track .toggle-thumb {
+    transform: translateX(16px);
+    background: #0b1220;
+  }
+  .toggle input:checked ~ .toggle-text {
+    color: var(--text);
+  }
+  .toggle input:focus-visible + .toggle-track {
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.4);
+  }
+
+  /* Blackjack Pays: chips */
+  .chip {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    border: 3px dashed rgba(255,255,255,0.85);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.45);
+    transition: box-shadow 0.1s;
+    flex: 0 0 auto;
+    outline: none;
+    color: #fff;
+    line-height: 1;
+  }
+  .chip:hover  { box-shadow: 0 4px 10px rgba(0,0,0,0.55); }
+  .chip:active { box-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+  .chip:focus-visible { box-shadow: 0 0 0 3px rgba(56,189,248,0.6); }
+
+  .chip-white  { background: #f1f5f9; color: #0f172a; border-color: #475569; border-style: dashed; }
+  .chip-pink   { background: #ec4899; border-color: #fce7f3; }
+  .chip-red    { background: #dc2626; border-color: #fee2e2; }
+  .chip-green  { background: #16a34a; border-color: #dcfce7; }
+  .chip-black  { background: #111827; border-color: #6b7280; }
+  .chip-purple { background: #9333ea; border-color: #f3e8ff; }
+
+  .chip-static { cursor: default; }
+  .chip-static:hover  { box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
+  .chip-static:active { box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
+
+  .chip-stack {
+    position: relative;
+    margin: 0 auto;
+    height: 56px;
+    /* width set in JS based on chip count */
+  }
+  .chip-stack .chip {
+    position: absolute;
+    top: 0;
+  }
+  .chip-stack-empty {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-align: center;
+    width: 240px;
+    pointer-events: none;
+  }
+
+  .chip-area {
+    text-align: center;
+    margin: 8px 0;
+  }
+  .chip-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 4px 0 12px;
+  }
+  .chip-amount.user { color: var(--accent); font-size: 1.3rem; }
+
+  .chip-divider {
+    border: none;
+    border-top: 1px dashed var(--border);
+    margin: 22px 0 14px;
+  }
+
+  .chip-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 18px 0 6px;
+    flex-wrap: wrap;
+  }
+
+  .chips-actions {
+    text-align: center;
+    margin-top: 14px;
+  }
+
   /* Responsive tweaks */
   @media (max-width: 520px) {
     .answers { grid-template-columns: repeat(2, 1fr); }
+    .playing-card { width: 60px; height: 86px; }
+    .playing-card .corner-tl, .playing-card .corner-br { font-size: 0.85rem; }
+    .playing-card .center-suit { font-size: 1.7rem; }
+    .chip { width: 48px; height: 48px; font-size: 0.7rem; border-width: 2px; }
+    .chip-stack { height: 48px; }
+    .chip-buttons { gap: 6px; }
   }
 </style>
 </head>
@@ -332,6 +542,10 @@
         <b>Blackjack Payouts</b>
         <span>Flash through bet amounts and reveal the 3:2 payout. No scoring &mdash; just drill.</span>
       </button>
+      <button class="mode-btn" onclick="Nav.goSection('count-section')">
+        <b>Count Card Total</b>
+        <span>Random hands dealt from a 6-deck shoe per basic strategy. Add the total in your head, then reveal.</span>
+      </button>
     </div>
   </div>
 
@@ -341,10 +555,6 @@
     <button class="back-link" onclick="Nav.goMain()">&larr; Main menu</button>
     <h2>6-Deck Basic Strategy</h2>
     <div class="sub">Dealer Hits Soft 17</div>
-
-    <div class="warn">
-      Verify the chart against your sheet before trusting scores. Click "View chart" below to inspect all answers.
-    </div>
 
     <!-- Strategy Home -->
     <div id="strat-home" class="card screen">
@@ -501,8 +711,12 @@
     <!-- Pays Home -->
     <div id="pays-home" class="card screen">
       <button class="mode-btn" onclick="Pays.start()">
-        <b>Start drilling</b>
+        <b>Numbers</b>
         <span>Random bet amounts &mdash; think of the payout, then reveal to check.</span>
+      </button>
+      <button class="mode-btn" onclick="Pays.startChips()">
+        <b>Chips</b>
+        <span>Bet shown as a chip stack &mdash; build the payout from chip buttons using the fewest chips.</span>
       </button>
       <details>
         <summary>View all payouts</summary>
@@ -510,7 +724,7 @@
       </details>
     </div>
 
-    <!-- Pays Quiz -->
+    <!-- Pays Quiz (Numbers mode) -->
     <div id="pays-quiz" class="card screen" style="display:none">
       <div class="fc-prompt">
         <span class="fc-label">BET</span>
@@ -526,7 +740,85 @@
       </div>
     </div>
 
+    <!-- Pays Chips Quiz -->
+    <div id="pays-chips-quiz" class="card screen" style="display:none">
+      <div class="count-options">
+        <label class="toggle">
+          <input type="checkbox" id="pays-chips-min15" checked onchange="Pays.toggleChipsMin15()">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">$15 minimum bet</span>
+        </label>
+      </div>
+
+      <div class="chip-area">
+        <div class="fc-label" style="font-size:0.75rem;color:var(--muted);letter-spacing:0.5px">BET</div>
+        <div id="chips-bet-amount" class="chip-amount"></div>
+        <div id="chips-bet-stack" class="chip-stack"></div>
+      </div>
+
+      <hr class="chip-divider">
+
+      <div class="chip-area">
+        <div class="fc-label" style="font-size:0.75rem;color:var(--muted);letter-spacing:0.5px">YOUR PAYOUT</div>
+        <div id="chips-user-amount" class="chip-amount user">$0.00</div>
+        <div id="chips-user-stack" class="chip-stack"></div>
+      </div>
+
+      <div id="chips-buttons" class="chip-buttons"></div>
+
+      <div class="chips-actions">
+        <button class="primary" id="chips-pay-btn" onclick="Pays.chipsAction()">Pay</button>
+      </div>
+
+      <div id="chips-feedback" class="feedback"></div>
+
+      <div class="score" style="margin-top:18px">
+        <span style="color:var(--muted)" id="chips-counter"></span>
+        <button class="ghost" onclick="Nav.goHome('pays-section')">Back</button>
+      </div>
+    </div>
+
   </div><!-- /pays-section -->
+
+  <!-- ==================== COUNT CARD TOTAL SECTION ==================== -->
+  <div id="count-section" class="section" style="display:none">
+
+    <button class="back-link" onclick="Nav.goMain()">&larr; Main menu</button>
+    <h2>Count Card Total</h2>
+    <div class="sub">Practice adding hand totals at a glance</div>
+
+    <!-- Count Home -->
+    <div id="count-home" class="card screen">
+      <button class="mode-btn" onclick="Count.start()">
+        <b>Start drilling</b>
+        <span>Random hands dealt from a 6-deck shoe according to basic strategy &mdash; sum them in your head, then reveal.</span>
+      </button>
+      <div class="legend" style="margin-top:14px">
+        Dealer up card is hidden. Splits are skipped. Final hand totals are always 12&ndash;21.
+      </div>
+    </div>
+
+    <!-- Count Quiz -->
+    <div id="count-quiz" class="card screen" style="display:none">
+      <div class="count-options">
+        <label class="toggle">
+          <input type="checkbox" id="count-no10s" onchange="Count.toggleNo10s()">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">Exclude 10-value cards (10/J/Q/K)</span>
+        </label>
+      </div>
+      <div id="count-cards" class="card-display"></div>
+      <div id="count-total" class="count-total">&nbsp;</div>
+      <div style="text-align:center;margin-top:8px">
+        <button class="primary" id="count-action-btn" onclick="Count.action()">Reveal total</button>
+      </div>
+      <div class="score" style="margin-top:18px">
+        <span style="color:var(--muted)" id="count-counter"></span>
+        <button class="ghost" onclick="Nav.goHome('count-section')">Back</button>
+      </div>
+    </div>
+
+  </div><!-- /count-section -->
 
 </div><!-- /wrap -->
 
@@ -553,8 +845,13 @@ const SECTIONS = [
   {
     id: "pays-section",
     home: "pays-home",
-    screens: ["pays-home", "pays-quiz"],
+    screens: ["pays-home", "pays-quiz", "pays-chips-quiz"],
     onEnter: function() { Pays.renderList(); }
+  },
+  {
+    id: "count-section",
+    home: "count-home",
+    screens: ["count-home", "count-quiz"],
   },
 ];
 
@@ -1413,7 +1710,485 @@ const Pays = (() => {
     }
   });
 
-  return { start, next, reveal, action, renderList };
+  /* ================================================================
+     CHIPS MODE
+     ----------------------------------------------------------------
+     Chip denominations:
+        white  = $1     pink   = $2.50    red    = $5
+        green  = $25    black  = $100     purple = $500
+     User builds the payout from chip buttons; must use the FEWEST
+     chips possible to be marked correct. Click a chip in the user's
+     stack to remove it. $1 bet (1.50 payout) is rounded up to $2 so
+     it can be paid with chips; toggle '$15 minimum bet' (default on)
+     skips smaller bets entirely.
+     ================================================================ */
+  const CHIP_VALUES = [
+    // ordered smallest -> largest (for chip-button row)
+    { name: "white",  value: 1,    cents: 100,   display: "$1"   },
+    { name: "pink",   value: 2.5,  cents: 250,   display: "$2.50"},
+    { name: "red",    value: 5,    cents: 500,   display: "$5"   },
+    { name: "green",  value: 25,   cents: 2500,  display: "$25"  },
+    { name: "black",  value: 100,  cents: 10000, display: "$100" },
+    { name: "purple", value: 500,  cents: 50000, display: "$500" },
+  ];
+  const CHIP_BY_NAME = Object.fromEntries(CHIP_VALUES.map(c => [c.name, c]));
+
+  function parseAmount(s) { return parseFloat(s.replace(/[$,]/g, "")); }
+
+  function formatAmount(n) {
+    const parts = n.toFixed(2).split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return "$" + parts.join(".");
+  }
+
+  // Returns chip names sorted largest-first (so index 0 sits at the bottom of the stack).
+  // Returns null if the amount cannot be made exactly with available chips.
+  function chipsForAmount(amount) {
+    let cents = Math.round(amount * 100);
+    const result = [];
+    if (cents % 100 === 50) {
+      // half-dollar: cleanest decomposition is exactly 1 pink + greedy on whole-dollar remainder
+      if (cents < 250) return null;  // e.g. $1.50 — caller should round before invoking
+      result.push("pink");
+      cents -= 250;
+    }
+    // Greedy with whole-dollar chips (purple, black, green, red, white) — canonical denoms, optimal.
+    for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
+      const c = CHIP_VALUES[i];
+      if (c.name === "pink") continue;
+      while (cents >= c.cents) {
+        result.push(c.name);
+        cents -= c.cents;
+      }
+    }
+    if (cents !== 0) return null;
+    return result.sort((a, b) => CHIP_BY_NAME[b].value - CHIP_BY_NAME[a].value);
+  }
+
+  // Round-up the unmakeable $1.50 payout to $2 (per design). Other payouts pass through.
+  function targetPayoutAmount(payIndex) {
+    const p = parseAmount(PAYS[payIndex].payout);
+    return (Math.abs(p - 1.5) < 0.001) ? 2 : p;
+  }
+
+  let chipsQueue   = [];
+  let chipsIndex   = null;
+  let chipsCount   = 0;
+  let chipsRevealed = false;
+  let chipsUserChips = [];
+  let chipsMin15   = true;
+
+  function buildChipsQueue() {
+    const indices = PAYS.map((_, i) => i);
+    const filtered = chipsMin15
+      ? indices.filter(i => parseAmount(PAYS[i].bet) >= 15)
+      : indices;
+    chipsQueue = shuffle(filtered);
+  }
+
+  function startChips() {
+    chipsQueue = [];
+    chipsCount = 0;
+    chipsRevealed = false;
+    chipsUserChips = [];
+    chipsMin15 = document.getElementById("pays-chips-min15").checked;
+    Nav.showScreen("pays-section", "pays-chips-quiz");
+    renderChipButtons();
+    nextChips();
+  }
+
+  function nextChips() {
+    if (!chipsQueue.length) buildChipsQueue();
+    chipsIndex = chipsQueue.pop();
+    chipsCount++;
+    chipsRevealed = false;
+    chipsUserChips = [];
+
+    const bet = parseAmount(PAYS[chipsIndex].bet);
+    const betChips = chipsForAmount(bet);
+    document.getElementById("chips-bet-amount").textContent = formatAmount(bet);
+    renderChipStack("chips-bet-stack", betChips, false);
+
+    renderUserStack();
+    updateUserTotal();
+
+    // Hide both amount labels until Pay is clicked — the user must read the
+    // chip stacks and count their own contribution in their head.
+    document.getElementById("chips-bet-amount").style.visibility = "hidden";
+    document.getElementById("chips-user-amount").style.visibility = "hidden";
+
+    const fb = document.getElementById("chips-feedback");
+    fb.textContent = "";
+    fb.className = "feedback";
+    document.getElementById("chips-pay-btn").textContent = "Pay";
+    document.getElementById("chips-counter").textContent = "Hand #" + chipsCount;
+  }
+
+  function chipsAction() {
+    if (chipsRevealed) nextChips();
+    else chipsPay();
+  }
+
+  function chipsPay() {
+    const target = targetPayoutAmount(chipsIndex);
+    const userTotal = chipsUserChips.reduce((s, n) => s + CHIP_BY_NAME[n].value, 0);
+    const optimal = chipsForAmount(target);
+    const optimalCount = optimal.length;
+    const userCount = chipsUserChips.length;
+
+    chipsRevealed = true;
+    // Reveal both numeric amounts now that the user has committed.
+    document.getElementById("chips-bet-amount").style.visibility = "visible";
+    document.getElementById("chips-user-amount").style.visibility = "visible";
+    const fb = document.getElementById("chips-feedback");
+
+    if (Math.abs(userTotal - target) > 0.001) {
+      fb.textContent = `✗ Wrong total: ${formatAmount(userTotal)} — expected ${formatAmount(target)}`;
+      fb.className = "feedback bad";
+    } else if (userCount > optimalCount) {
+      fb.textContent = `✗ Right total but ${userCount} chips — minimum is ${optimalCount}`;
+      fb.className = "feedback bad";
+    } else {
+      fb.textContent = `✓ Correct — ${userCount} chip${userCount === 1 ? "" : "s"}`;
+      fb.className = "feedback good";
+    }
+    document.getElementById("chips-pay-btn").textContent = "Next hand";
+  }
+
+  function addChip(name) {
+    if (chipsRevealed) return;
+    chipsUserChips.push(name);
+    // Keep largest at bottom of stack regardless of click order.
+    chipsUserChips.sort((a, b) => CHIP_BY_NAME[b].value - CHIP_BY_NAME[a].value);
+    renderUserStack();
+    updateUserTotal();
+  }
+
+  function removeChip(i) {
+    if (chipsRevealed) return;
+    chipsUserChips.splice(i, 1);
+    renderUserStack();
+    updateUserTotal();
+  }
+
+  function updateUserTotal() {
+    const total = chipsUserChips.reduce((s, n) => s + CHIP_BY_NAME[n].value, 0);
+    document.getElementById("chips-user-amount").textContent = formatAmount(total);
+  }
+
+  function renderUserStack() {
+    renderChipStack("chips-user-stack", chipsUserChips, true);
+  }
+
+  // Render an array of chip names as a horizontal fan. chips[0] is the LARGEST and sits
+  // at the leftmost position; subsequent chips overlap to the right with higher z-index.
+  // Horizontal keeps the row height constant so the chip-button row doesn't jump as the
+  // user adds chips. If `clickable`, each chip removes itself on click.
+  function renderChipStack(containerId, chips, clickable) {
+    const container = document.getElementById(containerId);
+    const chipW = (window.innerWidth <= 520) ? 48 : 56;
+    const offsetX = Math.round(chipW * 0.55); // ~45% overlap between adjacent chips
+    if (!chips || chips.length === 0) {
+      container.style.width = "240px";
+      container.innerHTML = clickable ? '<div class="chip-stack-empty">Tap chips below to build the payout</div>' : "";
+      return;
+    }
+    container.style.width = (chipW + (chips.length - 1) * offsetX) + "px";
+    container.innerHTML = chips.map((name, i) => {
+      const chip = CHIP_BY_NAME[name];
+      const onclick = clickable ? `onclick="Pays.removeChip(${i})"` : "";
+      const cls = clickable ? "chip" : "chip chip-static";
+      return `<button type="button" class="${cls} chip-${name}" style="left:${i * offsetX}px; z-index:${i + 1}" ${onclick}>${chip.display}</button>`;
+    }).join("");
+  }
+
+  function renderChipButtons() {
+    // Largest on the left, white on the right (reversed from the smallest-first list order).
+    document.getElementById("chips-buttons").innerHTML = CHIP_VALUES.slice().reverse().map(c =>
+      `<button type="button" class="chip chip-${c.name}" onclick="Pays.addChip('${c.name}')">${c.display}</button>`
+    ).join("");
+  }
+
+  function toggleChipsMin15() {
+    chipsMin15 = document.getElementById("pays-chips-min15").checked;
+    chipsQueue = [];
+    nextChips();
+  }
+
+  /* Re-layout chip stacks if the window crosses the mobile breakpoint */
+  window.addEventListener("resize", () => {
+    if (document.getElementById("pays-chips-quiz").style.display === "none") return;
+    if (chipsIndex !== null) {
+      const bet = parseAmount(PAYS[chipsIndex].bet);
+      renderChipStack("chips-bet-stack", chipsForAmount(bet), false);
+    }
+    renderUserStack();
+  });
+
+  return {
+    start, next, reveal, action, renderList,
+    startChips, chipsAction, addChip, removeChip, toggleChipsMin15,
+  };
+})();
+
+
+/* ================================================================
+   COUNT CARD TOTAL MODULE
+   ----------------------------------------------------------------
+   Deals random hands from a 6-deck shoe. Picks an invisible dealer
+   up card, then plays the player's hand by the basic strategy
+   chart (CHART above). Skips:
+     * Splits (per-user spec)
+     * Player blackjacks
+     * Busted hands (>21)
+   Ensures every shown hand has a final total of 12-21.
+   ================================================================ */
+const Count = (() => {
+  const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const SUITS = [
+    { sym: "♠", color: "black" }, // spades
+    { sym: "♥", color: "red"   }, // hearts
+    { sym: "♦", color: "red"   }, // diamonds
+    { sym: "♣", color: "black" }, // clubs
+  ];
+
+  let shoe = [];
+  let count = 0;
+  let revealed = false;
+  let currentHand = null;
+  let no10s = false;
+
+  function activeRanks() {
+    return no10s
+      ? RANKS.filter(r => r !== "10" && r !== "J" && r !== "Q" && r !== "K")
+      : RANKS;
+  }
+
+  function buildShoe() {
+    shoe = [];
+    const ranks = activeRanks();
+    for (let d = 0; d < 6; d++) {
+      for (const r of ranks) {
+        for (const s of SUITS) {
+          shoe.push({ rank: r, suit: s.sym, color: s.color });
+        }
+      }
+    }
+    // Fisher-Yates
+    for (let i = shoe.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+    }
+  }
+
+  function ensureShoe() {
+    // Reshuffle when we get below ~1 deck remaining (cut card behavior).
+    // Threshold scales with shoe composition (216 cards instead of 312 when no 10s).
+    const threshold = no10s ? 40 : 60;
+    if (shoe.length < threshold) buildShoe();
+  }
+
+  function toggleNo10s() {
+    no10s = document.getElementById("count-no10s").checked;
+    buildShoe();
+    next();
+  }
+
+  function drawCard() {
+    ensureShoe();
+    return shoe.pop();
+  }
+
+  function cardValue(card) {
+    if (card.rank === "A") return 11;
+    if (card.rank === "J" || card.rank === "Q" || card.rank === "K") return 10;
+    return parseInt(card.rank, 10);
+  }
+
+  // Returns { total, soft } where soft = true if an ace is still being counted as 11.
+  function handTotal(cards) {
+    let total = 0;
+    let aces = 0;
+    for (const c of cards) {
+      total += cardValue(c);
+      if (c.rank === "A") aces++;
+    }
+    while (total > 21 && aces > 0) {
+      total -= 10;
+      aces--;
+    }
+    return { total: total, soft: aces > 0 && total <= 21 };
+  }
+
+  function isPair(cards) {
+    if (cards.length !== 2) return false;
+    return cardValue(cards[0]) === cardValue(cards[1]);
+  }
+
+  // Translate the current cards into a key into CHART.
+  function getChartKey(cards) {
+    if (cards.length === 2) {
+      if (isPair(cards)) {
+        if (cards[0].rank === "A") return "A,A";
+        const v = cardValue(cards[0]);
+        if (v === 10) return "10,10";
+        return v + "," + v;
+      }
+      const hasAce = cards.some(c => c.rank === "A");
+      const hasTen = cards.some(c => cardValue(c) === 10);
+      if (hasAce && !hasTen) {
+        const other = cards.find(c => c.rank !== "A");
+        const ov = cardValue(other);
+        if (ov >= 2 && ov <= 9) return "A," + ov;
+      }
+    }
+    // Multi-card (or non-pair, non-soft 2-card) — look up by total.
+    const t = handTotal(cards);
+    if (t.soft) {
+      const other = t.total - 11;
+      if (other >= 2 && other <= 9) return "A," + other;
+      if (t.total === 21) return "18-21";
+      // soft totals outside 13-20 fall through to hard lookup below
+    }
+    if (t.total >= 5  && t.total <= 7)  return "5,6,7";
+    if (t.total === 8)                  return "8";
+    if (t.total === 9)                  return "9";
+    if (t.total === 10)                 return "10";
+    if (t.total === 11)                 return "11";
+    if (t.total >= 12 && t.total <= 17) return "" + t.total;
+    if (t.total >= 18 && t.total <= 21) return "18-21";
+    return null;
+  }
+
+  function dealerIndex(card) {
+    if (card.rank === "A") return 9;
+    const v = cardValue(card);
+    if (v >= 2 && v <= 9) return v - 2;
+    if (v === 10) return 8;
+    return -1;
+  }
+
+  function dealHand() {
+    let attempts = 0;
+    while (attempts++ < 1000) {
+      ensureShoe();
+      const dealerUp = drawCard();
+      const dIdx = dealerIndex(dealerUp);
+      let cards = [drawCard(), drawCard()];
+
+      // Skip player blackjacks
+      const initial = handTotal(cards);
+      if (initial.total === 21 && cards.length === 2) continue;
+
+      let key = getChartKey(cards);
+      if (!key) continue;
+      let action = CHART[key][dIdx];
+      if (action === "SP") continue;
+
+      if (action === "D") {
+        // Double = exactly one more card, then stop.
+        cards.push(drawCard());
+      } else {
+        // Stand or Hit. Loop while hitting.
+        while (action === "H") {
+          cards.push(drawCard());
+          const t = handTotal(cards);
+          if (t.total >= 21) break; // 21 -> stand naturally; >21 -> bust, will be filtered below
+          key = getChartKey(cards);
+          if (!key) break;
+          action = CHART[key][dIdx];
+          // Can't double after the first 2 cards.
+          // For soft hands the right fallback is Stand; for hard hands it's Hit.
+          if (action === "D") action = t.soft ? "S" : "H";
+        }
+      }
+
+      const finalTotal = handTotal(cards);
+      if (finalTotal.total >= 12 && finalTotal.total <= 21) {
+        return { cards: cards, total: finalTotal.total, dealerUp: dealerUp };
+      }
+      // Otherwise it busted (or somehow < 12) — try again.
+    }
+    return null;
+  }
+
+  function renderCards(cards) {
+    // Diagonal cascade: first card at bottom-left, each subsequent card placed
+    // up-and-to-the-right, layered on top. Mirrors a dealer's view of a player's
+    // hand fanned out as hits are added. ~25% overlap (75% offset) per card.
+    const isMobile = window.innerWidth <= 520;
+    const cw = isMobile ? 60 : 74;
+    const ch = isMobile ? 86 : 104;
+    const ox = Math.round(cw * 0.50); // horizontal offset per card
+    const oy = Math.round(ch * 0.65); // vertical offset per card
+    const n = cards.length;
+    const container = document.getElementById("count-cards");
+    container.style.width  = (cw + (n - 1) * ox) + "px";
+    container.style.height = (ch + (n - 1) * oy) + "px";
+    container.innerHTML = cards.map((c, i) => {
+      const left = i * ox;
+      const top  = (n - 1 - i) * oy;
+      // Bottom-left card sits on top; layering decreases up-and-right.
+      return `<div class="playing-card ${c.color}" style="left:${left}px;top:${top}px;z-index:${n - i}">
+        <div class="corner corner-tl">${c.rank}<small>${c.suit}</small></div>
+        <div class="center-suit">${c.suit}</div>
+        <div class="corner corner-br">${c.rank}<small>${c.suit}</small></div>
+      </div>`;
+    }).join("");
+  }
+
+  function start() {
+    buildShoe();
+    count = 0;
+    revealed = false;
+    Nav.showScreen("count-section", "count-quiz");
+    next();
+  }
+
+  function next() {
+    currentHand = dealHand();
+    if (!currentHand) return;
+    count++;
+    revealed = false;
+    renderCards(currentHand.cards);
+    const totalEl = document.getElementById("count-total");
+    totalEl.style.visibility = "hidden";
+    totalEl.innerHTML = "&nbsp;";
+    document.getElementById("count-action-btn").textContent = "Reveal total";
+    document.getElementById("count-counter").textContent = "Hand #" + count;
+  }
+
+  function reveal() {
+    if (!currentHand) return;
+    revealed = true;
+    const totalEl = document.getElementById("count-total");
+    totalEl.textContent = currentHand.total;
+    totalEl.style.visibility = "visible";
+    document.getElementById("count-action-btn").textContent = "Next hand";
+  }
+
+  function action() {
+    if (!revealed) reveal();
+    else next();
+  }
+
+  /* Keyboard: Space/Enter to reveal or advance */
+  document.addEventListener("keydown", (e) => {
+    if (document.getElementById("count-quiz").style.display === "none") return;
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      action();
+    }
+  });
+
+  /* Re-layout cards if window is resized (e.g. crossing mobile breakpoint) */
+  window.addEventListener("resize", () => {
+    if (currentHand && document.getElementById("count-quiz").style.display !== "none") {
+      renderCards(currentHand.cards);
+    }
+  });
+
+  return { start, next, reveal, action, toggleNo10s };
 })();
 
 
