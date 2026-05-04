@@ -628,6 +628,8 @@
     .playing-card .center-suit { font-size: 2.3rem; }
     .main-circle { width: 56px; height: 56px; font-size: 0.78rem; }
     .side-circle { width: 30px; height: 30px; }
+    .bet-stack-viz { width: 36px; }
+    .bet-stack-viz.split-stack { width: 76px; }
     .side-grid { width: 68px; gap: 4px; margin-top: 6px; }
     .side-circle .lbl { font-size: 0.4rem; }
     .dealer-cards { min-width: 160px; min-height: 124px; }
@@ -651,6 +653,8 @@
     .player-cards { width: 80px; height: 124px; }
     .main-circle { width: 50px; height: 50px; font-size: 0.72rem; }
     .side-circle { width: 26px; height: 26px; }
+    .bet-stack-viz { width: 32px; }
+    .bet-stack-viz.split-stack { width: 68px; }
     .side-grid { width: 58px; gap: 3px; }
     .players-row { gap: 3px; }
   }
@@ -834,28 +838,29 @@
   /* Chip-stack visualization sitting on the bet circle (largest on bottom, grows upward).
      Anchored slightly below the circle's vertical center so the bottom chip
      starts near (just below) center, and the stack extends upward over the
-     top half of the circle and beyond if it's tall. */
+     top half of the circle and beyond if it's tall.
+     Width is a FIXED pixel value (not a % of the circle) so the chip renders
+     at the same size on the main bet circle and the smaller side bet circles. */
   .bet-stack-viz {
     position: absolute;
     left: 50%;
     bottom: 38%;
     transform: translateX(-50%);
-    width: 78%;
+    width: 50px;
     height: 1px;
     display: none;
     pointer-events: none;
     z-index: 2;
   }
-  .main-circle .bet-stack-viz { width: 62%; }
   .bet-stack-viz .bet-chip-piece {
     position: absolute;
     left: 0;
     right: 0;
-    height: 18px;
+    height: 20px;
     border-radius: 50%;
     border: 1px solid rgba(0,0,0,0.45);
   }
-  .main-circle .bet-stack-viz .bet-chip-piece { height: 22px; }
+  .main-circle .bet-stack-viz .bet-chip-piece { height: 20px; }
   /* color palette comes from the unified .cp-* rules above */
 
   /* HELP OFF: hide $ amounts, hide W/L badges, show chip stacks instead */
@@ -962,9 +967,9 @@
     .ins-bet .bet-chip-piece { height: 14px; }
   }
 
-  /* When a player doubles, the bet circle shows TWO identical chip stacks side-by-side. */
-  .bet-stack-viz.split-stack { width: 90%; }
-  .main-circle .bet-stack-viz.split-stack { width: 78%; }
+  /* When a player doubles, the bet circle shows TWO identical chip stacks side-by-side.
+     Same fixed pixel width approach so split-stack chips also match across circles. */
+  .bet-stack-viz.split-stack { width: 100px; }
   .bet-substack {
     position: absolute;
     bottom: 0;
@@ -1768,7 +1773,7 @@ function renderBetStack(el, amount, splitInTwo) {
   viz.classList.toggle('split-stack', !!splitInTwo);
   const chips = chipStackForAmount(amount);
   const isMain = el.classList && el.classList.contains('main-circle');
-  const STEP = isMain ? 6 : 5;
+  const STEP = 6;
   function buildStack(parent) {
     for (let i = 0; i < chips.length; i++) {
       const chip = chips[i];
