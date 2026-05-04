@@ -447,37 +447,116 @@
     border-radius: 8px;
     padding: 8px 10px;
     display: flex;
-    gap: 5px;
+    gap: 6px;
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5);
   }
   .chip-stack-tray {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    width: 56px;
+    position: relative;
+    width: 64px;
+    height: 168px;
+    cursor: pointer;
   }
   .chip-stack-tray .chip-edge {
-    height: 5px;
-    border-radius: 2px;
-    border: 1px solid rgba(0,0,0,0.55);
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.18);
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.45);
   }
   .chip-stack-tray .chip-label {
-    margin-top: 4px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     text-align: center;
-    color: rgba(255,255,255,0.55);
-    font-size: 0.6rem;
+    color: rgba(255,255,255,0.65);
+    font-size: 0.65rem;
     letter-spacing: 0.5px;
     font-weight: 700;
   }
 
   /* Chip colors (edge fill) */
-  .ce-white  { background: #f1f5f9; }
-  .ce-pink   { background: #ec4899; }
-  .ce-red    { background: #dc2626; }
-  .ce-green  { background: #16a34a; }
-  .ce-black  { background: #111827; }
-  .ce-purple { background: #7e22ce; }
+  /* Real-chip palette matched to the reference photo */
+  .ce-white,  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }   /* cream body, green stripes */
+  .ce-pink,   .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); } /* pink body, white stripes */
+  .ce-red,    .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }                /* red body, yellow stripes */
+  .ce-green,  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); } /* NVIDIA green body, white stripes */
+  .ce-black,  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }   /* near-black/indigo body, yellow stripes */
+  .ce-purple, .cp-purple { --chip-base: #8b5cf6; --chip-stripe: rgba(255,255,255,0.92); } /* purple body, white stripes */
+  /* ---- CYLINDER chip rendering ----
+     Each chip is a tiny 3D cylinder seen from a 45° downward angle.
+     Layout: chip element is just the bounding box. Two pseudo-elements draw:
+       ::after  = cylinder body (the side / rim) — full-width rectangle with
+                  curved bottom (the visible bottom edge of the cylinder),
+                  vertical stripes that wrap around, and a subtle vertical
+                  gradient (highlight on top, shadow on bottom) for 3D shading.
+       ::before = the TOP face — flat ellipse pulled DOWN over the body, with a
+                  white inlay center. The stripes from the body show through
+                  ONLY where the face's ellipse curves away (the bottom-left
+                  and bottom-right edges), giving the "tiny bit on the top
+                  circle but exactly where the line is" wrap effect.
+     Stripes use --stripe-offset for per-chip horizontal stagger. */
+  .ce-white, .ce-pink, .ce-red, .ce-green, .ce-black, .ce-purple,
+  .cp-white, .cp-pink, .cp-red, .cp-green, .cp-black, .cp-purple {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  /* CYLINDER BODY (rim) — drawn first, behind the face. Full chip height so
+     the body's vertical stripes are continuous through the whole cylinder
+     side; the face on top hides the stripes in the chip's interior. */
+  .ce-white::after, .ce-pink::after, .ce-red::after, .ce-green::after, .ce-black::after, .ce-purple::after,
+  .cp-white::after, .cp-pink::after, .cp-red::after, .cp-green::after, .cp-black::after, .cp-purple::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 18%;        /* starts just below the top of the face's ellipse arc */
+    bottom: 0;
+    background-color: var(--chip-base);
+    background-image:
+      /* Vertical stripes — the markings around the cylinder side.
+         Period = 11px (8px chip-base, 3px stripe) so the chip color stays
+         more prominent than the stripe markings. */
+      repeating-linear-gradient(90deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: var(--stripe-offset, 0) 0;
+    border-left: 1px solid rgba(0,0,0,0.65);
+    border-right: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1.5px solid rgba(0,0,0,0.85);
+    /* Curved bottom = the visible bottom rim of the cylinder. v-radius
+       is intentionally small so it's a gentle dip, not a U-shape. */
+    border-radius: 0 0 50% 50% / 0 0 55% 55%;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  /* TOP FACE — flat ellipse with the white inlay center.
+     Sits on top of the cylinder body, hiding the stripes inside the chip's
+     interior. At its bottom-left and bottom-right edges the ellipse curves
+     away leaving the body's stripes visible there: that's the "tiny bit on
+     the top circle but exactly where the line is" wrap-around effect. */
+  .ce-white::before, .ce-pink::before, .ce-red::before, .ce-green::before, .ce-black::before, .ce-purple::before,
+  .cp-white::before, .cp-pink::before, .cp-red::before, .cp-green::before, .cp-black::before, .cp-purple::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      /* white inlay center */
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
 
   /* ---------- Round info & eval log ---------- */
   .round-info {
@@ -552,9 +631,10 @@
     .side-grid { width: 68px; gap: 4px; margin-top: 6px; }
     .side-circle .lbl { font-size: 0.4rem; }
     .dealer-cards { min-width: 160px; min-height: 124px; }
-    .chip-stack-tray { width: 26px; }
-    .chip-tray { padding: 6px 5px; gap: 3px; }
-    .chip-stack-tray .chip-label { font-size: 0.52rem; }
+    .chip-stack-tray { width: 44px; height: 116px; }
+    .chip-stack-tray .chip-edge { height: 16px; }
+    .chip-tray { padding: 6px 5px; gap: 4px; }
+    .chip-stack-tray .chip-label { font-size: 0.55rem; }
     .shoe { width: 64px; height: 50px; }
     .shoe::before { width: 20px; height: 30px; top: 9px; right: -6px; left: auto; }
     .red-button { width: 50px; height: 30px; }
@@ -702,92 +782,81 @@
 
   /* ---- Dealer chip-in-hand visualization (next to the chip tray) ---- */
   .chip-stack-display {
-    width: 56px;
-    min-height: 150px;
-    max-height: 200px;
-    display: flex;
-    flex-direction: column-reverse;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 1px;
+    position: relative;
+    width: 60px;
+    min-height: 170px;
+    max-height: 240px;
     padding: 4px;
     border: 1px dashed rgba(255,255,255,0.18);
     border-radius: 6px;
     box-sizing: border-box;
     background: rgba(0,0,0,0.18);
-    overflow: hidden;
     flex: 0 0 auto;
   }
   .chip-stack-display .chip-piece {
-    width: 100%;
-    height: 7px;
-    border-radius: 3px;
-    border: 1px solid rgba(0,0,0,0.45);
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.20);
-    flex: 0 0 auto;
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.5);
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,0.30), inset 0 2px 0 rgba(255,255,255,0.18);
   }
-  .chip-stack-display .cp-white  { background: #f1f5f9; }
-  .chip-stack-display .cp-pink   { background: #ec4899; }
-  .chip-stack-display .cp-red    { background: #dc2626; }
-  .chip-stack-display .cp-green  { background: #16a34a; }
-  .chip-stack-display .cp-black  { background: #111827; }
-  .chip-stack-display .cp-purple { background: #7e22ce; }
+  /* color palette comes from the unified .ce-*/.cp-* rules above */
 
   @media (max-width: 520px) {
-    .chip-stack-display { width: 38px; min-height: 110px; max-height: 140px; padding: 3px; }
-    .chip-stack-display .chip-piece { height: 5px; }
+    .chip-stack-display { width: 44px; min-height: 130px; max-height: 170px; padding: 3px; }
+    .chip-stack-display .chip-piece { height: 14px; }
   }
 
   /* ---- Help toggle button + bet-circle chip-stack visualization ---- */
   .help-toggle {
     margin-top: 10px;
     background: #1e293b;
-    color: #cbd5e1;
-    border: 1px solid #334155;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 0.65rem;
+    color: #f1f5f9;
+    border: 2px solid #475569;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
     cursor: pointer;
     letter-spacing: 0.5px;
-    font-weight: 700;
+    font-weight: 800;
     user-select: none;
+    min-width: 110px;
   }
   .help-toggle.off {
-    background: #4c1d95;
-    color: #fff;
-    border-color: #4c1d95;
+    background: transparent;
+    color: #fecaca;
+    border: 3px solid #dc2626;
   }
   .help-toggle:hover { filter: brightness(1.2); }
 
-  /* Chip-stack visualization inside a bet circle (largest denomination on the bottom) */
+  /* Chip-stack visualization sitting on the bet circle (largest on bottom, grows upward).
+     Anchored slightly below the circle's vertical center so the bottom chip
+     starts near (just below) center, and the stack extends upward over the
+     top half of the circle and beyond if it's tall. */
   .bet-stack-viz {
     position: absolute;
-    top: 12%; left: 16%; right: 16%; bottom: 12%;
-    display: none;                        /* shown only in help-off mode */
-    flex-direction: column-reverse;       /* first child = bottom = largest chip */
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 1px;
+    left: 50%;
+    bottom: 38%;
+    transform: translateX(-50%);
+    width: 78%;
+    height: 1px;
+    display: none;
     pointer-events: none;
-    overflow: hidden;
-    z-index: 1;
+    z-index: 2;
   }
-  .main-circle .bet-stack-viz { top: 14%; left: 18%; right: 18%; bottom: 14%; }
+  .main-circle .bet-stack-viz { width: 62%; }
   .bet-stack-viz .bet-chip-piece {
-    width: 100%;
-    flex: 0 0 auto;
-    height: 4px;
-    border-radius: 2px;
-    border: 1px solid rgba(0,0,0,0.55);
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.45);
   }
-  .main-circle .bet-stack-viz .bet-chip-piece { height: 6px; }
-  .bet-stack-viz .cp-white  { background: #f1f5f9; }
-  .bet-stack-viz .cp-pink   { background: #ec4899; }
-  .bet-stack-viz .cp-red    { background: #dc2626; }
-  .bet-stack-viz .cp-green  { background: #16a34a; }
-  .bet-stack-viz .cp-black  { background: #111827; }
-  .bet-stack-viz .cp-purple { background: #7e22ce; }
+  .main-circle .bet-stack-viz .bet-chip-piece { height: 22px; }
+  /* color palette comes from the unified .cp-* rules above */
 
   /* HELP OFF: hide $ amounts, hide W/L badges, show chip stacks instead */
   body.help-off .main-amount,
@@ -797,7 +866,7 @@
     display: none !important;
   }
   body.help-off .bet-stack-viz {
-    display: flex;
+    display: block;
   }
   body.help-off .ins-chip { color: transparent; }   /* keep chip visual, hide $ text */
   /* Also hide the red/green glowing indicators (collectable-loser + payout-target) */
@@ -806,6 +875,106 @@
     box-shadow: none !important;
     animation: none !important;
     outline: none !important;
+  }
+  /* Hide the in-hand readout ("IN HAND $X owed $Y next: ...") + clear button */
+  body.help-off .in-hand-display { display: none !important; }
+
+  /* ---- Animated hand signals ---- */
+  .player-signal {
+    height: 56px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.2rem;
+    line-height: 1;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+  .player-signal.active { visibility: visible; }
+  .player-signal.signal-hit { animation: hand-tap-down 0.65s ease-in-out infinite; }
+  @keyframes hand-tap-down {
+    0%, 100% { transform: translateY(-3px); }
+    50%      { transform: translateY(8px); }
+  }
+  .player-signal.signal-stand {
+    animation: hand-wave 1s ease-in-out infinite;
+    transform-origin: 50% 50%;
+  }
+  @keyframes hand-wave {
+    0%, 100% { transform: rotate(180deg); }
+    25%      { transform: rotate(158deg); }   /* 180 - 22 */
+    75%      { transform: rotate(202deg); }   /* 180 + 22 */
+  }
+  .player-signal.signal-double {
+    animation: none;
+    transform: rotate(180deg);   /* static finger-down, no movement */
+  }
+  .player-signal.signal-split { animation: hand-split 1.1s ease-in-out infinite; }
+  @keyframes hand-split {
+    0%, 100% { letter-spacing: 0;    transform: scale(1); }
+    50%      { letter-spacing: 6px;  transform: scale(1.05); }
+  }
+
+  /* ---- Insurance betting line (between status and house-rules) ---- */
+  .insurance-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    height: 64px;
+    margin: 4px 0 0;
+  }
+  .ins-bet {
+    position: relative;
+    width: 40px;
+    height: 100%;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .ins-bet:empty { cursor: default; }
+  .ins-bet .bet-chip-piece {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.45);
+  }
+  /* color palette comes from the unified .cp-* rules above */
+  /* Insurance highlights */
+  .ins-bet.collectable-loser {
+    box-shadow: 0 0 0 2px rgba(252,165,165,0.85), 0 0 12px rgba(248,113,113,0.7);
+    animation: collectable-loser-pulse 1.1s ease-in-out infinite alternate;
+  }
+  .ins-bet.payout-target {
+    box-shadow: 0 0 0 3px #86efac, 0 0 14px #4ade80;
+    animation: payout-pulse 1.1s ease-in-out infinite alternate;
+  }
+  body.help-off .ins-bet.collectable-loser,
+  body.help-off .ins-bet.payout-target {
+    box-shadow: none !important;
+    animation: none !important;
+  }
+  @media (max-width: 520px) {
+    .insurance-row { height: 48px; }
+    .ins-bet { width: 32px; }
+    .ins-bet .bet-chip-piece { height: 14px; }
+  }
+
+  /* When a player doubles, the bet circle shows TWO identical chip stacks side-by-side. */
+  .bet-stack-viz.split-stack { width: 90%; }
+  .main-circle .bet-stack-viz.split-stack { width: 78%; }
+  .bet-substack {
+    position: absolute;
+    bottom: 0;
+  }
+  .bet-substack.left  { left: 0;  width: 46%; }
+  .bet-substack.right { right: 0; width: 46%; }
+  .bet-substack .bet-chip-piece {
+    position: absolute;
+    left: 0;
+    right: 0;
   }
 </style>
 </head>
@@ -825,6 +994,13 @@
     <!-- 2) Status -->
     <div class="status" id="status">Press the shoe to burn a card.</div>
 
+    <!-- Insurance betting line — chips show here when a player buys insurance -->
+    <div class="insurance-row" id="insurance-row">
+      <div class="ins-bet" id="p0-ins-bet" onclick="Game.insuranceClick(0)"></div>
+      <div class="ins-bet" id="p1-ins-bet" onclick="Game.insuranceClick(1)"></div>
+      <div class="ins-bet" id="p2-ins-bet" onclick="Game.insuranceClick(2)"></div>
+    </div>
+
     <!-- 3) House rules -->
     <div class="house-rules">BLACKJACK PAYS 3 TO 2 &nbsp;&bull;&nbsp; DEALER MUST HIT SOFT 17 &nbsp;&bull;&nbsp; INSURANCE PAYS 2 TO 1</div>
 
@@ -839,7 +1015,7 @@
       <div class="ctrl-stack">
         <div class="shoe disabled" id="shoe" onclick="Game.burnCard()"></div>
         <div class="ctrl-label">SHOE</div>
-        <button class="help-toggle" id="help-toggle" onclick="Game.toggleHelp()">HELP: ON</button>
+        <button class="help-toggle off" id="help-toggle" onclick="Game.toggleHelp()">HELP: OFF</button>
       </div>
       <div class="chip-tray-wrap">
         <div class="chip-tray" id="chip-tray"><!-- stacks injected by JS --></div>
@@ -975,10 +1151,37 @@ function setStatus(msg, opts) {
   }
 }
 
+/* Status with two variants: verbose for help-on, terse for help-off. */
+function helpStatus(verbose, terse, opts) {
+  setStatus(helpEnabled ? verbose : (terse || ''), opts);
+}
+
+/* Hand-signal placeholders shown below the player label during their turn. */
+const SIGNAL_EMOJI = { hit: '👇', stand: '👋', double: '☝️', split: '✌️' };
+
+function showPlayerSignal(playerIdx, action) {
+  hideAllSignals();
+  const el = $('p'+playerIdx+'-signal');
+  if (!el) return;
+  const a = (action || '').toLowerCase();
+  if (!SIGNAL_EMOJI[a]) return;
+  el.textContent = SIGNAL_EMOJI[a];
+  el.className = 'player-signal active signal-' + a;
+}
+
+function hideAllSignals() {
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const el = $('p'+i+'-signal');
+    if (!el) continue;
+    el.className = 'player-signal';
+    el.textContent = '';
+  }
+}
+
 function setPhase(p) {
   phase = p;
   $('shoe').classList.toggle('disabled', p !== 'awaiting-burn');
-  $('close-btn').classList.toggle('disabled', p !== 'awaiting-close' && p !== 'reset-leds');
+  $('close-btn').classList.toggle('disabled', p !== 'awaiting-close');
 }
 
 /* ---------------- Render player stations ---------------- */
@@ -990,6 +1193,7 @@ function renderPlayerStations() {
     p.className = 'player';
     p.innerHTML = `
       <div class="player-label">PLAYER ${i+1}</div>
+      <div class="player-signal" id="p${i}-signal" aria-hidden="true"></div>
       <div class="player-body">
         <div class="bet-cluster">
           <div class="circle main-circle" id="p${i}-main" onclick="Game.mainClick(${i})"></div>
@@ -1010,7 +1214,6 @@ function renderPlayerStations() {
 /* ---------------- Render chip tray (decorative) ---------------- */
 function renderChipTray() {
   const tray = $('chip-tray');
-  // High → low: $500 on the left, $1 on the right
   const stacks = [
     { color: 'ce-purple', label: '$500', value: 500, count: 20 },
     { color: 'ce-black',  label: '$100', value: 100, count: 20 },
@@ -1020,16 +1223,25 @@ function renderChipTray() {
     { color: 'ce-white',  label: '$1',   value: 1,   count: 20 },
   ];
   tray.innerHTML = '';
+  const STEP = 6;
+  const LABEL_PAD = 22;
   for (const s of stacks) {
     const col = document.createElement('div');
     col.className = 'chip-stack-tray';
-    col.dataset.value = s.value;          // value is read on click — robust to order changes
-    let inner = '';
-    for (let i=0; i<s.count; i++) {
-      inner += `<div class="chip-edge ${s.color}"></div>`;
+    col.dataset.value = s.value;
+    for (let i = 0; i < s.count; i++) {
+      const chip = document.createElement('div');
+      chip.classList.add('chip-edge');
+      chip.classList.add(s.color);
+      chip.style.bottom = (LABEL_PAD + i * STEP) + 'px';
+      chip.style.zIndex = String(i);
+      applyChipStripeOffset(chip);
+      col.appendChild(chip);
     }
-    inner += `<div class="chip-label">${s.label}</div>`;
-    col.innerHTML = inner;
+    const lbl = document.createElement('div');
+    lbl.className = 'chip-label';
+    lbl.textContent = s.label;
+    col.appendChild(lbl);
     tray.appendChild(col);
   }
 }
@@ -1047,19 +1259,35 @@ function setMainAmount(el, txt) {
 function clearMainAmount(el) {
   const amt = el.querySelector('.main-amount');
   if (amt) amt.remove();
+  const viz = el.querySelector('.bet-stack-viz');
+  if (viz) viz.remove();
 }
 function setInsuranceChip(playerIdx, amount) {
+  // Insurance chip stack lives on the insurance row, not the main bet circle.
+  const slot = $('p'+playerIdx+'-ins-bet');
+  // Also clear any legacy ins-chip on the main circle (safety)
   const main = $('p'+playerIdx+'-main');
-  let ins = main.querySelector('.ins-chip');
+  if (main) {
+    const legacy = main.querySelector('.ins-chip');
+    if (legacy) legacy.remove();
+  }
+  if (!slot) return;
+  slot.innerHTML = '';
+  slot.classList.remove('has-bet', 'collectable-loser', 'payout-target');
   if (amount > 0) {
-    if (!ins) {
-      ins = document.createElement('span');
-      ins.className = 'ins-chip';
-      main.appendChild(ins);
+    const chips = chipStackForAmount(amount);
+    const STEP = 6;
+    for (let i = 0; i < chips.length; i++) {
+      const chip = chips[i];
+      const piece = document.createElement('div');
+      piece.classList.add('bet-chip-piece');
+      piece.classList.add('cp-' + chip.color);
+      piece.style.bottom = (i * STEP) + 'px';
+      piece.style.zIndex = String(i);
+      applyChipStripeOffset(piece);
+      slot.appendChild(piece);
     }
-    ins.textContent = '$' + amount;
-  } else if (ins) {
-    ins.remove();
+    slot.classList.add('has-bet');
   }
 }
 
@@ -1074,7 +1302,11 @@ function renderBets() {
       main.classList.remove('has-bet');
       clearMainAmount(main);
     }
-    renderBetStack(main, pl.main);
+    if (pl.doubled && pl.mainOriginal > 0) {
+      renderBetStack(main, pl.mainOriginal, true);
+    } else {
+      renderBetStack(main, pl.main);
+    }
     renderSide(i, 'bust',  pl.bust,  '<span class="lbl dark">BUST<br>BONUS</span>');
     renderSide(i, 'three', pl.three, '<span class="lbl dark">3</span>');
     renderSide(i, 'bjk',   pl.bjk,   '<span class="lbl">BLUE<br>$1</span>');
@@ -1086,12 +1318,20 @@ function renderSide(i, key, amt, emptyHTML) {
   el.classList.remove('collectable');
   el.classList.toggle('has-bet', amt > 0);
   el.classList.toggle('dim', amt === 0);
-  if (amt > 0) {
-    el.innerHTML = `<span class="amt">$${amt}</span>`;
+  // jkp/bjk circles that have already been collected keep their LED — don't overwrite the dot
+  const isCollectedJackpot = (key === 'jkp' || key === 'bjk') && el.classList.contains('collected');
+  if (isCollectedJackpot) {
+    // keep .led-dot child intact, no chip viz
+    const viz = el.querySelector('.bet-stack-viz');
+    if (viz) viz.remove();
   } else {
-    el.innerHTML = emptyHTML;
+    if (amt > 0) {
+      el.innerHTML = `<span class="amt">$${amt}</span>`;
+    } else {
+      el.innerHTML = emptyHTML;
+    }
+    renderBetStack(el, amt);
   }
-  renderBetStack(el, amt);
   const old = el.querySelector('.result-badge');
   if (old) old.remove();
 }
@@ -1203,7 +1443,7 @@ const Game = {
   newRound() {
     players = [];
     for (let i=0; i<NUM_PLAYERS; i++) {
-      players.push({ main:0, bust:0, three:0, jkp:0, bjk:0, insurance:0, jkpCollected:false, bjkCollected:false, cards:[], results:{} });
+      players.push({ main:0, mainOriginal:0, bust:0, three:0, jkp:0, bjk:0, insurance:0, jkpCollected:false, bjkCollected:false, cards:[], results:{} });
     }
     dealer = { cards: [] };
     renderBets();
@@ -1248,7 +1488,6 @@ const Game = {
   },
 
   closeSidebets() {
-    if (phase === 'reset-leds') return resetLEDs();
     if (phase !== 'awaiting-close') return;
     setStatus('Side bets closed.', {flash:true});
     setTimeout(startCollectingChips, 600);
@@ -1317,6 +1556,7 @@ function placeBets() {
     // Random main bet: $15..$100 in $5 steps
     const steps = Math.floor(Math.random() * 18);
     pl.main = 15 + steps * 5;
+    pl.mainOriginal = pl.main;
 
     // 25% per side bet, INDEPENDENT, per player
     // Bust Bonus is placed AFTER the initial deal (see placeBustBonusBets)
@@ -1487,7 +1727,7 @@ let CHIP_DENOMS = [
    that totals exactly an expected amount. */
 let inHandChips = [];
 let currentTarget = null;  // {playerIdx, pendingBets: [{key, owed}, ...]}
-let helpEnabled = true;     // toggleable via Game.toggleHelp
+let helpEnabled = false;    // help OFF by default; toggleable via Game.toggleHelp
 
 function chipStackForAmount(amount) {
   // Greedy with whole-dollar denoms is canonical. $2.50 chips are only used to
@@ -1512,7 +1752,7 @@ function chipStackForAmount(amount) {
   return chips;
 }
 
-function renderBetStack(el, amount) {
+function renderBetStack(el, amount, splitInTwo) {
   let viz = el.querySelector('.bet-stack-viz');
   if (amount <= 0) {
     if (viz) viz.remove();
@@ -1525,12 +1765,32 @@ function renderBetStack(el, amount) {
   } else {
     viz.innerHTML = '';
   }
+  viz.classList.toggle('split-stack', !!splitInTwo);
   const chips = chipStackForAmount(amount);
-  for (const chip of chips) {
-    const p = document.createElement('div');
-    p.classList.add('bet-chip-piece');
-    p.classList.add('cp-' + chip.color);
-    viz.appendChild(p);
+  const isMain = el.classList && el.classList.contains('main-circle');
+  const STEP = isMain ? 6 : 5;
+  function buildStack(parent) {
+    for (let i = 0; i < chips.length; i++) {
+      const chip = chips[i];
+      const p = document.createElement('div');
+      p.classList.add('bet-chip-piece');
+      p.classList.add('cp-' + chip.color);
+      p.style.bottom = (i * STEP) + 'px';
+      p.style.zIndex = String(i);
+      applyChipStripeOffset(p);
+      parent.appendChild(p);
+    }
+  }
+  if (splitInTwo) {
+    for (const half of ['left', 'right']) {
+      const sub = document.createElement('div');
+      sub.classList.add('bet-substack');
+      sub.classList.add(half);
+      buildStack(sub);
+      viz.appendChild(sub);
+    }
+  } else {
+    buildStack(viz);
   }
 }
 
@@ -1563,6 +1823,7 @@ function tryPayNextBet(playerIdx, key) {
     return false;
   }
   currentTarget.pendingBets.shift();
+  renderInHand();   // refresh chip-stack-display to reflect the peel
   return true;
 }
 
@@ -1580,7 +1841,7 @@ function startLoser21Settlement() {
     return;
   }
   setPhase('settle-21-loser');
-  setStatus('Collect losing 21+3 chips, right-to-left.');
+  helpStatus('Collect losing 21+3 chips, right-to-left.', '21+3');
   // Highlight ONLY the rightmost loser
   highlightLoser21(losers[0]);
   // Wire onclick semantics: handled in collect21Loser (called from the existing onclick that also dispatches collectChip)
@@ -1654,7 +1915,9 @@ function startWinnerSettlement() {
   for (const b of pendingBets) $('p'+target.i+'-'+b.key).classList.add('payout-target');
   const breakdown = pendingBets.map(b => `${labelForKey(b.key)} $${b.owed}`).join(' + ');
   const seq = pendingBets.map(b => labelForKey(b.key)).join(' → ');
-  setStatus(`Pay Player ${target.i+1}: ${breakdown} = $${formatMoney(totalOwed)}. Build the stack, then click in order: ${seq}.`);
+  helpStatus(
+    `Pay Player ${target.i+1}: ${breakdown} = $${formatMoney(totalOwed)}. Build the stack, then click in order: ${seq}.`,
+    `Player ${target.i+1}`);
   renderInHand();
 }
 
@@ -1697,6 +1960,14 @@ function chipColorForValue(v) {
   return 'white';
 }
 
+/* Random horizontal stripe offset so each chip's vertical rim stripes don't line up
+   between adjacent chips in a stack (avoids basket-weave). Set as a CSS variable
+   that both the rim ::after and the face's stripe-lip ::before read from. */
+function applyChipStripeOffset(el) {
+  const offsetPx = (Math.random() * 11).toFixed(2);
+  el.style.setProperty('--stripe-offset', offsetPx + 'px');
+}
+
 function addChipToHand(value) {
   const ok = ['settle-winners','main-winner','bust-winner','combined-payout','insurance-winner','bj-payout'].includes(phase);
   if (!ok) return;
@@ -1727,10 +1998,15 @@ function renderInHand() {
     `<button class="in-hand-undo" onclick="Game.undoChips()">clear</button>` + nextLabel;
   if (stackEl) {
     stackEl.innerHTML = '';
-    for (const chip of inHandChips) {
+    const STEP = 7;
+    for (let i = 0; i < inHandChips.length; i++) {
+      const chip = inHandChips[i];
       const piece = document.createElement('div');
       piece.classList.add('chip-piece');
       piece.classList.add('cp-' + (chip.color || chipColorForValue(chip.value)));
+      piece.style.bottom = (4 + i * STEP) + 'px';
+      piece.style.zIndex = String(i);
+      applyChipStripeOffset(piece);
       stackEl.appendChild(piece);
     }
   }
@@ -1756,13 +2032,14 @@ function payWinnerCircle(playerIdx, key) {
   el.classList.remove('payout-target');
   pl[key] = 0;
   if (key === 'three') {
-    // 21+3 has no LED — fully reset
     el.classList.remove('collected', 'has-bet');
     el.classList.add('dim');
     el.innerHTML = '<span class="lbl dark">3</span>';
   } else {
-    // jkp/bjk: keep .collected (LED) until end-of-round red button reset
+    // jkp/bjk: keep .collected (LED) but remove the chip-stack viz (no bet remaining)
     el.classList.remove('has-bet');
+    const viz = el.querySelector('.bet-stack-viz');
+    if (viz) viz.remove();
   }
   if (currentTarget.pendingBets.length === 0) {
     startWinnerSettlement();
@@ -1987,6 +2264,7 @@ function advancePlayer() {
 function promptSelectPlayer(idx) {
   setPhase('select-player');
   enableShoe(false);
+  hideAllSignals();
   const playerEls = document.querySelectorAll('.player');
   playerEls.forEach(el => {
     el.classList.remove('next-to-play', 'active');
@@ -2019,7 +2297,8 @@ function decidePlayerAction() {
   let action = lookupStrategy(pl.cards, dealerUp);
   // SP: not implemented yet, fall back to H
   if (action === 'SP') {
-    setStatus(`Player ${currentPlayerIdx+1}: strategy SPLIT (not implemented yet — treating as HIT). Click shoe.`);
+    showPlayerSignal(currentPlayerIdx, 'split');
+    helpStatus(`Player ${currentPlayerIdx+1}: strategy SPLIT (not implemented yet — treating as HIT). Click shoe.`, `Player ${currentPlayerIdx+1}`);
     action = 'H';
   }
   // D after first hit -> H
@@ -2031,23 +2310,27 @@ function decidePlayerAction() {
 
   if (action === 'S') {
     pl.stood = true;
-    setStatus(`Player ${currentPlayerIdx+1} stands at ${totDesc}.`);
+    showPlayerSignal(currentPlayerIdx, 'stand');
+    helpStatus(`Player ${currentPlayerIdx+1} stands at ${totDesc}.`, `Player ${currentPlayerIdx+1}`);
     enableShoe(false);
     currentPlayerIdx++;
     setTimeout(advancePlayer, 600);
     return;
   }
   if (action === 'D') {
+    pl.doubled = true;
     pl.main *= 2;
     const mEl = $('p'+currentPlayerIdx+'-main');
     setMainAmount(mEl, '$' + pl.main);
-    renderBetStack(mEl, pl.main);
-    setStatus(`Player ${currentPlayerIdx+1}: ${totDesc} → DOUBLE. Click shoe for one card.`);
+    renderBetStack(mEl, pl.mainOriginal, true);
+    showPlayerSignal(currentPlayerIdx, 'double');
+    helpStatus(`Player ${currentPlayerIdx+1}: ${totDesc} → DOUBLE. Click shoe for one card.`, `Player ${currentPlayerIdx+1}`);
     enableShoe(true);
     return;
   }
   // HIT
-  setStatus(`Player ${currentPlayerIdx+1}: ${totDesc} → HIT. Click shoe.`);
+  showPlayerSignal(currentPlayerIdx, 'hit');
+  helpStatus(`Player ${currentPlayerIdx+1}: ${totDesc} → HIT. Click shoe.`, `Player ${currentPlayerIdx+1}`);
   enableShoe(true);
 }
 
@@ -2085,6 +2368,7 @@ let bustCleanupCardsRemaining = 0;
 function startBustCleanup() {
   setPhase('bust-cleanup');
   enableShoe(false);
+  hideAllSignals();
   const i = currentPlayerIdx;
   $('p'+i+'-main').classList.add('collectable-loser');
   setStatus(`Player ${i+1} BUSTED. Click main bet to collect.`);
@@ -2095,9 +2379,12 @@ Game.mainClick = function(playerIdx) {
   if (phase === 'main-loser')        return collectMainLoser(playerIdx);
   if (phase === 'main-winner')       return payMainWinner(playerIdx);
   if (phase === 'combined-payout')   return payCombined(playerIdx, 'main');
+  if (phase === 'bj-payout')         return payBJWinner(playerIdx);
+};
+
+Game.insuranceClick = function(playerIdx) {
   if (phase === 'insurance-loser')   return collectInsuranceLoser(playerIdx);
   if (phase === 'insurance-winner')  return payInsuranceWinner(playerIdx);
-  if (phase === 'bj-payout')         return payBJWinner(playerIdx);
 };
 
 function collectBustMain(i) {
@@ -2111,7 +2398,7 @@ function collectBustMain(i) {
   const cardsEl = $('p'+i+'-cards');
   cardsEl.classList.add('clickable-cards-area');
   cardsEl.onclick = () => collectBustCardsAll(i);
-  setStatus(`Click Player ${i+1}'s cards to collect them.`);
+  helpStatus(`Click Player ${i+1}'s cards to collect them.`, `Player ${i+1}`);
 }
 
 function collectBustCardsAll(i) {
@@ -2133,6 +2420,7 @@ function collectBustCardsAll(i) {
 
 /* ---- Dealer sequence ---- */
 function startDealerSequence() {
+  hideAllSignals();
   // Dealer must still play if any main bets OR any Bust Bonus bets exist
   const anyAliveMain = players.some(pl => pl.main > 0);
   const anyBustBet  = players.some(pl => pl.bust > 0);
@@ -2273,7 +2561,9 @@ function startBJPayoutSettlement() {
   const owed = roundPayoutUp(pl.main * 1.5);
   currentTarget = { playerIdx: i, pendingBets: [{ key: 'main', owed }], totalOwed: owed };
   $('p'+i+'-main').classList.add('payout-target');
-  setStatus(`Player ${i+1} has BLACKJACK! Pay 3:2 → $${formatMoney(owed)}. Build chips, tap their main bet.`);
+  helpStatus(
+    `Player ${i+1} has BLACKJACK! Pay 3:2 → $${formatMoney(owed)}. Build chips, tap their main bet.`,
+    `Player ${i+1} has BLACKJACK`);
   renderInHand();
 }
 
@@ -2282,17 +2572,45 @@ function payBJWinner(i) {
   const owed = currentTarget && currentTarget.pendingBets && currentTarget.pendingBets[0]?.owed;
   if (!tryPayNextBet(i, 'main')) return;
   const pl = players[i];
-  // Eval log row
   const logEl = $('eval-log');
   logEl.innerHTML += rowEntry(`Player ${i+1} Main`, `Blackjack 3:2 → $${owed}`, 'win');
-  // Clear main bet (already paid out, no need for further resolution)
   const el = $('p'+i+'-main');
   el.classList.remove('payout-target', 'has-bet');
   clearMainAmount(el);
   pl.main = 0;
   pl.naturalBJ = false;
   pendingBJPayouts.shift();
-  startBJPayoutSettlement();
+  // Now require the dealer to click the player's cards to clear them before continuing
+  setPhase('bj-card-collect');
+  bjCardCollectIdx = i;
+  enableChipTray(false);
+  inHandChips = [];
+  currentTarget = null;
+  const stackEl = $('chip-stack-display');
+  if (stackEl) stackEl.innerHTML = '';
+  $('in-hand-display').innerHTML = '';
+  const cardsEl = $('p'+i+'-cards');
+  cardsEl.classList.add('clickable-cards-area');
+  cardsEl.onclick = () => collectBJCards(i);
+  helpStatus(`Click Player ${i+1}'s cards to collect them.`, `Player ${i+1}`);
+}
+
+let bjCardCollectIdx = -1;
+
+function collectBJCards(i) {
+  if (phase !== 'bj-card-collect') return;
+  if (bjCardCollectIdx !== i) return;
+  const cardsEl = $('p'+i+'-cards');
+  cardsEl.classList.remove('clickable-cards-area');
+  cardsEl.onclick = null;
+  Array.from(cardsEl.querySelectorAll('.playing-card')).forEach(c => c.classList.add('collected-fade'));
+  setTimeout(() => {
+    players[i].cards = [];
+    cardsEl.innerHTML = '';
+    bjCardCollectIdx = -1;
+    // Continue with the next BJ payout (or start play)
+    startBJPayoutSettlement();
+  }, 320);
 }
 
 /* ============================================================
@@ -2395,21 +2713,17 @@ function startInsuranceLoserCollection() {
   setPhase('insurance-loser');
   highlightInsuranceLoser(pendingInsuranceLosers[0]);
   const i = pendingInsuranceLosers[0];
-  setStatus(`Collect Player ${i+1}'s insurance ($${players[i].insurance}) — they lost.`);
+  helpStatus(`Collect Player ${i+1}'s insurance ($${players[i].insurance}) — they lost.`, `Player ${i+1}`);
 }
 
 function highlightInsuranceLoser(playerIdx) {
   for (let i=0; i<NUM_PLAYERS; i++) {
-    const main = $('p'+i+'-main');
-    main.classList.remove('collectable-loser');
-    const ins = main.querySelector('.ins-chip');
-    if (ins) ins.classList.remove('collectable-loser');
+    const slot = $('p'+i+'-ins-bet');
+    if (slot) slot.classList.remove('collectable-loser');
   }
   if (playerIdx == null) return;
-  const main = $('p'+playerIdx+'-main');
-  main.classList.add('collectable-loser');
-  const ins = main.querySelector('.ins-chip');
-  if (ins) ins.classList.add('collectable-loser');
+  const slot = $('p'+playerIdx+'-ins-bet');
+  if (slot) slot.classList.add('collectable-loser');
 }
 
 function collectInsuranceLoser(i) {
@@ -2423,7 +2737,7 @@ function collectInsuranceLoser(i) {
   if (pendingInsuranceLosers.length > 0) {
     highlightInsuranceLoser(pendingInsuranceLosers[0]);
     const nxt = pendingInsuranceLosers[0];
-    setStatus(`Collect Player ${nxt+1}'s insurance ($${players[nxt].insurance}) — they lost.`);
+    helpStatus(`Collect Player ${nxt+1}'s insurance ($${players[nxt].insurance}) — they lost.`, `Player ${nxt+1}`);
   } else {
     setTimeout(payNaturalBJsThenStartPlay, 400);
   }
@@ -2485,11 +2799,9 @@ function startInsuranceWinnerSettlement() {
   const pl = players[i];
   const owed = roundPayoutUp(pl.insurance * 2);
   currentTarget = { playerIdx: i, pendingBets: [{ key: 'insurance', owed }], totalOwed: owed };
-  const main = $('p'+i+'-main');
-  main.classList.add('payout-target');
-  const ins = main.querySelector('.ins-chip');
-  if (ins) ins.classList.add('payout-target');
-  setStatus(`Pay Player ${i+1} insurance $${formatMoney(owed)} (2:1 on $${pl.insurance}). Build chips, tap the bet.`);
+  const slot = $('p'+i+'-ins-bet');
+  if (slot) slot.classList.add('payout-target');
+  helpStatus(`Pay Player ${i+1} insurance $${formatMoney(owed)} (2:1 on $${pl.insurance}). Build chips, tap the bet.`, `Player ${i+1}`);
   renderInHand();
 }
 
@@ -2497,8 +2809,8 @@ function payInsuranceWinner(i) {
   if (phase !== 'insurance-winner') return;
   if (!tryPayNextBet(i, 'insurance')) return;
   const pl = players[i];
-  const main = $('p'+i+'-main');
-  main.classList.remove('payout-target');
+  const slot = $('p'+i+'-ins-bet');
+  if (slot) slot.classList.remove('payout-target');
   setInsuranceChip(i, 0);
   pl.insurance = 0;
   pendingInsuranceWinners.shift();
@@ -2642,7 +2954,9 @@ function paySingleCombined() {
   else if (pl.mainOutcome === 'WIN') parts.push(`Main $${pl.mainPayAmount}`);
   if (t.bustPay > 0)                 parts.push(`Bust Bonus $${t.bustPay}`);
   const seq = pendingBets.map(b => labelForKey(b.key)).join(' → ');
-  setStatus(`Pay Player ${t.i+1}: ${parts.join(' + ')} = $${formatMoney(totalOwed)}. Build the stack, click in order: ${seq}.`);
+  helpStatus(
+    `Pay Player ${t.i+1}: ${parts.join(' + ')} = $${formatMoney(totalOwed)}. Build the stack, click in order: ${seq}.`,
+    `Player ${t.i+1}`);
   renderInHand();
 }
 
@@ -2687,7 +3001,7 @@ function startBustLoserCollection() {
   setPhase('bust-loser');
   const i = pendingBustLosers[0];
   $('p'+i+'-bust').classList.add('collectable-loser');
-  setStatus(`Collect Player ${i+1}'s Bust Bonus chip ($${players[i].bust}) — they lost.`);
+  helpStatus(`Collect Player ${i+1}'s Bust Bonus chip ($${players[i].bust}) — they lost.`, `Player ${i+1}`);
 }
 
 function collectBustBonusLoser(i) {
@@ -2704,7 +3018,7 @@ function collectBustBonusLoser(i) {
   if (pendingBustLosers.length > 0) {
     const next = pendingBustLosers[0];
     $('p'+next+'-bust').classList.add('collectable-loser');
-    setStatus(`Collect Player ${next+1}'s Bust Bonus chip ($${players[next].bust}) — they lost.`);
+    helpStatus(`Collect Player ${next+1}'s Bust Bonus chip ($${players[next].bust}) — they lost.`, `Player ${next+1}`);
   } else {
     setTimeout(startMainResolution, 200);
   }
@@ -2748,9 +3062,9 @@ function processNextMainResolution() {
     enableChipTray(false);
     inHandChips = [];
     currentTarget = null;
-    $('in-hand-display').innerHTML = '';
+    renderInHand();   // clears in-hand-display AND chip-stack-display
     $('p'+next.i+'-main').classList.add('collectable-loser');
-    setStatus(`Collect Player ${next.i+1}'s main bet ($${pl.main}) — they lost.`);
+    helpStatus(`Collect Player ${next.i+1}'s main bet ($${pl.main}) — they lost.`, `Player ${next.i+1}`);
   } else {
     setPhase('main-winner');
     enableChipTray(true);
@@ -2762,7 +3076,9 @@ function processNextMainResolution() {
     };
     $('p'+next.i+'-main').classList.add('payout-target');
     const desc = next.outcome === 'BJ_WIN' ? 'BJ pays 3:2' : 'pays 1:1';
-    setStatus(`Pay Player ${next.i+1} $${formatMoney(pl.mainPayAmount)} (${desc}). Build chips, then tap the bet.`);
+    helpStatus(
+      `Pay Player ${next.i+1} $${formatMoney(pl.mainPayAmount)} (${desc}). Build chips, then tap the bet.`,
+      `Player ${next.i+1}`);
     renderInHand();
   }
 }
@@ -2833,7 +3149,9 @@ function startMainWinnerSettlement() {
   };
   $('p'+i+'-main').classList.add('payout-target');
   const desc = pl.mainOutcome === 'BJ_WIN' ? 'BJ pays 3:2' : 'pays 1:1';
-  setStatus(`Pay Player ${i+1} $${formatMoney(pl.mainPayAmount)} (${desc}). Build chips, then tap the bet.`);
+  helpStatus(
+    `Pay Player ${i+1} $${formatMoney(pl.mainPayAmount)} (${desc}). Build chips, then tap the bet.`,
+    `Player ${i+1}`);
   renderInHand();
 }
 
@@ -2943,9 +3261,19 @@ function collectEndCards(target) {
       dealer.cards = [];
       el.innerHTML = '';
       endCollectIdx = -1;
-      // Round is over — wait for red button press to reset chip detector LEDs
-      setPhase('reset-leds');
-      setStatus("Round over. Press the red button to reset and start the next round.");
+      // Round over — automatically reset LEDs and start the next round
+      for (let pi = 0; pi < NUM_PLAYERS; pi++) {
+        for (const key of ['jkp', 'bjk']) {
+          const ledEl = $('p'+pi+'-'+key);
+          if (!ledEl) continue;
+          ledEl.classList.remove('collected');
+          ledEl.classList.add('dim');
+          if (key === 'jkp') ledEl.innerHTML = '<span class="lbl">RED<br>$5</span>';
+          else                ledEl.innerHTML = '<span class="lbl">BLUE<br>$1</span>';
+        }
+      }
+      setStatus('Round over. Starting next round...');
+      setTimeout(() => Game.newRound(), 500);
     }
   }, 320);
 }
@@ -2964,6 +3292,15 @@ Game.burnCard = function() {
 renderPlayerStations();
 renderChipTray();
 wireThreeCircleClicks();
+/* Help is OFF by default — sync body class + button label/state on load. */
+document.body.classList.toggle('help-off', !helpEnabled);
+{
+  const _btn = $('help-toggle');
+  if (_btn) {
+    _btn.textContent = 'HELP: ' + (helpEnabled ? 'ON' : 'OFF');
+    _btn.classList.toggle('off', !helpEnabled);
+  }
+}
 Shoe.build(6);
 Game.newRound();
 </script>
