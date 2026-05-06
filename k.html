@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#F4E9D0" />
+  <title>ម្ហូបខ្មែរ · Khmer Pantry</title>
+  <meta name="description" content="What Cambodian dishes can you cook with what's in your kitchen? An interactive Khmer cookbook." />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+    body { background: #F4E9D0; }
+    #root { min-height: 100vh; }
+    /* Loading splash shown until React mounts */
+    #boot-loader {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #8B5A2B;
+      gap: 8px;
+    }
+    #boot-loader .km {
+      font-size: 28px;
+      letter-spacing: 0.04em;
+    }
+    #boot-loader .en {
+      font-style: italic;
+      font-size: 14px;
+      opacity: 0.65;
+    }
+    .ornament {
+      color: #C97D1F;
+      letter-spacing: 0.5em;
+      padding-left: 0.5em;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+  </style>
+
+  <!-- React 18 + ReactDOM 18 from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone: compiles the JSX in the browser. No build step needed. -->
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+</head>
+<body>
+  <div id="root">
+    <div id="boot-loader">
+      <div class="km">ម្ហូបខ្មែរ</div>
+      <div class="en">opening the cookbook…</div>
+      <div class="ornament">❋ ✦ ❋</div>
+    </div>
+  </div>
+
+  <!--
+    Loads the recipe app. Babel compiles the JSX in your browser.
+    The file `app.jsx` must sit next to this index.html.
+  -->
+  <script type="text/babel" data-presets="react" src="app.jsx"></script>
+</body>
+</html>
