@@ -947,7 +947,16 @@ function computeMatches(recipes, pantrySet) {
 function App() {
   const [activeTab, setActiveTab] = useState("pantry"); // "pantry" | "all"
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [pantry, setPantry] = useState(new Set());
+  const [pantry, setPantry] = useState(() => {
+    /* Lazy initializer: runs once when the component first mounts.
+       Try to load a previously-saved pantry from this browser's localStorage.
+       If anything goes wrong (storage disabled, corrupt data), start empty. */
+    try {
+      const saved = localStorage.getItem("khmer-pantry");
+      if (saved) return new Set(JSON.parse(saved));
+    } catch (e) { /* fall through */ }
+    return new Set();
+  });
   const [search, setSearch] = useState("");
   const [showNearMatches, setShowNearMatches] = useState(true);
   const [openRecipeId, setOpenRecipeId] = useState(null);
@@ -961,6 +970,14 @@ function App() {
     document.head.appendChild(link);
     return () => { document.head.removeChild(link); };
   }, []);
+
+  /* Save pantry to localStorage whenever it changes.
+     A Set can't be JSON-serialized directly, so we convert to an Array first. */
+  useEffect(() => {
+    try {
+      localStorage.setItem("khmer-pantry", JSON.stringify(Array.from(pantry)));
+    } catch (e) { /* storage full or disabled — ignore */ }
+  }, [pantry]);
 
   const togglePantry = (id) => {
     setPantry(prev => {
