@@ -814,11 +814,6 @@
           <span class="toggle-text">$15 minimum bet</span>
         </label>
         <label class="toggle">
-          <input type="checkbox" id="pays-chips-samecolor" onchange="Pays.toggleChipsSameColor()">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-text">No chips larger than bet</span>
-        </label>
-        <label class="toggle">
           <input type="checkbox" id="pays-chips-unusual" onchange="Pays.toggleUnusual('chips')">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
           <span class="toggle-text">Include $1 / $2.50 chip bets</span>
@@ -1948,32 +1943,6 @@ const Pays = (() => {
     return result.sort((a, b) => CHIP_BY_NAME[b].value - CHIP_BY_NAME[a].value);
   }
 
-  // Like chipsForAmount, but restricted to a subset of chip color names. Returns null
-  // if the amount cannot be made exactly with only the allowed colors.
-  // Note: bets are always whole dollars so bet colors never include pink. If the target
-  // has a 50¢ component, it's only achievable when pink is in the allowed set.
-  function chipsForAmountUsingColors(amount, allowedColors) {
-    let cents = Math.round(amount * 100);
-    const allowed = new Set(allowedColors);
-    const result = [];
-    if (cents % 100 === 50) {
-      if (!allowed.has("pink") || cents < 250) return null;
-      result.push("pink");
-      cents -= 250;
-    }
-    for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
-      const c = CHIP_VALUES[i];
-      if (c.name === "pink") continue;
-      if (!allowed.has(c.name)) continue;
-      while (cents >= c.cents) {
-        result.push(c.name);
-        cents -= c.cents;
-      }
-    }
-    if (cents !== 0) return null;
-    return result.sort((a, b) => CHIP_BY_NAME[b].value - CHIP_BY_NAME[a].value);
-  }
-
   // Round-up the unmakeable $1.50 payout to $2 (per design). Other payouts pass through.
   function targetPayoutAmount(payIndex) {
     const p = parseAmount(activeList[payIndex].payout);
@@ -1986,35 +1955,11 @@ const Pays = (() => {
   let chipsRevealed = false;
   let chipsUserChips = [];
   let chipsMin15   = true;
-  let chipsSameColor = false;
-
-  // Returns chip names allowed for payout under "no chip larger than bet" mode:
-  // any denomination whose value is <= the largest chip in the bet. This includes
-  // the bet's own colors plus every smaller denom (so a $75 bet of 3 green allows
-  // green/red/pink/white for the payout, but not black or purple). Returns null
-  // if the bet amount itself can't be made with chips.
-  function allowedPayoutColors(payIndex) {
-    const bet = parseAmount(activeList[payIndex].bet);
-    const chips = chipsForAmount(bet);
-    if (!chips) return null;
-    const maxValue = Math.max(...chips.map(n => CHIP_BY_NAME[n].value));
-    return CHIP_VALUES.filter(c => c.value <= maxValue).map(c => c.name);
-  }
 
   function buildChipsQueue() {
     let indices = activeList.map((_, i) => i);
     if (chipsMin15) {
       indices = indices.filter(i => parseAmount(activeList[i].bet) >= 15);
-    }
-    if (chipsSameColor) {
-      // Keep hands whose payout is achievable using only chips no larger than
-      // the bet's largest. (E.g. a $3 white-only bet has no pink available, so
-      // its $4.50 payout is unreachable and gets filtered out.)
-      indices = indices.filter(i => {
-        const colors = allowedPayoutColors(i);
-        if (!colors) return false;
-        return chipsForAmountUsingColors(targetPayoutAmount(i), colors) !== null;
-      });
     }
     chipsQueue = shuffle(indices);
   }
@@ -2025,7 +1970,6 @@ const Pays = (() => {
     chipsRevealed = false;
     chipsUserChips = [];
     chipsMin15 = document.getElementById("pays-chips-min15").checked;
-    chipsSameColor = document.getElementById("pays-chips-samecolor").checked;
     /* Sync the unusual checkbox to current state on entry. */
     const cbU = document.getElementById("pays-chips-unusual");
     if (cbU) cbU.checked = unusualEnabled;
@@ -2045,8 +1989,9 @@ const Pays = (() => {
     document.getElementById("chips-bet-amount").textContent = formatAmount(bet);
     renderChipStack("chips-bet-stack", betChips, false);
 
-    // Restrict the chip-button row to chips no larger than the bet's biggest.
-    renderChipButtons(chipsSameColor ? allowedPayoutColors(chipsIndex) : null);
+    /* All chip denominations are always available — dealers may mix any
+       combination so long as the total matches. */
+    renderChipButtons(null);
 
     renderUserStack();
     updateUserTotal();
@@ -2071,11 +2016,6 @@ const Pays = (() => {
   function chipsPay() {
     const target = targetPayoutAmount(chipsIndex);
     const userTotal = chipsUserChips.reduce((s, n) => s + CHIP_BY_NAME[n].value, 0);
-    const allowed = chipsSameColor ? allowedPayoutColors(chipsIndex) : null;
-    const optimal = chipsSameColor
-      ? chipsForAmountUsingColors(target, allowed)
-      : chipsForAmount(target);
-    const optimalCount = optimal.length;
     const userCount = chipsUserChips.length;
 
     chipsRevealed = true;
@@ -2084,17 +2024,11 @@ const Pays = (() => {
     document.getElementById("chips-user-amount").style.visibility = "visible";
     const fb = document.getElementById("chips-feedback");
 
-    // Defensive: the chip-button row already hides oversized denoms, but double-check.
-    const usedDisallowed = chipsSameColor && chipsUserChips.some(c => !allowed.includes(c));
-
-    if (usedDisallowed) {
-      fb.textContent = `✗ Used a chip larger than the bet's biggest`;
-      fb.className = "feedback bad";
-    } else if (Math.abs(userTotal - target) > 0.001) {
+    /* Only validate the total. Dealers will mix denominations strategically
+       depending on what the player is playing — there's no single "minimum
+       chips" answer, so any combination summing to the target is accepted. */
+    if (Math.abs(userTotal - target) > 0.001) {
       fb.textContent = `✗ Wrong total: ${formatAmount(userTotal)} — expected ${formatAmount(target)}`;
-      fb.className = "feedback bad";
-    } else if (userCount > optimalCount) {
-      fb.textContent = `✗ Right total but ${userCount} chips — minimum is ${optimalCount}`;
       fb.className = "feedback bad";
     } else {
       fb.textContent = `✓ Correct — ${userCount} chip${userCount === 1 ? "" : "s"}`;
@@ -2166,12 +2100,6 @@ const Pays = (() => {
     nextChips();
   }
 
-  function toggleChipsSameColor() {
-    chipsSameColor = document.getElementById("pays-chips-samecolor").checked;
-    chipsQueue = [];
-    nextChips();
-  }
-
   /* Re-layout chip stacks if the window crosses the mobile breakpoint */
   window.addEventListener("resize", () => {
     if (document.getElementById("pays-chips-quiz").style.display === "none") return;
@@ -2194,7 +2122,7 @@ const Pays = (() => {
 
   return {
     start, next, reveal, action, renderList,
-    startChips, chipsAction, addChip, removeChip, toggleChipsMin15, toggleChipsSameColor,
+    startChips, chipsAction, addChip, removeChip, toggleChipsMin15,
     toggleUnusual,
   };
 })();
