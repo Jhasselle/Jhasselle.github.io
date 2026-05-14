@@ -110,6 +110,24 @@
     margin-bottom: 10px;
   }
   .mode-btn b { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+  .mode-btn.coming-soon {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .mode-btn .cs-badge {
+    display: inline-block;
+    margin-left: 8px;
+    background: var(--warn);
+    color: #0b1220;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    vertical-align: middle;
+    text-transform: uppercase;
+  }
   .mode-btn span { color: var(--muted); font-size: 0.88rem; }
   .back-link {
     display: inline-block;
@@ -371,6 +389,32 @@
     gap: 8px 18px;
     margin-bottom: 4px;
   }
+
+  /* Side-bet flashcards: header row with title + filter dropdown at top right */
+  .sidebets-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .sidebets-filter {
+    font: inherit;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    flex: 0 0 auto;
+    max-width: 50%;
+  }
+  .sidebets-filter:hover { background: #334155; }
+  @media (max-width: 480px) {
+    .sidebets-filter { padding: 6px 8px; font-size: 0.8rem; }
+  }
   .toggle {
     display: inline-flex;
     align-items: center;
@@ -548,9 +592,17 @@
         <b>Count Card Total</b>
         <span>Random hands dealt from a 6-deck shoe per basic strategy. Add the total in your head, then reveal.</span>
       </button>
+      <button class="mode-btn" onclick="Nav.goSection('sidebets-section')">
+        <b>Side-bet Flashcards</b>
+        <span>21+3 Xtreme, Bust Bonus, and Red &amp; Blue Jackpot &mdash; all shuffled together. See the hand or up-card, recall the payout.</span>
+      </button>
       <button class="mode-btn" onclick="location.href='dealing-simulator.html'">
         <b>Dealing Simulator</b>
         <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
+      </button>
+      <button class="mode-btn coming-soon" disabled aria-disabled="true">
+        <b>Cheque &amp; Money Exchange <span class="cs-badge">Coming soon</span></b>
+        <span>Single-station drill. Color coming in, cheque change, and money changing &mdash; build the outgoing stack from the chip tray.</span>
       </button>
     </div>
   </div>
@@ -732,6 +784,13 @@
 
     <!-- Pays Quiz (Numbers mode) -->
     <div id="pays-quiz" class="card screen" style="display:none">
+      <div class="count-options">
+        <label class="toggle">
+          <input type="checkbox" id="pays-unusual" onchange="Pays.toggleUnusual('numbers')">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">Include $1 / $2.50 chip bets</span>
+        </label>
+      </div>
       <div class="fc-prompt">
         <span class="fc-label">BET</span>
         <span id="pays-bet" style="font-size:2rem;font-weight:700"></span>
@@ -758,6 +817,11 @@
           <input type="checkbox" id="pays-chips-samecolor" onchange="Pays.toggleChipsSameColor()">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
           <span class="toggle-text">No chips larger than bet</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="pays-chips-unusual" onchange="Pays.toggleUnusual('chips')">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">Include $1 / $2.50 chip bets</span>
         </label>
       </div>
 
@@ -817,6 +881,11 @@
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
           <span class="toggle-text">Exclude 10-value cards (10/J/Q/K)</span>
         </label>
+        <label class="toggle">
+          <input type="checkbox" id="count-ace-mode" onchange="Count.toggleAceMode()">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">Ace mode (hand contains &ge;1 ace)</span>
+        </label>
       </div>
       <div id="count-cards" class="card-display"></div>
       <div id="count-total" class="count-total">&nbsp;</div>
@@ -830,6 +899,53 @@
     </div>
 
   </div><!-- /count-section -->
+
+  <!-- ==================== SIDE-BET FLASHCARDS SECTION ==================== -->
+  <div id="sidebets-section" class="section" style="display:none">
+
+    <button class="back-link" onclick="Nav.goMain()">&larr; Main menu</button>
+    <div class="sidebets-header">
+      <div>
+        <h2 style="margin:0">Side-bet Flashcards</h2>
+        <div class="sub" id="sidebets-sub" style="margin:4px 0 0">21+3 Xtreme, Bust Bonus, Red Jackpot, Blue Jackpot &mdash; all shuffled together</div>
+      </div>
+      <select class="sidebets-filter" id="sidebets-filter" onchange="Sidebets.setFilter(this.value)" aria-label="Choose which side bet to practice">
+        <option value="all">All side bets</option>
+        <option value="three">21+3 Xtreme</option>
+        <option value="bust">Bust Bonus</option>
+        <option value="jackpot">Red &amp; Blue Jackpot</option>
+      </select>
+    </div>
+
+    <!-- Side-bet Home -->
+    <div id="sidebets-home" class="card screen">
+      <button class="mode-btn" onclick="Sidebets.start()">
+        <b>Start drilling</b>
+        <span>Random card from any of the four paytables. See the qualifying hand or dealer up-card, then reveal the payout.</span>
+      </button>
+      <details style="margin-top:14px">
+        <summary>View all paytables</summary>
+        <div id="sidebets-list" style="font-size:0.85rem;line-height:1.55;color:var(--muted);margin-top:10px"></div>
+      </details>
+    </div>
+
+    <!-- Side-bet Quiz -->
+    <div id="sidebets-quiz" class="card screen" style="display:none">
+      <div class="fc-prompt">
+        <span class="fc-label" id="sidebets-title">&nbsp;</span>
+        <span id="sidebets-prompt" style="font-size:1.6rem;font-weight:700;display:block">&nbsp;</span>
+      </div>
+      <div id="sidebets-answer" style="text-align:center">
+        <div id="sidebets-payout" style="font-size:1.5rem;font-weight:700;color:var(--good);padding:12px 0;min-height:60px;visibility:hidden">&nbsp;</div>
+        <button class="primary" id="sidebets-action-btn" onclick="Sidebets.action()" style="margin-top:8px">Reveal payout</button>
+      </div>
+      <div class="score" style="margin-top:18px">
+        <span style="color:var(--muted)" id="sidebets-counter"></span>
+        <button class="ghost" onclick="Nav.goHome('sidebets-section')">Back</button>
+      </div>
+    </div>
+
+  </div><!-- /sidebets-section -->
 
 </div><!-- /wrap -->
 
@@ -863,6 +979,12 @@ const SECTIONS = [
     id: "count-section",
     home: "count-home",
     screens: ["count-home", "count-quiz"],
+  },
+  {
+    id: "sidebets-section",
+    home: "sidebets-home",
+    screens: ["sidebets-home", "sidebets-quiz"],
+    onEnter: function() { Sidebets.renderList(); }
   },
 ];
 
@@ -1669,16 +1791,49 @@ const Pays = (() => {
   let count = 0;
   let revealed = false;
 
+  /* "Unusual bets" use pink ($2.50) or white ($1) chips — bets that aren't
+     multiples of $5. The user-facing toggle (shared between Numbers and Chips
+     modes) controls whether these appear in the quiz. */
+  const UNUSUAL_BET_AMOUNTS = [
+    // Half-dollar bets — the pink chip is used to pay them out
+    2.5, 7.5, 12.5, 17.5, 22.5, 27.5, 32.5, 42.5, 47.5,
+    57.5, 62.5, 67.5, 72.5, 82.5, 92.5, 97.5,
+    // Odd-dollar bets not in the canonical $5-step list (need white chips)
+    11, 13, 14, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29
+  ];
+  /* UNUSUAL_PAYS is built lazily after parseAmount / formatAmount are
+     declared further down — see initUnusualPays() at the bottom of this IIFE. */
+  let UNUSUAL_PAYS = [];
+
+  let unusualEnabled = false;
+  let activeList = PAYS.slice();
+
+  function recomputeActiveList() {
+    if (unusualEnabled) {
+      activeList = PAYS.concat(UNUSUAL_PAYS);
+    } else {
+      /* Filter PAYS to bets that are exact multiples of $5 — those are the
+         only ones that can be paid without pink or white chips. */
+      activeList = PAYS.filter(p => {
+        const cents = Math.round(parseAmount(p.bet) * 100);
+        return cents % 500 === 0;
+      });
+    }
+  }
+
   function start() {
     queue = [];
     count = 0;
     revealed = false;
     Nav.showScreen("pays-section", "pays-quiz");
+    /* Sync the checkbox UI to the current state on entry. */
+    const cb = document.getElementById("pays-unusual");
+    if (cb) cb.checked = unusualEnabled;
     next();
   }
 
   function buildQueue() {
-    queue = shuffle(PAYS.map((_, i) => i));
+    queue = shuffle(activeList.map((_, i) => i));
   }
 
   function next() {
@@ -1687,7 +1842,7 @@ const Pays = (() => {
     count++;
     revealed = false;
 
-    document.getElementById("pays-bet").textContent = PAYS[current].bet;
+    document.getElementById("pays-bet").textContent = activeList[current].bet;
     document.getElementById("pays-payout").style.visibility = "hidden";
     document.getElementById("pays-payout").innerHTML = "&nbsp;";
     document.getElementById("pays-action-btn").textContent = "Reveal payout";
@@ -1697,9 +1852,26 @@ const Pays = (() => {
   function reveal() {
     if (current === null) return;
     revealed = true;
-    document.getElementById("pays-payout").textContent = PAYS[current].payout;
+    document.getElementById("pays-payout").textContent = activeList[current].payout;
     document.getElementById("pays-payout").style.visibility = "visible";
     document.getElementById("pays-action-btn").textContent = "Next";
+  }
+
+  function toggleUnusual(source) {
+    /* Both checkboxes (Numbers mode + Chips mode) share state. Reading from
+       whichever was just toggled, then syncing the other. */
+    const fromId = source === 'chips' ? 'pays-chips-unusual' : 'pays-unusual';
+    const otherId = source === 'chips' ? 'pays-unusual' : 'pays-chips-unusual';
+    const cb = document.getElementById(fromId);
+    if (cb) unusualEnabled = cb.checked;
+    const other = document.getElementById(otherId);
+    if (other) other.checked = unusualEnabled;
+    recomputeActiveList();
+    /* Drop both queues so the new pool takes effect immediately. */
+    queue = []; chipsQueue = [];
+    current = null; chipsIndex = null;
+    if (document.getElementById('pays-quiz').style.display !== 'none') next();
+    else if (document.getElementById('pays-chips-quiz').style.display !== 'none') nextChips();
   }
 
   function action() {
@@ -1804,7 +1976,7 @@ const Pays = (() => {
 
   // Round-up the unmakeable $1.50 payout to $2 (per design). Other payouts pass through.
   function targetPayoutAmount(payIndex) {
-    const p = parseAmount(PAYS[payIndex].payout);
+    const p = parseAmount(activeList[payIndex].payout);
     return (Math.abs(p - 1.5) < 0.001) ? 2 : p;
   }
 
@@ -1822,7 +1994,7 @@ const Pays = (() => {
   // green/red/pink/white for the payout, but not black or purple). Returns null
   // if the bet amount itself can't be made with chips.
   function allowedPayoutColors(payIndex) {
-    const bet = parseAmount(PAYS[payIndex].bet);
+    const bet = parseAmount(activeList[payIndex].bet);
     const chips = chipsForAmount(bet);
     if (!chips) return null;
     const maxValue = Math.max(...chips.map(n => CHIP_BY_NAME[n].value));
@@ -1830,9 +2002,9 @@ const Pays = (() => {
   }
 
   function buildChipsQueue() {
-    let indices = PAYS.map((_, i) => i);
+    let indices = activeList.map((_, i) => i);
     if (chipsMin15) {
-      indices = indices.filter(i => parseAmount(PAYS[i].bet) >= 15);
+      indices = indices.filter(i => parseAmount(activeList[i].bet) >= 15);
     }
     if (chipsSameColor) {
       // Keep hands whose payout is achievable using only chips no larger than
@@ -1854,6 +2026,9 @@ const Pays = (() => {
     chipsUserChips = [];
     chipsMin15 = document.getElementById("pays-chips-min15").checked;
     chipsSameColor = document.getElementById("pays-chips-samecolor").checked;
+    /* Sync the unusual checkbox to current state on entry. */
+    const cbU = document.getElementById("pays-chips-unusual");
+    if (cbU) cbU.checked = unusualEnabled;
     Nav.showScreen("pays-section", "pays-chips-quiz");
     nextChips();
   }
@@ -1865,7 +2040,7 @@ const Pays = (() => {
     chipsRevealed = false;
     chipsUserChips = [];
 
-    const bet = parseAmount(PAYS[chipsIndex].bet);
+    const bet = parseAmount(activeList[chipsIndex].bet);
     const betChips = chipsForAmount(bet);
     document.getElementById("chips-bet-amount").textContent = formatAmount(bet);
     renderChipStack("chips-bet-stack", betChips, false);
@@ -2001,15 +2176,26 @@ const Pays = (() => {
   window.addEventListener("resize", () => {
     if (document.getElementById("pays-chips-quiz").style.display === "none") return;
     if (chipsIndex !== null) {
-      const bet = parseAmount(PAYS[chipsIndex].bet);
+      const bet = parseAmount(activeList[chipsIndex].bet);
       renderChipStack("chips-bet-stack", chipsForAmount(bet), false);
     }
     renderUserStack();
   });
 
+  /* Build UNUSUAL_PAYS now that formatAmount/parseAmount are declared above
+     (function declarations are hoisted; consts are not — this runs at IIFE
+     evaluation time). */
+  UNUSUAL_PAYS = UNUSUAL_BET_AMOUNTS.map(b => {
+    /* 3:2, rounded up to the nearest $0.50 so it's payable in chips. */
+    const pay = Math.ceil(b * 1.5 * 2) / 2;
+    return { bet: formatAmount(b), payout: formatAmount(pay) };
+  });
+  recomputeActiveList();
+
   return {
     start, next, reveal, action, renderList,
     startChips, chipsAction, addChip, removeChip, toggleChipsMin15, toggleChipsSameColor,
+    toggleUnusual,
   };
 })();
 
@@ -2039,6 +2225,7 @@ const Count = (() => {
   let revealed = false;
   let currentHand = null;
   let no10s = false;
+  let aceMode = false;     // when true, dealt hand must contain at least one ace
 
   function activeRanks() {
     return no10s
@@ -2073,6 +2260,11 @@ const Count = (() => {
   function toggleNo10s() {
     no10s = document.getElementById("count-no10s").checked;
     buildShoe();
+    next();
+  }
+
+  function toggleAceMode() {
+    aceMode = document.getElementById("count-ace-mode").checked;
     next();
   }
 
@@ -2187,6 +2379,13 @@ const Count = (() => {
 
       const finalTotal = handTotal(cards);
       if (finalTotal.total >= 12 && finalTotal.total <= 21) {
+        if (aceMode) {
+          const aceCount = cards.filter(c => c.rank === "A").length;
+          /* Ace mode requires ≥1 ace, and 25% of the time requires ≥2 aces
+             to drill the soft/hard transition. */
+          if (aceCount < 1) continue;
+          if (aceCount < 2 && Math.random() < 0.25) continue;
+        }
         return { cards: cards, total: finalTotal.total, dealerUp: dealerUp };
       }
       // Otherwise it busted (or somehow < 12) — try again.
@@ -2270,7 +2469,213 @@ const Count = (() => {
     }
   });
 
-  return { start, next, reveal, action, toggleNo10s };
+  return { start, next, reveal, action, toggleNo10s, toggleAceMode };
+})();
+
+
+/* ================================================================
+   SIDE-BET FLASHCARDS
+   ----------------------------------------------------------------
+   Combines 21+3 Xtreme, Bust Bonus, Red Jackpot, and Blue Jackpot
+   into one shuffled flashcard deck. Each card shows the qualifying
+   hand (or dealer up-card for Bust Bonus) and the user clicks
+   "Reveal payout" to see the answer; the same button then becomes
+   "Next" in the same place. A filter dropdown at the top right
+   restricts the deck to a single side bet.
+   ================================================================ */
+
+/* Paytable data — kept in sync with dealing-simulator.html. */
+const SIDEBET_PAYS_21_3 = {
+  'Straight Flush':         30,
+  'Three of a Kind':        20,
+  'Suited Three of a Kind': 20,  // folded into 3-of-a-kind in the dealing-sim
+  'Straight':               10,
+  'Flush':                   5,
+};
+
+/* Red & Blue Jackpot fixed-dollar tiers, shown together on one card per hand. */
+const SIDEBET_JACKPOTS = [
+  { hand: 'Three of a kind aces (spades)',     red: 400000, blue: 50000 },  // Blue rolls AAA-spade into AAA-same-suit
+  { hand: 'Three of a kind aces (same suit)',  red:  10000, blue: 50000 },
+  { hand: 'Three of a kind (same suit)',       red:    750, blue:   125 },
+  { hand: 'Straight flush',                    red:    200, blue:    25 },
+  { hand: 'Three of a kind (off suit)',        red:    100, blue:    20 },
+  { hand: 'Straight',                          red:     25, blue:     7 },
+  { hand: 'Flush',                             red:     15, blue:     3 },
+];
+
+/* Bust Bonus — one card per up-card, both unsuited and suited shown in answer. */
+const SIDEBET_BUST = {
+  'A':  { unsuited: 3,  suited: 50 },
+  '2':  { unsuited: 1,  suited: 25 },
+  '3':  { unsuited: 1,  suited: 15 },
+  '4':  { unsuited: 1,  suited: 10 },
+  '5':  { unsuited: 1,  suited: 5  },
+  '6':  { unsuited: 1,  suited: 3  },
+  '7':  { unsuited: 2,  suited: 15 },
+  '8':  { unsuited: 2,  suited: 10 },
+  '9':  { unsuited: 2,  suited: 20 },
+  '10': { unsuited: 2,  suited: 20 },
+};
+const SIDEBET_BUST_888 = { unsuited: 25, suited: 75 };
+
+/* Build the master deck. Each entry: { category, title, prompt, answerHTML }. */
+function buildSidebetDeck() {
+  const deck = [];
+
+  for (const [hand, mult] of Object.entries(SIDEBET_PAYS_21_3)) {
+    deck.push({
+      category: 'three',
+      title: '21+3 Xtreme',
+      prompt: hand,
+      answerHTML: `<span style="color:var(--good)">${mult} to 1</span>`,
+    });
+  }
+
+  for (const row of SIDEBET_JACKPOTS) {
+    deck.push({
+      category: 'jackpot',
+      title: 'Red &amp; Blue Jackpot',
+      prompt: row.hand,
+      answerHTML:
+        `<div style="font-size:1.1rem">
+          <div><span style="color:#fca5a5">Red ($5)</span>: <b>$${row.red.toLocaleString()}</b></div>
+          <div><span style="color:#93c5fd">Blue ($1)</span>: <b>$${row.blue.toLocaleString()}</b></div>
+        </div>`,
+    });
+  }
+
+  const upcards = ['A','2','3','4','5','6','7','8','9','10'];
+  for (const u of upcards) {
+    const p = SIDEBET_BUST[u];
+    deck.push({
+      category: 'bust',
+      title: 'Bust Bonus',
+      prompt: 'Dealer up-card: ' + u,
+      answerHTML:
+        `<div style="font-size:1.1rem">
+          <div><b>${p.unsuited} to 1</b> <span style="color:var(--muted)">unsuited</span></div>
+          <div><b>${p.suited} to 1</b> <span style="color:var(--muted)">suited</span></div>
+        </div>`,
+    });
+  }
+  deck.push({
+    category: 'bust',
+    title: 'Bust Bonus',
+    prompt: 'Dealer busts with three 8s',
+    answerHTML:
+      `<div style="font-size:1.1rem">
+        <div><b>${SIDEBET_BUST_888.unsuited} to 1</b> <span style="color:var(--muted)">unsuited</span></div>
+        <div><b>${SIDEBET_BUST_888.suited} to 1</b> <span style="color:var(--muted)">suited</span></div>
+      </div>`,
+  });
+
+  return deck;
+}
+
+const Sidebets = (() => {
+  const DECK = buildSidebetDeck();
+  let queue = [];
+  let current = null;
+  let count = 0;
+  let revealed = false;
+  let filter = 'all';   // 'all' | 'three' | 'bust' | 'jackpot'
+
+  const FILTER_LABEL = {
+    all:     '21+3 Xtreme, Bust Bonus, Red Jackpot, Blue Jackpot &mdash; all shuffled together',
+    three:   '21+3 Xtreme &mdash; qualifying hands only',
+    bust:    'Bust Bonus &mdash; one card per dealer up-card',
+    jackpot: 'Red &amp; Blue Jackpot &mdash; combined fixed-dollar payouts',
+  };
+
+  function eligibleIndices() {
+    return DECK
+      .map((c, i) => (filter === 'all' || c.category === filter) ? i : -1)
+      .filter(i => i >= 0);
+  }
+
+  function buildQueue() { queue = shuffle(eligibleIndices()); }
+
+  function start() {
+    queue = [];
+    count = 0;
+    revealed = false;
+    Nav.showScreen('sidebets-section', 'sidebets-quiz');
+    next();
+  }
+
+  function setFilter(value) {
+    filter = (value === 'three' || value === 'bust' || value === 'jackpot') ? value : 'all';
+    const sub = document.getElementById('sidebets-sub');
+    if (sub) sub.innerHTML = FILTER_LABEL[filter];
+    queue = [];
+    count = 0;
+    revealed = false;
+    const quizVisible = document.getElementById('sidebets-quiz').style.display !== 'none';
+    if (quizVisible) next();
+  }
+
+  function next() {
+    if (!queue.length) buildQueue();
+    if (!queue.length) return;
+    current = queue.pop();
+    count++;
+    revealed = false;
+    const card = DECK[current];
+    document.getElementById('sidebets-title').innerHTML = card.title;
+    document.getElementById('sidebets-prompt').textContent = card.prompt;
+    const payoutEl = document.getElementById('sidebets-payout');
+    payoutEl.style.visibility = 'hidden';
+    payoutEl.innerHTML = '&nbsp;';
+    document.getElementById('sidebets-action-btn').textContent = 'Reveal payout';
+    document.getElementById('sidebets-counter').textContent = 'Card #' + count;
+  }
+
+  function reveal() {
+    if (current === null) return;
+    revealed = true;
+    const card = DECK[current];
+    const payoutEl = document.getElementById('sidebets-payout');
+    payoutEl.innerHTML = card.answerHTML;
+    payoutEl.style.visibility = 'visible';
+    document.getElementById('sidebets-action-btn').textContent = 'Next';
+  }
+
+  function action() {
+    if (!revealed) reveal();
+    else next();
+  }
+
+  function renderList() {
+    const el = document.getElementById('sidebets-list');
+    if (!el) return;
+    const groups = [
+      { title: '21+3 Xtreme (X to 1)',
+        rows: Object.entries(SIDEBET_PAYS_21_3).map(([h, m]) => `${h} &mdash; ${m} to 1`) },
+      { title: 'Red Jackpot ($5) / Blue Jackpot ($1)',
+        rows: SIDEBET_JACKPOTS.map(r => `${r.hand} &mdash; Red $${r.red.toLocaleString()} / Blue $${r.blue.toLocaleString()}`) },
+      { title: 'Bust Bonus (X to 1, unsuited / suited)',
+        rows: ['A','2','3','4','5','6','7','8','9','10'].map(u => {
+          const p = SIDEBET_BUST[u];
+          return `Dealer up ${u} &mdash; ${p.unsuited} / ${p.suited}`;
+        }).concat([`Three 8s &mdash; ${SIDEBET_BUST_888.unsuited} / ${SIDEBET_BUST_888.suited}`]) },
+    ];
+    el.innerHTML = groups.map(g =>
+      `<div style="margin-bottom:10px"><b style="color:var(--text)">${g.title}</b><br>${g.rows.join('<br>')}</div>`
+    ).join('');
+  }
+
+  /* Keyboard: Space/Enter to reveal or advance, mirroring the Pays section. */
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('sidebets-quiz').style.display === 'none') return;
+    if (e.target && e.target.id === 'sidebets-filter') return;
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      action();
+    }
+  });
+
+  return { start, next, reveal, action, renderList, setFilter };
 })();
 
 
