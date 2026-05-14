@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cheque &amp; Money Exchange</title>
+<style>
+  :root {
+    --felt: #5b21b6;
+    --felt-dark: #4c1d95;
+    --felt-edge: #3b0764;
+    --text: #f8fafc;
+    --muted: #cbd5e1;
+    --good: #22c55e;
+    --bad: #ef4444;
+    --warn: #fbbf24;
+    --circle-stroke: #ffffff;
+    --panel: #1e293b;
+    --panel2: #273449;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: #0f172a;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .page {
+    width: 100%;
+    margin: 0;
+    padding: 16px 12px 60px;
+  }
+  .back-link {
+    display: inline-block;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+  .back-link:hover { background: #273449; color: #fff; }
+  h1 { margin: 8px 0 2px; font-size: 1.5rem; }
+  .sub { color: var(--muted); margin-bottom: 14px; font-size: 0.9rem; }
+
+  /* ---------- The felt table ---------- */
+  .table {
+    position: relative;
+    background:
+      radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 75%, var(--felt-edge) 100%);
+    border: 6px solid #1f1024;
+    border-radius: 24px;
+    padding: 22px 22px 18px;
+    box-shadow:
+      inset 0 0 60px rgba(0,0,0,0.45),
+      0 8px 30px rgba(0,0,0,0.6);
+  }
+
+  /* ---------- Scenario banner ---------- */
+  .scenario-banner {
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #fef3c7;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    margin: 4px 0 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+  }
+  .scenario-banner .req {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: none;
+    color: rgba(255,255,255,0.78);
+    margin-top: 4px;
+  }
+  .scenario-banner .req b { color: #fde047; }
+
+  /* ---------- The two exchange zones ---------- */
+  .exchange-zones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    min-height: 320px;
+    margin-bottom: 14px;
+  }
+  .zone {
+    position: relative;
+    background: rgba(0,0,0,0.18);
+    border: 2px dashed rgba(255,255,255,0.20);
+    border-radius: 10px;
+    padding: 28px 12px 12px;
+    min-height: 320px;
+    overflow: hidden;
+  }
+  .zone-label {
+    position: absolute;
+    top: 6px;
+    left: 12px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.55);
+  }
+  .zone-total {
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fde047;
+    font-variant-numeric: tabular-nums;
+  }
+  .left-zone  { border-color: rgba(252,165,165,0.32); }   /* incoming */
+  .right-zone { border-color: rgba(134,239,172,0.32); cursor: pointer; }
+  .right-zone:hover:not(.locked) { background: rgba(134,239,172,0.06); }
+  .right-zone.locked { cursor: default; }
+
+  /* ---------- Chip row layout inside a zone ----------
+     Each row holds up to 20 chips arranged in stacks (4 for $5/$25/$500,
+     5 for everything else). The last stack of every row is toppled. If the
+     row ends in a partial stack the preceding full stack is ALSO toppled.
+     Rows stack vertically from bottom up, highest denomination on bottom. */
+  .chip-grid {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 12px;
+    align-items: flex-start;
+    width: 100%;
+  }
+  .chip-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    width: 100%;
+    min-height: 24px;
+  }
+  .chip-row .denom-label {
+    flex: 0 0 38px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.55);
+    text-align: right;
+    align-self: center;
+  }
+
+  /* ---------- A single standing stack ---------- */
+  .chip-stack {
+    position: relative;
+    width: 36px;
+    height: 60px;
+    flex: 0 0 auto;
+  }
+  .chip-stack .chip-piece {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 14px;
+    border-radius: 50%;
+  }
+
+  /* ---------- A toppled stack ---------- */
+  .chip-stack.toppled {
+    width: auto;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+  }
+  .chip-stack.toppled .chip-piece {
+    position: relative;
+    width: 18px;
+    height: 32px;
+    margin-right: -12px;
+  }
+  .chip-stack.toppled .chip-piece:last-child { margin-right: 0; }
+
+  /* ---------- Chip cylinder rendering ---------- */
+  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
+  .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); }
+  .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
+  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
+  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
+  .cp-purple { --chip-base: #8b5cf6; --chip-stripe: rgba(255,255,255,0.92); }
+
+  .chip-piece.cp-white, .chip-piece.cp-pink, .chip-piece.cp-red,
+  .chip-piece.cp-green, .chip-piece.cp-black, .chip-piece.cp-purple {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  /* Standing cylinder rim */
+  .chip-stack:not(.toppled) .chip-piece::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 18%;
+    bottom: 0;
+    background-color: var(--chip-base);
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: var(--stripe-offset, 0) 0;
+    border-left: 1px solid rgba(0,0,0,0.65);
+    border-right: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1.5px solid rgba(0,0,0,0.85);
+    border-radius: 0 0 50% 50% / 0 0 55% 55%;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  /* Standing cylinder face */
+  .chip-stack:not(.toppled) .chip-piece::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
+  /* Toppled chip — same cylinder rendering rotated 90° so the chip lies
+     on its side. */
+  .chip-stack.toppled .chip-piece::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 18%;
+    right: 0;
+    background-color: var(--chip-base);
+    background-image:
+      repeating-linear-gradient(0deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: 0 var(--stripe-offset, 0);
+    border-top: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1px solid rgba(0,0,0,0.65);
+    border-right: 1.5px solid rgba(0,0,0,0.85);
+    border-radius: 0 50% 50% 0 / 0 55% 55% 0;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  .chip-stack.toppled .chip-piece::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0;
+    width: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
+
+  /* ---------- Cash bills (for the "changing" scenario) ---------- */
+  .bills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .bill-stack {
+    position: relative;
+    width: 70px;
+    height: 40px;
+  }
+  .bill-piece {
+    position: absolute;
+    left: 0; right: 0;
+    height: 32px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+    border: 1px solid #064e3b;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #052e26;
+    font-weight: 800;
+    font-size: 0.85rem;
+  }
+
+  /* ---------- Exchange controls ---------- */
+  .exchange-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .exchange-controls button {
+    font: inherit;
+    cursor: pointer;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+  }
+  .exchange-controls button:hover { background: #334155; }
+  .exchange-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .floor-ok-btn {
+    background: #fbbf24 !important;
+    color: #0b1220 !important;
+    border-color: #fbbf24 !important;
+  }
+  .floor-ok-btn:hover { background: #fcd34d !important; }
+  .done-btn.ready {
+    background: #22c55e !important;
+    border-color: #22c55e !important;
+    color: #052e16 !important;
+  }
+  .done-btn.ready:hover { background: #4ade80 !important; }
+
+  /* ---------- Status row ---------- */
+  .status {
+    text-align: center;
+    margin: 10px 0 14px;
+    color: #f1f5f9;
+    font-size: 0.95rem;
+    min-height: 24px;
+  }
+  .status.flash-good { color: #86efac; }
+  .status.flash-bad  { color: #fca5a5; }
+
+  /* ---------- Chip tray (bottom; dealer's source for outgoing chips) ---------- */
+  .chip-tray-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .chip-tray {
+    background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
+    border: 3px solid #000;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    gap: 6px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5);
+  }
+  .chip-tray-stack {
+    position: relative;
+    width: 56px;
+    height: 130px;
+    cursor: pointer;
+  }
+  .chip-tray-stack:hover { filter: brightness(1.15); }
+  .chip-tray-stack .chip-edge {
+    position: absolute;
+    left: 0; right: 0;
+    height: 18px;
+  }
+  .chip-tray-stack .chip-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .chip-tray-stack .chip-edge.cp-white, .chip-tray-stack .chip-edge.cp-pink,
+  .chip-tray-stack .chip-edge.cp-red, .chip-tray-stack .chip-edge.cp-green,
+  .chip-tray-stack .chip-edge.cp-black, .chip-tray-stack .chip-edge.cp-purple {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .chip-tray-stack .chip-edge::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 18%;
+    bottom: 0;
+    background-color: var(--chip-base);
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: var(--stripe-offset, 0) 0;
+    border-left: 1px solid rgba(0,0,0,0.65);
+    border-right: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1.5px solid rgba(0,0,0,0.85);
+    border-radius: 0 0 50% 50% / 0 0 55% 55%;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  .chip-tray-stack .chip-edge::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
+
+  /* ---------- Announcement modal ---------- */
+  .announce {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.55);
+    z-index: 100;
+    padding: 16px;
+  }
+  .announce.open { display: flex; }
+  .announce-card {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid #475569;
+    border-radius: 14px;
+    padding: 24px 28px;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  }
+  .announce-card h2 { margin: 0 0 8px; color: #86efac; letter-spacing: 2px; font-size: 1.1rem; text-transform: uppercase; }
+  .announce-card .big { font-size: 1.6rem; font-weight: 800; margin: 12px 0; color: #fde047; }
+  .announce-card .sub { font-size: 0.85rem; color: var(--muted); }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 560px) {
+    .page { padding: 10px 4px 40px; }
+    .table { padding: 12px 6px 12px; border-width: 3px; border-radius: 16px; }
+    .scenario-banner { font-size: 1.1rem; letter-spacing: 1.5px; }
+    .scenario-banner .req { font-size: 0.78rem; }
+    .exchange-zones { grid-template-columns: 1fr; gap: 10px; min-height: 0; }
+    .zone { min-height: 180px; padding: 26px 10px 10px; }
+    .chip-row .denom-label { flex: 0 0 32px; font-size: 0.62rem; }
+    .chip-stack { width: 30px; height: 50px; }
+    .chip-stack:not(.toppled) .chip-piece { height: 12px; }
+    .chip-stack.toppled { height: 30px; }
+    .chip-stack.toppled .chip-piece { width: 14px; height: 26px; margin-right: -10px; }
+    .chip-tray-stack { width: 42px; height: 110px; }
+    .chip-tray-stack .chip-edge { height: 14px; }
+    .chip-tray { padding: 5px 4px; gap: 3px; }
+    .bill-stack { width: 56px; height: 34px; }
+    .bill-piece { height: 26px; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back-link" href="blackjack-trainer.html">&larr; Main menu</a>
+  <h1>Cheque &amp; Money Exchange</h1>
+  <div class="sub">Practice color-ups, cheque changes, and money changes</div>
+
+  <div class="table">
+    <div class="scenario-banner" id="scenario-banner">
+      <span id="scenario-title">Color coming in</span>
+      <span class="req" id="scenario-req">&nbsp;</span>
+    </div>
+
+    <div class="exchange-zones">
+      <div class="zone left-zone" id="incoming-zone">
+        <div class="zone-label">INCOMING</div>
+        <div class="zone-total" id="incoming-total"></div>
+        <div class="chip-grid" id="incoming-grid"></div>
+        <div class="bills-row" id="incoming-bills" style="display:none"></div>
+      </div>
+      <div class="zone right-zone" id="outgoing-zone" onclick="Game.outgoingClick(event)">
+        <div class="zone-label">OUTGOING</div>
+        <div class="zone-total" id="outgoing-total">$0</div>
+        <div class="chip-grid" id="outgoing-grid"></div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Click <b>Floor: OK</b> to begin coloring up.</div>
+
+    <div class="exchange-controls">
+      <button class="floor-ok-btn" id="floor-ok-btn" onclick="Game.floorOK()">Floor: OK</button>
+      <button class="done-btn"    id="done-btn"    onclick="Game.done()">Done</button>
+      <button class="clear-btn"   id="clear-btn"   onclick="Game.clearOutgoing()">Clear outgoing</button>
+      <button class="skip-btn"    id="skip-btn"    onclick="Game.nextScenario()">Skip</button>
+    </div>
+
+    <div class="chip-tray-wrap">
+      <div class="chip-tray" id="chip-tray"></div>
+    </div>
+  </div>
+</div>
+
+<div class="announce" id="announce-modal" onclick="Game.closeAnnounce(event)">
+  <div class="announce-card">
+    <h2 id="announce-title">Coloring up</h2>
+    <div class="big" id="announce-amount">$0</div>
+    <div class="sub" id="announce-detail"></div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   CHEQUE & MONEY EXCHANGE
+   Single-player drill: scenarios appear (color coming in / cheque
+   change / changing) and the dealer must build the correct
+   outgoing chip stack from the chip tray.
+   ================================================================ */
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------- Chip denomination model ---------- */
+/* Each chip has a value, color class, label, and stack size for the row
+   layout: 4 for $5/$25/$500, 5 for everything else. */
+const DENOMS = [
+  { value: 500, color: 'purple', label: '$500',  stackSize: 4 },
+  { value: 100, color: 'black',  label: '$100',  stackSize: 5 },
+  { value:  25, color: 'green',  label: '$25',   stackSize: 4 },
+  { value:   5, color: 'red',    label: '$5',    stackSize: 4 },
+  { value: 2.5, color: 'pink',   label: '$2.50', stackSize: 5 },
+  { value:   1, color: 'white',  label: '$1',    stackSize: 5 },
+];
+
+const ROW_MAX = 20;
+const BILLS = [100, 50, 20, 10, 5];
+
+/* ---------- Game state ---------- */
+let scenario = null;
+let outgoing = [];
+let floorApproved = false;
+let scenarioCount = 0;
+
+/* ---------- Utilities ---------- */
+function randInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function sumChips(chips) {
+  let s = 0;
+  for (const v of chips) s += v;
+  return Math.round(s * 100) / 100;
+}
+function formatMoney(n) {
+  if (Number.isInteger(n)) return '$' + n.toLocaleString();
+  return '$' + n.toFixed(2);
+}
+function applyStripeOffset(el) {
+  const offsetPx = (Math.random() * 11).toFixed(2);
+  el.style.setProperty('--stripe-offset', offsetPx + 'px');
+}
+
+/* Group chip values into [{ denom, count }] descending by value. */
+function groupByDenom(chips) {
+  const counts = new Map();
+  for (const v of chips) counts.set(v, (counts.get(v) || 0) + 1);
+  const result = [];
+  for (const d of DENOMS) {
+    const c = counts.get(d.value) || 0;
+    if (c > 0) result.push({ denom: d, count: c });
+  }
+  return result;
+}
+
+/* Split N chips of a denomination into rows of stacks following the rules:
+   - up to ROW_MAX chips per row
+   - stacks of `stackSize` (partial last stack OK)
+   - last stack of each row is toppled
+   - if the row ends in a partial stack, the preceding stack is also toppled */
+function layoutDenom(count, stackSize) {
+  const rows = [];
+  let remaining = count;
+  while (remaining > 0) {
+    const rowCapacity = Math.min(remaining, ROW_MAX);
+    const stacks = [];
+    let left = rowCapacity;
+    while (left > 0) {
+      const sz = Math.min(left, stackSize);
+      stacks.push({ size: sz, toppled: false });
+      left -= sz;
+    }
+    if (stacks.length > 0) {
+      const last = stacks[stacks.length - 1];
+      last.toppled = true;
+      if (last.size < stackSize && stacks.length > 1) {
+        stacks[stacks.length - 2].toppled = true;
+      }
+    }
+    rows.push(stacks);
+    remaining -= rowCapacity;
+  }
+  return rows;
+}
+
+function renderChipGrid(parent, chips) {
+  parent.innerHTML = '';
+  const groups = groupByDenom(chips);
+  /* Render lowest-denom first; flex-direction:column-reverse puts the
+     highest-denom row at the visual bottom. */
+  const ordered = [...groups].sort((a, b) => a.denom.value - b.denom.value);
+  for (const g of ordered) {
+    const rows = layoutDenom(g.count, g.denom.stackSize);
+    for (const stacks of rows) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'chip-row';
+      const labelEl = document.createElement('div');
+      labelEl.className = 'denom-label';
+      labelEl.textContent = g.denom.label;
+      rowEl.appendChild(labelEl);
+      for (const stack of stacks) {
+        rowEl.appendChild(makeStackEl(g.denom, stack.size, stack.toppled));
+      }
+      parent.appendChild(rowEl);
+    }
+  }
+}
+
+function makeStackEl(denom, size, toppled) {
+  const stack = document.createElement('div');
+  stack.className = 'chip-stack' + (toppled ? ' toppled' : '');
+  const STEP = 6;
+  for (let i = 0; i < size; i++) {
+    const chip = document.createElement('div');
+    chip.className = 'chip-piece cp-' + denom.color;
+    if (!toppled) {
+      chip.style.bottom = (i * STEP) + 'px';
+      chip.style.zIndex = String(i);
+    }
+    applyStripeOffset(chip);
+    stack.appendChild(chip);
+  }
+  return stack;
+}
+
+function renderChipTray() {
+  const tray = $('chip-tray');
+  tray.innerHTML = '';
+  for (const d of DENOMS) {
+    const col = document.createElement('div');
+    col.className = 'chip-tray-stack';
+    col.dataset.value = d.value;
+    col.onclick = () => Game.pickChip(d.value);
+    const COUNT = 20;
+    const STEP = 5;
+    const LABEL_PAD = 20;
+    for (let i = 0; i < COUNT; i++) {
+      const chip = document.createElement('div');
+      chip.className = 'chip-edge cp-' + d.color;
+      chip.style.bottom = (LABEL_PAD + i * STEP) + 'px';
+      chip.style.zIndex = String(i);
+      applyStripeOffset(chip);
+      col.appendChild(chip);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'chip-label';
+    lbl.textContent = d.label;
+    col.appendChild(lbl);
+    tray.appendChild(col);
+  }
+}
+
+function renderBills(parent, bills) {
+  parent.innerHTML = '';
+  const grouped = {};
+  for (const b of bills) grouped[b] = (grouped[b] || 0) + 1;
+  for (const denomStr of Object.keys(grouped).sort((a, b) => b - a)) {
+    const denom = parseInt(denomStr, 10);
+    const count = grouped[denom];
+    const stack = document.createElement('div');
+    stack.className = 'bill-stack';
+    for (let i = 0; i < count; i++) {
+      const bill = document.createElement('div');
+      bill.className = 'bill-piece';
+      bill.style.bottom = (i * 4) + 'px';
+      bill.style.zIndex = String(i);
+      bill.textContent = '$' + denom;
+      stack.appendChild(bill);
+    }
+    stack.style.height = (32 + (count - 1) * 4) + 'px';
+    parent.appendChild(stack);
+  }
+}
+
+/* ---------- Scenario generators ---------- */
+function genColorComingIn() {
+  /* Player brings a mix of low-value chips totaling $100–$900. */
+  const targetTotal = randInt(100, 900);
+  const incoming = [];
+  let remaining = targetTotal;
+  /* Sprinkle some $25 chips first. */
+  const num25 = Math.floor(remaining / 25);
+  const use25 = Math.min(num25, randInt(0, num25));
+  for (let i = 0; i < use25; i++) { incoming.push(25); remaining -= 25; }
+  while (remaining >= 5) { incoming.push(5); remaining -= 5; }
+  if (remaining >= 2.5 && Math.random() < 0.5) { incoming.push(2.5); remaining -= 2.5; }
+  while (remaining >= 1) { incoming.push(1); remaining -= 1; }
+  return { type: 'color', incoming, value: sumChips(incoming) };
+}
+
+function genChequeChange() {
+  /* Player gives one $25/$100/$500 chip; dealer breaks it into smaller. */
+  const single = pick([25, 100, 500]);
+  return { type: 'change', incoming: [single], value: single };
+}
+
+function genCashChanging() {
+  /* Player gives cash bills, dealer gives back chips. */
+  const totals = [20, 40, 50, 60, 80, 100, 200, 300, 500];
+  const total = pick(totals);
+  const bills = [];
+  let remaining = total;
+  for (const b of BILLS) {
+    while (remaining >= b) { bills.push(b); remaining -= b; }
+  }
+  return { type: 'cash', incoming: bills, value: total, isCash: true };
+}
+
+const SCENARIO_GENS = [genColorComingIn, genChequeChange, genCashChanging];
+
+/* ---------- Game module ---------- */
+const Game = {};
+
+Game.start = function() {
+  renderChipTray();
+  this.nextScenario();
+};
+
+Game.nextScenario = function() {
+  scenarioCount++;
+  scenario = pick(SCENARIO_GENS)();
+  outgoing = [];
+  floorApproved = false;
+  this.renderScenario();
+  this.renderOutgoing();
+  this.updateStatus();
+};
+
+Game.renderScenario = function() {
+  const titleEl = $('scenario-title');
+  const reqEl = $('scenario-req');
+  const incomingGrid = $('incoming-grid');
+  const incomingBills = $('incoming-bills');
+  const incomingTotal = $('incoming-total');
+  incomingGrid.innerHTML = '';
+  incomingBills.innerHTML = '';
+  incomingBills.style.display = 'none';
+  incomingGrid.style.display = '';
+
+  if (scenario.type === 'color') {
+    titleEl.textContent = 'Color coming in';
+    reqEl.innerHTML = `Player brings <b>${formatMoney(scenario.value)}</b> in chips.`;
+    renderChipGrid(incomingGrid, scenario.incoming);
+  } else if (scenario.type === 'change') {
+    titleEl.textContent = 'Cheque change';
+    reqEl.innerHTML = `Player wants change for <b>${formatMoney(scenario.value)}</b>.`;
+    renderChipGrid(incomingGrid, scenario.incoming);
+  } else if (scenario.type === 'cash') {
+    titleEl.textContent = 'Changing';
+    reqEl.innerHTML = `Player buys in with <b>${formatMoney(scenario.value)}</b> cash.`;
+    incomingGrid.style.display = 'none';
+    incomingBills.style.display = '';
+    renderBills(incomingBills, scenario.incoming);
+  }
+  incomingTotal.textContent = formatMoney(scenario.value);
+
+  const okBtn = $('floor-ok-btn');
+  if (scenario.type === 'color') {
+    okBtn.style.display = '';
+    okBtn.disabled = false;
+    okBtn.textContent = 'Floor: OK';
+    $('outgoing-zone').classList.add('locked');
+  } else {
+    okBtn.style.display = 'none';
+    floorApproved = true;
+    $('outgoing-zone').classList.remove('locked');
+  }
+};
+
+Game.floorOK = function() {
+  if (scenario.type !== 'color') return;
+  floorApproved = true;
+  const okBtn = $('floor-ok-btn');
+  okBtn.disabled = true;
+  okBtn.textContent = 'OK ✓';
+  $('outgoing-zone').classList.remove('locked');
+  this.updateStatus();
+};
+
+Game.pickChip = function(value) {
+  if (!floorApproved) return;
+  outgoing.push(value);
+  this.renderOutgoing();
+};
+
+Game.outgoingClick = function(ev) {
+  if (!floorApproved) return;
+  const target = ev.target.closest('.chip-piece');
+  if (!target) return;
+  const cls = Array.from(target.classList).find(c => c.startsWith('cp-'));
+  if (!cls) return;
+  const color = cls.slice(3);
+  const denom = DENOMS.find(d => d.color === color);
+  if (!denom) return;
+  for (let i = outgoing.length - 1; i >= 0; i--) {
+    if (outgoing[i] === denom.value) {
+      outgoing.splice(i, 1);
+      break;
+    }
+  }
+  this.renderOutgoing();
+};
+
+Game.clearOutgoing = function() {
+  outgoing = [];
+  this.renderOutgoing();
+};
+
+Game.renderOutgoing = function() {
+  renderChipGrid($('outgoing-grid'), outgoing);
+  const total = sumChips(outgoing);
+  $('outgoing-total').textContent = formatMoney(total);
+  const doneBtn = $('done-btn');
+  if (scenario && Math.abs(total - scenario.value) < 0.001 && outgoing.length > 0) {
+    doneBtn.classList.add('ready');
+  } else {
+    doneBtn.classList.remove('ready');
+  }
+  this.updateStatus();
+};
+
+Game.done = function() {
+  if (!floorApproved) {
+    flashStatus("Wait — get the floor's OK first.", 'bad');
+    return;
+  }
+  const total = sumChips(outgoing);
+  if (Math.abs(total - scenario.value) > 0.001) {
+    flashStatus(`Outgoing is ${formatMoney(total)} but should be ${formatMoney(scenario.value)}.`, 'bad');
+    return;
+  }
+  let title = '';
+  let detail = '';
+  if (scenario.type === 'color') {
+    title = 'Coloring up';
+    const highChips = outgoing.filter(v => v >= 100);
+    if (highChips.length > 0) {
+      const grouped = groupByDenom(highChips);
+      detail = grouped.map(g => `${g.count} ${plural(g.denom.color)}`).join(', ');
+    } else {
+      detail = '(no $100+ chips going out)';
+    }
+  } else if (scenario.type === 'change') {
+    title = 'Cheque change';
+    detail = 'Returned ' + describeOutgoing(outgoing);
+  } else if (scenario.type === 'cash') {
+    title = 'Changing';
+    detail = 'Returned ' + describeOutgoing(outgoing);
+  }
+  $('announce-title').textContent = title;
+  $('announce-amount').textContent = formatMoney(scenario.value);
+  $('announce-detail').textContent = detail;
+  $('announce-modal').classList.add('open');
+  setTimeout(() => { $('announce-modal').classList.remove('open'); Game.nextScenario(); }, 1800);
+};
+
+function plural(color) {
+  /* Casino slang names for high-value chips. */
+  if (color === 'black') return 'blacks';
+  if (color === 'purple') return 'purples';
+  if (color === 'green') return 'greens';
+  return color + 's';
+}
+
+function describeOutgoing(chips) {
+  const grouped = groupByDenom(chips);
+  return grouped.map(g => `${g.count}×${g.denom.label}`).join(' + ');
+}
+
+Game.closeAnnounce = function(ev) {
+  if (ev.target.id === 'announce-modal') $('announce-modal').classList.remove('open');
+};
+
+Game.updateStatus = function() {
+  const el = $('status');
+  el.className = 'status';
+  if (!scenario) return;
+  if (scenario.type === 'color' && !floorApproved) {
+    el.innerHTML = 'Click <b>Floor: OK</b> to acknowledge the color-up.';
+  } else {
+    const total = sumChips(outgoing);
+    if (outgoing.length === 0) {
+      el.innerHTML = `Build <b>${formatMoney(scenario.value)}</b> from the chip tray.`;
+    } else if (Math.abs(total - scenario.value) < 0.001) {
+      el.innerHTML = 'Outgoing matches — click <b>Done</b>.';
+      el.classList.add('flash-good');
+    } else {
+      const diff = scenario.value - total;
+      el.innerHTML = `Outgoing: ${formatMoney(total)} (${diff > 0 ? 'need ' + formatMoney(diff) + ' more' : formatMoney(-diff) + ' too much'}).`;
+    }
+  }
+};
+
+function flashStatus(text, kind) {
+  const el = $('status');
+  el.innerHTML = text;
+  el.className = 'status flash-' + (kind || 'good');
+}
+
+Game.start();
+</script>
+</body>
+</html>
