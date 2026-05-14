@@ -303,8 +303,9 @@
     min-height: 138px;            /* card 112 + ~22 elevation + buffer */
     min-width: 200px;
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
+    /* No horizontal scroll — when there are too many cards to fit, the row
+       is uniformly scaled down by fitDealerCards() to stay on-screen. */
+    overflow: visible;
   }
   /* Override absolute positioning for cards inside dealer hand */
   .dealer-cards .playing-card {
@@ -868,6 +869,16 @@
   .playing-card.collected-fade {
     opacity: 0;
     transform: translateX(-30px) translateY(-10px) rotate(-8deg);
+  }
+  /* Doubled card: the final card a player receives on a double is laid
+     sideways, the classic table signal that the hand was doubled. */
+  .playing-card.doubled-card {
+    transform: rotate(90deg);
+    transform-origin: center center;
+  }
+  /* Preserve the lift-on-hover for a doubled card that's also clickable. */
+  .playing-card.doubled-card.clickable-card:hover {
+    transform: rotate(90deg) translateY(-3px);
   }
   .player-cards { overflow: visible; }
   .main-circle.collectable-loser {
@@ -1632,17 +1643,27 @@ function animateChipsToRack(containerEl) {
 }
 
 /* ---------------- Render cards ---------------- */
-function makeCardEl(card, idx, faceDown, isDealer) {
+function makeCardEl(card, idx, faceDown, isDealer, playerIdx) {
   const c = document.createElement('div');
   c.className = 'playing-card ' + (faceDown ? 'face-down' : SUIT_COLOR[card.suit]);
   if (!isDealer) {
-    // Player cascade: top-right → bottom-left. Horizontal step is large
-    // enough that each card's top-left corner (rank+suit) is clearly
-    // separated from the next, so the dealer can count even with 4+ cards.
+    // Player cascade: top-right → bottom-left. Horizontal step keeps the
+    // rank+suit corner of each card visible but lets them overlap enough
+    // that 4–5 cards still fit cleanly inside the player area.
     const narrow = window.innerWidth <= 520;
-    const xStep  = narrow ? 32 : 56;
+    const xStep  = narrow ? 24 : 44;
     const yStep  = narrow ? 36 : 24;
-    c.style.right = (idx * xStep) + 'px';
+    // On mobile the player station is narrow and a leftward cascade pushes
+    // the leftmost cards off the screen for Player 1 (and partly Player 2).
+    // Shift the whole stack to the RIGHT for the left-side players so even
+    // a 4–5 card hand fits cleanly under their own bet circles. Player 3
+    // sits on the right edge already so it gets no shift.
+    let xOffset = 0;
+    if (narrow && playerIdx !== undefined) {
+      if (playerIdx === 0) xOffset = -36;
+      else if (playerIdx === 1) xOffset = -18;
+    }
+    c.style.right = (idx * xStep + xOffset) + 'px';
     c.style.top  = (idx * yStep) + 'px';
   }
   if (!faceDown) {
@@ -1662,6 +1683,9 @@ function makeCardEl(card, idx, faceDown, isDealer) {
 function renderDealerCards(showCount, holeRevealed) {
   const el = $('dealer-cards');
   el.innerHTML = '';
+  /* Reset any prior auto-fit transform from earlier renders. */
+  el.style.transform = '';
+  el.style.transformOrigin = '';
   const cards = dealer.cards;
   if (showCount === undefined) showCount = cards.length;
   if (showCount <= 0) return;
@@ -1682,6 +1706,29 @@ function renderDealerCards(showCount, holeRevealed) {
       c.classList.add('dealer-card-baseline');
       el.appendChild(c);
     }
+  }
+  /* Auto-fit: if the natural row of dealer cards is wider than the row's
+     available width, scale the whole row down to fit so it never needs to
+     scroll. Pinning the transform to bottom-center keeps the cards sitting
+     on the baseline. */
+  fitDealerCards();
+}
+
+function fitDealerCards() {
+  const el = $('dealer-cards');
+  if (!el || el.children.length === 0) return;
+  /* scrollWidth is the natural (unscaled) content width including gaps;
+     clientWidth is the actual visible width. If the natural row overflows,
+     shrink the row uniformly so it just fits. */
+  const natural = el.scrollWidth;
+  const available = el.clientWidth;
+  if (available > 0 && natural > available + 1) {
+    const scale = available / natural;
+    el.style.transform = `scale(${scale})`;
+    el.style.transformOrigin = 'center bottom';
+  } else {
+    el.style.transform = '';
+    el.style.transformOrigin = '';
   }
 }
 
@@ -1743,13 +1790,20 @@ const Game = {
       players.push({ main:0, mainOriginal:0, bust:0, three:0, jkp:0, bjk:0, insurance:0, jkpCollected:false, bjkCollected:false, cards:[], results:{} });
     }
     dealer = { cards: [] };
-    renderBets();
     /* Reset any leftover per-player highlights (next-to-play / active /
-       click handlers) so the dashed outline doesn't persist into the new round. */
+       click handlers) and the red/blue jackpot LED-dot circles so nothing
+       glows or stays "collected" from the prior round. */
     document.querySelectorAll('.player').forEach(el => {
       el.classList.remove('next-to-play', 'active');
       el.onclick = null;
     });
+    for (let i=0; i<NUM_PLAYERS; i++) {
+      for (const key of ['jkp','bjk']) {
+        const el = $('p'+i+'-'+key);
+        if (el) el.classList.remove('collected', 'collectable', 'collectable-loser', 'payout-target');
+      }
+    }
+    renderBets();
     hideAllSignals();
     $('dealer-cards').innerHTML = '';
     for (let i=0; i<NUM_PLAYERS; i++) $('p'+i+'-cards').innerHTML = '';
@@ -1918,7 +1972,7 @@ function dealInitialCards() {
       const el = $('p'+i+'-cards');
       el.innerHTML = '';
       players[i].cards.slice(0, showCount).forEach((c, idx) => {
-        el.appendChild(makeCardEl(c, idx, false));
+        el.appendChild(makeCardEl(c, idx, false, false, i));
       });
     } else {
       const showCount = pass + 1;
@@ -2674,7 +2728,13 @@ function dealCardToActive() {
   // re-render this player's cards
   const el = $('p'+currentPlayerIdx+'-cards');
   el.innerHTML = '';
-  pl.cards.forEach((c, idx) => el.appendChild(makeCardEl(c, idx, false)));
+  pl.cards.forEach((c, idx) => el.appendChild(makeCardEl(c, idx, false, false, currentPlayerIdx)));
+  /* If the player doubled, lay the final (third) card horizontal — the
+     classic dealer signal that this hand received a double-down card. */
+  if (pl.doubled) {
+    const lastCard = el.lastElementChild;
+    if (lastCard) lastCard.classList.add('doubled-card');
+  }
   enableShoe(false);
 
   const t = handTotal(pl.cards);
@@ -3762,6 +3822,8 @@ document.body.classList.toggle('help-off', !helpEnabled);
 }
 Shoe.build(6);
 Game.newRound();
+/* Re-fit dealer cards if the viewport changes (rotation, browser resize). */
+window.addEventListener('resize', () => { fitDealerCards(); });
 </script>
 </body>
 </html>
