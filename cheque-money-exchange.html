@@ -32,6 +32,7 @@
     width: 100%;
     margin: 0;
     padding: 16px 12px 60px;
+    position: relative;          /* anchor the help button to the page header */
   }
   .back-link {
     display: inline-block;
@@ -813,6 +814,7 @@
 <body>
 <div class="page">
   <a class="back-link" href="blackjack-trainer.html">&larr; Main menu</a>
+  <button class="help-toggle on cme-help" id="help-toggle" onclick="Game.toggleHelp()">Help: ON</button>
   <h1>Cheque &amp; Money Exchange</h1>
   <div class="sub">Practice color-ups, cheque changes, and money changes</div>
 
@@ -872,9 +874,7 @@
       </div>
     </div>
 
-    <button class="help-toggle on cme-help" id="help-toggle" onclick="Game.toggleHelp()">Help: ON</button>
-
-    <div class="status" id="status">Click <b>Floor: OK</b> to begin coloring up.</div>
+    <div class="status" id="status">Pay the player out — then hit <b>Done</b>.</div>
 
     <div class="chip-tray-wrap">
       <div class="chip-tray" id="chip-tray"></div>
@@ -1271,91 +1271,145 @@ function renderCountedPiles(container, piles) {
 
 /* ---------- Scenario generators ---------- */
 function genColorComingIn() {
-  /* Coloring-up: the player brings a dollar amount inside the user-set
-     range. The program picks a chip mix that hits that amount exactly,
-     biased toward low-denomination chips (the whole point of coloring
-     up), but capped at 12 stacks × 20 chips = 240 chips total so the
-     scene stays readable. Bigger totals are absorbed by higher denoms. */
+  /* Coloring-up — the dealer takes the player's pile of smallish chips and
+     pays them back in fewer/larger chips. So the incoming pile should be
+     mostly $100 blacks (the workhorse the dealer is removing from circulation),
+     with a sprinkle of small chips for realism. Strategy:
+
+       Step 1 — Seed the pile with a random handful of small chips
+                ($1 white / $2.50 pink / $5 red / $25 green). These give
+                the scenario texture and a non-round residue.
+       Step 2 — Fill the bulk with $100 blacks. Only escalate to $500
+                purples (and then $1000 oranges) when the target is so
+                large that blacks alone would blow the 240-chip cap.
+       Step 3 — Plug the exact residue with $25 / $5 / $2.50 / $1 chips
+                so the pile sums to the target exactly.
+
+     The whole pile stays under 240 chips (12 stacks of 20).  */
   const lo = Math.min(RANGE.colorMin, RANGE.colorMax);
   const hi = Math.max(RANGE.colorMin, RANGE.colorMax);
   const steps = Math.max(1, Math.floor((hi - lo) / 5));
   const target = lo + Math.floor(Math.random() * (steps + 1)) * 5;
   const MAX_CHIPS = 240;
+  const RESIDUE_BUFFER = 6;   // chip slots reserved for the step-3 residue
 
-  /* Try a randomized split many times. Each attempt:
-       1. Pick some $1 whites (in multiples of 5 so we stay on the $5 grid).
-       2. Pick some $2.50 pinks (even count, same reason).
-       3. Distribute the residue across $5/$25/$100/$500/$1000 in $5 units,
-          randomly choosing how many of each denom while respecting both the
-          dollar residue and the 240-chip budget. */
-  for (let attempt = 0; attempt < 500; attempt++) {
-    /* $1 whites cap at $10 (10 chips), $2.50 pinks cap at $20 (8 chips).
-       Counts are restricted to keep the residue on the $5 grid: whites in
-       multiples of 5, pinks in even counts. */
-    const n1Options = [0, 0, 0, 5, 10];                   // weighted toward 0
-    let n1 = n1Options[Math.floor(Math.random() * n1Options.length)];
+  for (let attempt = 0; attempt < 400; attempt++) {
+    /* ----- Step 1: small seed chips (kept tight so the bulk is blacks) ----- */
+    const n1Opts  = [0, 0, 0, 5, 10];                  // $1 white, cap 10 chips ($10)
+    const n25Opts = [0, 0, 0, 2, 4, 6, 8];             // $2.50 pink, cap 8 chips ($20)
+    let n1   = n1Opts [Math.floor(Math.random() * n1Opts.length)];
+    let n2_5 = n25Opts[Math.floor(Math.random() * n25Opts.length)];
     if (n1 > target) n1 = 0;
-    const n25Options = [0, 0, 0, 2, 4, 6, 8];
-    let n2_5 = n25Options[Math.floor(Math.random() * n25Options.length)];
-    let val_2_5 = n2_5 * 2.5;
-    if (n1 + val_2_5 > target) { n2_5 = 0; val_2_5 = 0; }
+    if (n1 + 2.5 * n2_5 > target) n2_5 = 0;
 
-    let residueDollars = Math.round((target - n1 - val_2_5) * 100) / 100;
-    if (residueDollars < 0) continue;
-    let units5 = residueDollars / 5;  // remaining value expressed in $5 units
+    /* Reds: random 0–20 — natural chip the player would have a few of. */
+    let n5 = Math.floor(Math.random() * 21);
+    while (n1 + 2.5 * n2_5 + 5 * n5 > target && n5 > 0) n5--;
 
-    /* Tier multipliers in $5 units. Walk high→low and pick a random count,
-       letting the $5 reds absorb the final remainder. */
-    const tiers = [
-      { v: 1000, mul: 200, max: 20 },   // orange (rare in a color-up)
-      { v:  500, mul: 100, max: 20 },   // purple
-      { v:  100, mul:  20, max: 40 },   // black
-      { v:   25, mul:   5, max: 60 },   // green
-      { v:    5, mul:   1, max: 200 },  // red — the workhorse
-    ];
-    const counts = { 1: n1, 2.5: n2_5 };
-    let chipCount = n1 + n2_5;
-    let ok = true;
-    for (let i = 0; i < tiers.length; i++) {
-      const t = tiers[i];
-      const isLast = i === tiers.length - 1;
-      const maxFromUnits = Math.floor(units5 / t.mul);
-      let cap = Math.min(t.max, maxFromUnits, MAX_CHIPS - chipCount);
-      if (cap < 0) cap = 0;
-      let n;
-      if (isLast) {
-        /* $5 reds absorb the rest in $5 units. */
-        n = units5;
-        if (n > MAX_CHIPS - chipCount) { ok = false; break; }
+    /* Greens: random 0–15 — same idea. */
+    let n25 = Math.floor(Math.random() * 16);
+    while (n1 + 2.5*n2_5 + 5*n5 + 25*n25 > target && n25 > 0) n25--;
+
+    const smallVal   = n1 + 2.5*n2_5 + 5*n5 + 25*n25;
+    const smallChips = n1 + n2_5 + n5 + n25;
+    let remaining    = Math.round((target - smallVal) * 100) / 100;
+    if (remaining < 0) continue;
+
+    /* ----- Step 2: bulk fill, blacks-preferred ----- */
+    let n100 = 0, n500 = 0, n1000 = 0;
+    const bulkBudget = MAX_CHIPS - smallChips - RESIDUE_BUFFER;
+    if (bulkBudget < 0) continue;
+
+    const blacksFromValue = Math.floor(remaining / 100);
+
+    if (blacksFromValue <= bulkBudget) {
+      /* Easy case — the entire bulk fits in $100 blacks. */
+      n100 = blacksFromValue;
+    } else {
+      /* Black chips alone would overflow the 240-chip cap. Use the
+         minimum number of $500 purples needed so the remaining blacks
+         fit in budget. If even max-purples won't fit, fall back to
+         $1000 oranges for the last bit. */
+      const deficitVsBlacks = remaining - 100 * bulkBudget;     // dollars blacks can't cover
+      n500 = Math.ceil(deficitVsBlacks / 500);
+      let valAfter500    = remaining - n500 * 500;
+      let budgetAfter500 = bulkBudget - n500;
+      let blacksNow      = Math.floor(valAfter500 / 100);
+      if (blacksNow <= budgetAfter500 && budgetAfter500 >= 0) {
+        n100 = blacksNow;
       } else {
-        /* Bias toward smaller counts of high denoms so the mix leans
-           low. For $1000s especially, we usually want 0–2. */
-        const skew = (t.v >= 500) ? 0.35 : (t.v === 100 ? 0.6 : 1);
-        n = Math.floor(Math.random() * (cap + 1) * skew);
-        if (n > cap) n = cap;
+        const deficit2 = valAfter500 - 100 * Math.max(0, budgetAfter500);
+        n1000 = Math.ceil(deficit2 / 1000);
+        const valAfter1000    = valAfter500 - n1000 * 1000;
+        const budgetAfter1000 = budgetAfter500 - n1000;
+        if (valAfter1000 < 0 || budgetAfter1000 < 0) continue;
+        n100 = Math.floor(valAfter1000 / 100);
+        if (n100 > budgetAfter1000) continue;
       }
-      counts[t.v] = n;
-      units5 -= n * t.mul;
-      chipCount += n;
     }
-    if (!ok || units5 !== 0 || chipCount === 0 || chipCount > MAX_CHIPS) continue;
 
-    const incoming = [];
-    for (const v of [1000, 500, 100, 25, 5, 2.5, 1]) {
-      for (let k = 0; k < (counts[v] || 0); k++) incoming.push(v);
+    const bulkVal = n100 * 100 + n500 * 500 + n1000 * 1000;
+    let residue   = Math.round((remaining - bulkVal) * 100) / 100;
+    if (residue < 0) continue;
+
+    /* ----- Step 3: small chips to land exactly on target ----- */
+    const n25_extra = Math.floor(residue / 25);
+    n25 += n25_extra;
+    residue = Math.round((residue - n25_extra * 25) * 100) / 100;
+
+    const n5_extra = Math.floor(residue / 5);
+    n5 += n5_extra;
+    residue = Math.round((residue - n5_extra * 5) * 100) / 100;
+
+    if (residue >= 2.5 - 1e-9) {
+      n2_5 += 1;
+      residue = Math.round((residue - 2.5) * 100) / 100;
     }
-    return { type: 'color', incoming, value: sumChips(incoming) };
+    const n1_extra = Math.round(residue);
+    n1 += n1_extra;
+
+    const totalChips = n1 + n2_5 + n5 + n25 + n100 + n500 + n1000;
+    const totalVal   = Math.round(
+      (n1 + 2.5*n2_5 + 5*n5 + 25*n25 + 100*n100 + 500*n500 + 1000*n1000) * 100
+    ) / 100;
+
+    if (Math.abs(totalVal - target) < 0.01 && totalChips > 0 && totalChips <= MAX_CHIPS) {
+      const counts = { 1: n1, 2.5: n2_5, 5: n5, 25: n25, 100: n100, 500: n500, 1000: n1000 };
+      const incoming = [];
+      for (const v of [1000, 500, 100, 25, 5, 2.5, 1]) {
+        for (let k = 0; k < counts[v]; k++) incoming.push(v);
+      }
+      return { type: 'color', incoming, value: sumChips(incoming) };
+    }
   }
 
-  /* Greedy big-first fallback — guaranteed to fit in MAX_CHIPS for any
-     target ≤ $25,000 since $1000 × 25 = $25,000 alone. */
-  const incoming = [];
-  let remaining = target;
-  for (const v of [1000, 500, 100, 25, 5, 1]) {
-    while (remaining >= v - 1e-9 && incoming.length < MAX_CHIPS) {
-      incoming.push(v);
-      remaining = Math.round((remaining - v) * 100) / 100;
+  /* Fallback — blacks-first greedy. Only triggers if the randomized walk
+     fails to converge, which should be very rare. Still avoids dumping the
+     bulk into oranges/purples. */
+  const counts = { 1: 0, 2.5: 0, 5: 0, 25: 0, 100: 0, 500: 0, 1000: 0 };
+  let rem = target;
+  /* Use just enough $1000/$500 to make $100 blacks fit in budget. */
+  const reserveSmall = 30;  // chip slots reserved for $25/$5/etc residue
+  let maxBlacks = MAX_CHIPS - reserveSmall;
+  if (rem / 100 > maxBlacks) {
+    const deficit = rem - 100 * maxBlacks;
+    counts[500] = Math.min(Math.ceil(deficit / 500), 20);
+    rem -= counts[500] * 500;
+    if (rem / 100 > maxBlacks - counts[500]) {
+      const d2 = rem - 100 * (maxBlacks - counts[500]);
+      counts[1000] = Math.ceil(d2 / 1000);
+      rem -= counts[1000] * 1000;
     }
+  }
+  for (const v of [100, 25, 5, 1]) {
+    while (rem >= v - 1e-9 && (counts[1]+counts[2.5]+counts[5]+counts[25]+counts[100]+counts[500]+counts[1000]) < MAX_CHIPS) {
+      counts[v]++;
+      rem = Math.round((rem - v) * 100) / 100;
+    }
+  }
+  const incoming = [];
+  for (const v of [1000, 500, 100, 25, 5, 2.5, 1]) {
+    for (let k = 0; k < counts[v]; k++) incoming.push(v);
   }
   return { type: 'color', incoming, value: sumChips(incoming) };
 }
@@ -1611,17 +1665,13 @@ Game.renderScenario = function() {
   }
   incomingTotal.textContent = formatMoney(scenario.value);
 
+  /* Floor: OK is no longer required for any scenario — the dealer can start
+     paying out chips immediately. The button stays in the DOM (hidden) so
+     legacy code paths that reference it don't break. */
   const okBtn = $('floor-ok-btn');
-  if (scenario.type === 'color') {
-    okBtn.style.display = '';
-    okBtn.disabled = false;
-    okBtn.textContent = 'Floor: OK';
-    $('outgoing-zone').classList.add('locked');
-  } else {
-    okBtn.style.display = 'none';
-    floorApproved = true;
-    $('outgoing-zone').classList.remove('locked');
-  }
+  if (okBtn) okBtn.style.display = 'none';
+  floorApproved = true;
+  $('outgoing-zone').classList.remove('locked');
 };
 
 Game.floorOK = function() {
@@ -1800,10 +1850,6 @@ Game.updateStatus = function() {
   const el = $('status');
   el.className = 'status';
   if (!scenario) return;
-  if (scenario.type === 'color' && !floorApproved) {
-    el.innerHTML = 'Click <b>Floor: OK</b> to acknowledge the color-up.';
-    return;
-  }
   /* Cash scenario: status reflects the current batch in the multi-batch
      counting flow. With help off, all numeric hints are removed and only
      generic prompts remain. */
