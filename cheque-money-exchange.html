@@ -246,30 +246,18 @@
   .chip-row:nth-child(even) {
     margin-left: 28px;
   }
-  .chip-row .denom-label {
-    flex: 0 0 42px;
-    font-size: 0.78rem;
-    font-weight: 800;
-    color: #fde047;
-    text-align: right;
-    align-self: flex-end;
-    padding-bottom: 4px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-    letter-spacing: 0.3px;
-  }
-
-  /* ---------- A single standing stack ---------- */
+  /* ---------- A single standing stack (matches the dealer's rack chips) ---------- */
   .chip-stack {
     position: relative;
-    width: 36px;
-    height: 60px;
+    width: 56px;
+    height: 78px;
     flex: 0 0 auto;
   }
   .chip-stack .chip-piece {
     position: absolute;
     left: 0;
     right: 0;
-    height: 14px;
+    height: 18px;
     border-radius: 50%;
   }
 
@@ -660,7 +648,12 @@
   }
   .tray-actions .done-btn.ready:hover { background: #4ade80 !important; }
   @media (max-width: 560px) {
-    .chip-tray-wrap { flex-direction: column; gap: 10px; }
+    .chip-tray-wrap {
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;       /* center the rack horizontally on mobile */
+    }
+    .chip-tray { align-self: center; }   /* belt-and-suspenders */
     .tray-actions {
       flex-direction: row;
       flex-wrap: wrap;
@@ -804,9 +797,8 @@
     .scenario-banner .req { font-size: 0.78rem; }
     .exchange-zones { grid-template-columns: 1fr; gap: 10px; min-height: 0; }
     .zone { min-height: 180px; padding: 26px 10px 10px; }
-    .chip-row .denom-label { flex: 0 0 32px; font-size: 0.62rem; }
-    .chip-stack { width: 30px; height: 50px; }
-    .chip-stack:not(.toppled) .chip-piece { height: 12px; }
+    .chip-stack { width: 44px; height: 64px; }
+    .chip-stack:not(.toppled) .chip-piece { height: 14px; }
     .chip-stack.toppled { height: 30px; }
     .chip-stack.toppled .chip-piece { width: 14px; height: 26px; margin-right: -10px; }
     .chip-tray-stack { width: 32px; height: 100px; }
@@ -973,6 +965,11 @@ function loadSettings() {
         if (typeof data.RANGE[k] === 'number') RANGE[k] = data.RANGE[k];
       }
     }
+    /* Migration: an earlier build briefly stored color sliders as stack counts
+       (1–12). If we see a stored value below $25 (the slider's real minimum),
+       reset coloring-up to its dollar-based defaults. */
+    if (RANGE.colorMin < 25) RANGE.colorMin = 50;
+    if (RANGE.colorMax < 25) RANGE.colorMax = 2000;
     if (data && typeof data.helpEnabled === 'boolean') helpEnabled = data.helpEnabled;
   } catch (e) { /* ignore */ }
 }
@@ -1104,10 +1101,7 @@ function renderChipGrid(parent, chips) {
     for (const stacks of rows) {
       const rowEl = document.createElement('div');
       rowEl.className = 'chip-row';
-      const labelEl = document.createElement('div');
-      labelEl.className = 'denom-label';
-      labelEl.textContent = g.denom.label;
-      rowEl.appendChild(labelEl);
+      /* No denomination label — color identifies the chip. */
       for (const stack of stacks) {
         rowEl.appendChild(makeStackEl(g.denom, stack.size, stack.toppled));
       }
@@ -1119,7 +1113,7 @@ function renderChipGrid(parent, chips) {
 function makeStackEl(denom, size, toppled) {
   const stack = document.createElement('div');
   stack.className = 'chip-stack' + (toppled ? ' toppled' : '');
-  const STEP = 6;
+  const STEP = 5;
   for (let i = 0; i < size; i++) {
     const chip = document.createElement('div');
     chip.className = 'chip-piece cp-' + denom.color;
@@ -1277,21 +1271,92 @@ function renderCountedPiles(container, piles) {
 
 /* ---------- Scenario generators ---------- */
 function genColorComingIn() {
-  /* Player brings a mix of low-value chips totaling somewhere in the
-     user-set range, rounded to $5 so the chips are reasonable. */
+  /* Coloring-up: the player brings a dollar amount inside the user-set
+     range. The program picks a chip mix that hits that amount exactly,
+     biased toward low-denomination chips (the whole point of coloring
+     up), but capped at 12 stacks × 20 chips = 240 chips total so the
+     scene stays readable. Bigger totals are absorbed by higher denoms. */
   const lo = Math.min(RANGE.colorMin, RANGE.colorMax);
   const hi = Math.max(RANGE.colorMin, RANGE.colorMax);
   const steps = Math.max(1, Math.floor((hi - lo) / 5));
-  const targetTotal = lo + Math.floor(Math.random() * (steps + 1)) * 5;
+  const target = lo + Math.floor(Math.random() * (steps + 1)) * 5;
+  const MAX_CHIPS = 240;
+
+  /* Try a randomized split many times. Each attempt:
+       1. Pick some $1 whites (in multiples of 5 so we stay on the $5 grid).
+       2. Pick some $2.50 pinks (even count, same reason).
+       3. Distribute the residue across $5/$25/$100/$500/$1000 in $5 units,
+          randomly choosing how many of each denom while respecting both the
+          dollar residue and the 240-chip budget. */
+  for (let attempt = 0; attempt < 500; attempt++) {
+    /* $1 whites cap at $10 (10 chips), $2.50 pinks cap at $20 (8 chips).
+       Counts are restricted to keep the residue on the $5 grid: whites in
+       multiples of 5, pinks in even counts. */
+    const n1Options = [0, 0, 0, 5, 10];                   // weighted toward 0
+    let n1 = n1Options[Math.floor(Math.random() * n1Options.length)];
+    if (n1 > target) n1 = 0;
+    const n25Options = [0, 0, 0, 2, 4, 6, 8];
+    let n2_5 = n25Options[Math.floor(Math.random() * n25Options.length)];
+    let val_2_5 = n2_5 * 2.5;
+    if (n1 + val_2_5 > target) { n2_5 = 0; val_2_5 = 0; }
+
+    let residueDollars = Math.round((target - n1 - val_2_5) * 100) / 100;
+    if (residueDollars < 0) continue;
+    let units5 = residueDollars / 5;  // remaining value expressed in $5 units
+
+    /* Tier multipliers in $5 units. Walk high→low and pick a random count,
+       letting the $5 reds absorb the final remainder. */
+    const tiers = [
+      { v: 1000, mul: 200, max: 20 },   // orange (rare in a color-up)
+      { v:  500, mul: 100, max: 20 },   // purple
+      { v:  100, mul:  20, max: 40 },   // black
+      { v:   25, mul:   5, max: 60 },   // green
+      { v:    5, mul:   1, max: 200 },  // red — the workhorse
+    ];
+    const counts = { 1: n1, 2.5: n2_5 };
+    let chipCount = n1 + n2_5;
+    let ok = true;
+    for (let i = 0; i < tiers.length; i++) {
+      const t = tiers[i];
+      const isLast = i === tiers.length - 1;
+      const maxFromUnits = Math.floor(units5 / t.mul);
+      let cap = Math.min(t.max, maxFromUnits, MAX_CHIPS - chipCount);
+      if (cap < 0) cap = 0;
+      let n;
+      if (isLast) {
+        /* $5 reds absorb the rest in $5 units. */
+        n = units5;
+        if (n > MAX_CHIPS - chipCount) { ok = false; break; }
+      } else {
+        /* Bias toward smaller counts of high denoms so the mix leans
+           low. For $1000s especially, we usually want 0–2. */
+        const skew = (t.v >= 500) ? 0.35 : (t.v === 100 ? 0.6 : 1);
+        n = Math.floor(Math.random() * (cap + 1) * skew);
+        if (n > cap) n = cap;
+      }
+      counts[t.v] = n;
+      units5 -= n * t.mul;
+      chipCount += n;
+    }
+    if (!ok || units5 !== 0 || chipCount === 0 || chipCount > MAX_CHIPS) continue;
+
+    const incoming = [];
+    for (const v of [1000, 500, 100, 25, 5, 2.5, 1]) {
+      for (let k = 0; k < (counts[v] || 0); k++) incoming.push(v);
+    }
+    return { type: 'color', incoming, value: sumChips(incoming) };
+  }
+
+  /* Greedy big-first fallback — guaranteed to fit in MAX_CHIPS for any
+     target ≤ $25,000 since $1000 × 25 = $25,000 alone. */
   const incoming = [];
-  let remaining = targetTotal;
-  /* Sprinkle some $25 chips first. */
-  const num25 = Math.floor(remaining / 25);
-  const use25 = Math.min(num25, randInt(0, num25));
-  for (let i = 0; i < use25; i++) { incoming.push(25); remaining -= 25; }
-  while (remaining >= 5) { incoming.push(5); remaining -= 5; }
-  if (remaining >= 2.5 && Math.random() < 0.5) { incoming.push(2.5); remaining -= 2.5; }
-  while (remaining >= 1) { incoming.push(1); remaining -= 1; }
+  let remaining = target;
+  for (const v of [1000, 500, 100, 25, 5, 1]) {
+    while (remaining >= v - 1e-9 && incoming.length < MAX_CHIPS) {
+      incoming.push(v);
+      remaining = Math.round((remaining - v) * 100) / 100;
+    }
+  }
   return { type: 'color', incoming, value: sumChips(incoming) };
 }
 
