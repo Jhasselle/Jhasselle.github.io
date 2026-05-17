@@ -223,31 +223,39 @@
   .right-zone.locked { cursor: default; }
 
   /* ---------- Chip row layout inside a zone ----------
-     Each row holds up to 20 chips arranged in stacks (4 for $5/$25/$500,
-     5 for everything else). The last stack of every row is toppled. If the
-     row ends in a partial stack the preceding full stack is ALSO toppled.
-     Rows stack vertically from bottom up, highest denomination on bottom. */
+     Rows render top-to-bottom in ascending denomination, so the smallest
+     chips ($1, $2.50) sit at the top and the largest ($500, $1000) sit at
+     the bottom — consistent with how a dealer's tray reads. Alternating
+     rows are staggered horizontally so a long 20-stack row doesn't
+     visually blur into the one above/below it. */
   .chip-grid {
     display: flex;
-    flex-direction: column-reverse;
-    gap: 12px;
+    flex-direction: column;
+    gap: 22px;             /* roomier spacing between denomination rows */
     align-items: flex-start;
     width: 100%;
   }
   .chip-row {
     display: flex;
     align-items: flex-end;
-    gap: 8px;
+    gap: 10px;
     width: 100%;
     min-height: 24px;
   }
+  /* Stagger every other row to break up tall back-to-back 20-chip columns. */
+  .chip-row:nth-child(even) {
+    margin-left: 28px;
+  }
   .chip-row .denom-label {
-    flex: 0 0 38px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: rgba(255,255,255,0.55);
+    flex: 0 0 42px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #fde047;
     text-align: right;
-    align-self: center;
+    align-self: flex-end;
+    padding-bottom: 4px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    letter-spacing: 0.3px;
   }
 
   /* ---------- A single standing stack ---------- */
@@ -484,30 +492,43 @@
     letter-spacing: 0.4px;
     font-variant-numeric: tabular-nums;
   }
-  /* Overflow cash (bills not yet brought to the table) in bottom-left
-     of the outgoing zone. */
+  /* Overflow cash (bills not yet brought to the table) — single pile in
+     the bottom-RIGHT corner of the incoming zone with a $-amount label. */
   .overflow-cash {
     position: absolute;
     bottom: 10px;
-    left: 10px;
+    right: 10px;
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: center;
     gap: 4px;
     pointer-events: none;
+    z-index: 4;
   }
-  /* Overflow pile bills — small versions, just the top denom. */
-  .overflow-cash .bill-v { width: 24px; height: 38px; }
-  .overflow-cash .bill-v::before { display: none; }
-  .overflow-cash .bill-v .bill-num { font-size: 0.55rem; }
-  .overflow-cash .bill-v .bill-num.top    { top: 4px; }
-  .overflow-cash .bill-v .bill-num.bottom { bottom: 4px; }
+  .overflow-pile {
+    position: relative;
+    width: 36px;
+    height: 50px;
+  }
+  .overflow-pile .bill-v {
+    position: absolute;
+    width: 30px;
+    height: 46px;
+  }
+  .overflow-pile .bill-v::before { display: none; }
+  .overflow-pile .bill-v .bill-num { font-size: 0.6rem; }
+  .overflow-pile .bill-v .bill-num.top    { top: 5px; }
+  .overflow-pile .bill-v .bill-num.bottom { bottom: 5px; }
   .overflow-label {
     color: #fca5a5;
-    font-size: 0.68rem;
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.4px;
-    margin-left: 4px;
+    white-space: nowrap;
   }
+  /* Reserve space at the bottom of the incoming zone so the active cash
+     columns don't reach down into the overflow pile. */
+  .left-zone .bills-row { padding-bottom: 64px; }
 
   /* ---------- Exchange controls ---------- */
   .exchange-controls {
@@ -574,14 +595,98 @@
   .status.flash-good { color: #86efac; }
   .status.flash-bad  { color: #fca5a5; }
 
-  /* ---------- Chip tray (bottom; dealer's source for outgoing chips) ---------- */
+  /* Help toggle: pinned to top-right corner of the table. */
+  .cme-help {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 5;
+    font: inherit;
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+  }
+  @media (max-width: 560px) {
+    .cme-help { top: 8px; right: 8px; padding: 5px 10px; font-size: 0.78rem; }
+  }
+
+  /* ---------- Chip tray (bottom) + action buttons stacked on the right ---------- */
   .chip-tray-wrap {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 14px;
     margin-top: 6px;
   }
+  .tray-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-self: stretch;
+    justify-content: center;
+    min-width: 110px;
+  }
+  .tray-actions button {
+    font: inherit;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .tray-actions button:hover { background: #334155; }
+  .tray-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tray-actions .floor-ok-btn {
+    background: #fbbf24 !important;
+    color: #0b1220 !important;
+    border-color: #fbbf24 !important;
+  }
+  .tray-actions .floor-ok-btn:hover { background: #fcd34d !important; }
+  .tray-actions .done-btn.ready {
+    background: #22c55e !important;
+    border-color: #22c55e !important;
+    color: #052e16 !important;
+  }
+  .tray-actions .done-btn.ready:hover { background: #4ade80 !important; }
+  @media (max-width: 560px) {
+    .chip-tray-wrap { flex-direction: column; gap: 10px; }
+    .tray-actions {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-width: 0;
+    }
+    .tray-actions button { padding: 6px 10px; font-size: 0.82rem; }
+  }
+
+  /* "Stack" button below each chip column in the dealer's tray. */
+  .chip-tray-stack-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 3px 0;
+    cursor: pointer;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 4px;
+    color: rgba(255,255,255,0.85);
+    font: inherit;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .chip-tray-stack-btn:hover { background: rgba(255,255,255,0.22); }
   .chip-tray {
     background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
     border: 3px solid #000;
@@ -590,6 +695,11 @@
     display: flex;
     gap: 6px;
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5);
+  }
+  .chip-tray-col {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
   .chip-tray-stack {
     position: relative;
@@ -760,28 +870,28 @@
         <div class="zone-total" id="incoming-total"></div>
         <div class="chip-grid" id="incoming-grid"></div>
         <div class="bills-row" id="incoming-bills" style="display:none"></div>
+        <div class="overflow-cash" id="incoming-overflow" style="display:none"></div>
       </div>
       <div class="zone right-zone" id="outgoing-zone" onclick="Game.outgoingClick(event)">
         <div class="zone-label">OUTGOING</div>
         <div class="zone-total" id="outgoing-total">$0</div>
         <div class="chip-grid" id="outgoing-grid"></div>
-        <div class="overflow-cash" id="outgoing-overflow" style="display:none"></div>
         <div class="counted-piles" id="outgoing-counted" style="display:none"></div>
       </div>
     </div>
 
-    <div class="status" id="status">Click <b>Floor: OK</b> to begin coloring up.</div>
+    <button class="help-toggle on cme-help" id="help-toggle" onclick="Game.toggleHelp()">Help: ON</button>
 
-    <div class="exchange-controls">
-      <button class="help-toggle on" id="help-toggle" onclick="Game.toggleHelp()">Help: ON</button>
-      <button class="floor-ok-btn" id="floor-ok-btn" onclick="Game.floorOK()">Floor: OK</button>
-      <button class="done-btn"    id="done-btn"    onclick="Game.done()">Done</button>
-      <button class="clear-btn"   id="clear-btn"   onclick="Game.clearOutgoing()">Clear outgoing</button>
-      <button class="skip-btn"    id="skip-btn"    onclick="Game.nextScenario()">Skip</button>
-    </div>
+    <div class="status" id="status">Click <b>Floor: OK</b> to begin coloring up.</div>
 
     <div class="chip-tray-wrap">
       <div class="chip-tray" id="chip-tray"></div>
+      <div class="tray-actions">
+        <button class="floor-ok-btn" id="floor-ok-btn" onclick="Game.floorOK()">Floor: OK</button>
+        <button class="done-btn"     id="done-btn"     onclick="Game.done()">Done</button>
+        <button class="clear-btn"    id="clear-btn"    onclick="Game.clearOutgoing()">Clear outgoing</button>
+        <button class="skip-btn"     id="skip-btn"     onclick="Game.nextScenario()">Skip</button>
+      </div>
     </div>
   </div>
 </div>
@@ -928,21 +1038,57 @@ function groupByDenom(chips) {
    - last stack of each row is toppled
    - if the row ends in a partial stack, the preceding stack is also toppled */
 function layoutDenom(count, stackSize) {
-  /* Toppling is temporarily disabled — every stack stays upright until we
-     implement a cleaner sideways visualization. */
-  const rows = [];
-  let remaining = count;
-  while (remaining > 0) {
-    const rowCapacity = Math.min(remaining, ROW_MAX);
+  /* ≤20 of a denomination: traditional layout — stacks of stackSize, all
+     fitting in one row.
+     >20 of a denomination: build "logical stacks" — full 20-columns plus
+     one final partial if there's a remainder. Rows fit up to 5 logical
+     stacks. The 5th stack of any full 5-stack row gets BROKEN into
+     stackSize-sized smaller stacks (e.g. a $1,000 20-stack breaks into 4
+     stacks of 5), and a final partial logical stack also breaks down. */
+  if (count <= 0) return [];
+
+  if (count <= 20) {
     const stacks = [];
-    let left = rowCapacity;
-    while (left > 0) {
-      const sz = Math.min(left, stackSize);
+    let r = count;
+    while (r > 0) {
+      const sz = Math.min(r, stackSize);
       stacks.push({ size: sz, toppled: false });
-      left -= sz;
+      r -= sz;
+    }
+    return [stacks];
+  }
+
+  /* 20-stack mode. */
+  const fullCount = Math.floor(count / 20);
+  const partial   = count % 20;
+  const logicals = [];
+  for (let i = 0; i < fullCount; i++) logicals.push({ size: 20, isFull: true });
+  if (partial > 0)                    logicals.push({ size: partial, isFull: false });
+
+  const rows = [];
+  for (let i = 0; i < logicals.length; i += 5) {
+    const rowLogicals = logicals.slice(i, i + 5);
+    const stacks = [];
+    for (let j = 0; j < rowLogicals.length; j++) {
+      const ls = rowLogicals[j];
+      const isFifth = j === 4 && rowLogicals.length === 5;
+      const isLast  = j === rowLogicals.length - 1;
+      /* Break this stack into stackSize-sized chunks when:
+         - it's the 5th of a full 5-stack row (always shown broken), OR
+         - it's the last stack of the row and it's a partial (under 20). */
+      const shouldBreak = isFifth || (isLast && !ls.isFull);
+      if (shouldBreak) {
+        let r = ls.size;
+        while (r > 0) {
+          const sz = Math.min(r, stackSize);
+          stacks.push({ size: sz, toppled: false });
+          r -= sz;
+        }
+      } else {
+        stacks.push({ size: ls.size, toppled: false });
+      }
     }
     rows.push(stacks);
-    remaining -= rowCapacity;
   }
   return rows;
 }
@@ -991,6 +1137,10 @@ function renderChipTray() {
   const tray = $('chip-tray');
   tray.innerHTML = '';
   for (const d of DENOMS) {
+    /* Wrapper column holding the chip stack + the "Stack" button below. */
+    const wrap = document.createElement('div');
+    wrap.className = 'chip-tray-col';
+
     const col = document.createElement('div');
     col.className = 'chip-tray-stack';
     col.dataset.value = d.value;
@@ -1010,7 +1160,17 @@ function renderChipTray() {
     lbl.className = 'chip-label';
     lbl.textContent = d.label;
     col.appendChild(lbl);
-    tray.appendChild(col);
+    wrap.appendChild(col);
+
+    /* "Stack" button — adds 20 chips of this denomination to outgoing. */
+    const btn = document.createElement('button');
+    btn.className = 'chip-tray-stack-btn';
+    btn.type = 'button';
+    btn.textContent = 'Stack';
+    btn.onclick = (ev) => { ev.stopPropagation(); Game.addStackOf(d.value); };
+    wrap.appendChild(btn);
+
+    tray.appendChild(wrap);
   }
 }
 
@@ -1055,9 +1215,8 @@ function renderCashBatch(parent, batch) {
   parent.appendChild(grid);
 }
 
-/* Render the overflow pile (small bills sitting in outgoing bottom-left,
-   representing batches not yet counted). Just shows one bill per remaining
-   stack along with a "remaining $X" label. */
+/* Render the overflow pile — a single small pile of bills in the
+   incoming zone's bottom-right corner, with a "remaining" label. */
 function renderOverflow(container, remainingBatches) {
   if (!remainingBatches || remainingBatches.length === 0) {
     container.style.display = 'none';
@@ -1066,19 +1225,37 @@ function renderOverflow(container, remainingBatches) {
   }
   container.style.display = '';
   container.innerHTML = '';
-  /* Show one tiny bill per upcoming stack, then a label of total left. */
+  /* Sum remaining cash for the label. */
   let total = 0;
   for (const batch of remainingBatches) {
     for (const stack of batch) {
-      const bill = makeBillV(stack.denom);
-      container.appendChild(bill);
       total += stack.denom * stack.count;
     }
   }
-  const lbl = document.createElement('span');
-  lbl.className = 'overflow-label';
-  lbl.textContent = formatMoney(total) + ' left';
-  container.appendChild(lbl);
+  /* Render a compact "pile" of overlapping bills as a visual marker. Uses
+     the denomination of the very next bill that will come onto the table
+     (i.e. the first stack of the first remaining batch), so the dealer
+     can see at a glance what's queued up. */
+  const nextDenom = (remainingBatches[0] && remainingBatches[0][0])
+    ? remainingBatches[0][0].denom
+    : 100;
+  const pile = document.createElement('div');
+  pile.className = 'overflow-pile';
+  const pileSize = 4;
+  for (let i = 0; i < pileSize; i++) {
+    const bill = makeBillV(nextDenom);
+    bill.style.bottom = (i * 2) + 'px';
+    bill.style.left   = (i * 1.5) + 'px';
+    bill.style.zIndex = String(i);
+    pile.appendChild(bill);
+  }
+  container.appendChild(pile);
+  if (helpEnabled) {
+    const lbl = document.createElement('span');
+    lbl.className = 'overflow-label';
+    lbl.textContent = formatMoney(total) + ' left';
+    container.appendChild(lbl);
+  }
 }
 
 /* Render counted-pile labels along the outgoing zone's right side. */
@@ -1151,17 +1328,46 @@ function billStackSize(denom) {
    bottom-left until earlier batches are counted off. */
 const COLUMNS_PER_BATCH = 5;
 
-function buildCashStructure(total) {
-  /* Greedy bill breakdown using BILLS (largest first). */
-  const billCounts = {};
-  let remaining = total;
-  for (const b of BILLS) {
-    if (remaining >= b) {
-      const n = Math.floor(remaining / b);
-      billCounts[b] = n;
-      remaining -= n * b;
+/* Random bill breakdown. Non-$100 denominations ($5/$10/$20/$50) can each
+   appear up to 25 times; $100s have no cap. This produces more varied
+   scenarios than pure greedy (which would always max out $100s first). */
+function randomBillBreakdown(total) {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
+    let remaining = total;
+    /* Pick non-$100 counts in a shuffled order so no denomination is
+       systematically biased to use up more of the total first. */
+    const order = [50, 20, 10, 5];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    for (const d of order) {
+      if (remaining <= 0) break;
+      const maxN = Math.min(25, Math.floor(remaining / d));
+      const n = Math.floor(Math.random() * (maxN + 1));
+      counts[d] = n;
+      remaining -= n * d;
+    }
+    /* Whatever's left must be coverable in $100 bills. */
+    if (remaining >= 0 && remaining % 100 === 0) {
+      counts[100] = remaining / 100;
+      return counts;
     }
   }
+  /* Fall back to greedy if the random walk failed to land on a clean total. */
+  const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
+  let remaining = total;
+  for (const d of [100, 50, 20, 10, 5]) {
+    const n = Math.floor(remaining / d);
+    counts[d] = n;
+    remaining -= n * d;
+  }
+  return counts;
+}
+
+function buildCashStructure(total) {
+  const billCounts = randomBillBreakdown(total);
   /* Stacks: split each denom's bills into stack-size groups, sorted highest
      denom first (left to right). */
   const stacks = [];
@@ -1312,7 +1518,7 @@ Game.renderScenario = function() {
 
   /* Reset cash-mode containers in outgoing zone so non-cash scenarios
      don't carry stale piles/overflow. */
-  const overflowEl = document.getElementById('outgoing-overflow');
+  const overflowEl = document.getElementById('incoming-overflow');
   const countedEl  = document.getElementById('outgoing-counted');
   if (overflowEl) { overflowEl.style.display = 'none'; overflowEl.innerHTML = ''; }
   if (countedEl)  { countedEl.style.display = 'none'; countedEl.innerHTML = ''; }
@@ -1366,6 +1572,14 @@ Game.floorOK = function() {
 Game.pickChip = function(value) {
   if (!floorApproved) return;
   outgoing.push(value);
+  this.renderOutgoing();
+};
+
+/* "Stack" button under each chip-tray column — adds 20 chips of that
+   denomination to the outgoing zone in one click. */
+Game.addStackOf = function(value) {
+  if (!floorApproved) return;
+  for (let i = 0; i < 20; i++) outgoing.push(value);
   this.renderOutgoing();
 };
 
