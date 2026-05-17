@@ -119,8 +119,23 @@
   }
   .vs-pair input[type="range"] { accent-color: #fbbf24; }
   .vs-val { color: #fde047; font-weight: 700; font-variant-numeric: tabular-nums; }
+  /* Single-row toggle (e.g. big-bills-only). */
+  .vs-row-toggle {
+    grid-template-columns: 110px 1fr;
+  }
+  .vs-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    user-select: none;
+  }
+  .vs-toggle input[type="checkbox"] { accent-color: #fbbf24; width: 16px; height: 16px; }
   @media (max-width: 560px) {
     .vs-row { grid-template-columns: 1fr; }
+    .vs-row-toggle { grid-template-columns: 1fr; }
     .vs-label { font-size: 0.78rem; }
   }
 
@@ -410,6 +425,17 @@
     position: relative;
     width: 36px;
   }
+  /* ---------- Cash slide in/out animations ---------- */
+  @keyframes cash-slide-in {
+    from { transform: translateX(60px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes cash-slide-out {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(-90px); opacity: 0; }
+  }
+  .cash-grid.slide-in  { animation: cash-slide-in 380ms ease-out both; }
+  .cash-grid.slide-out { animation: cash-slide-out 320ms ease-in both; }
   .bill-stack-v .bill-v {
     position: absolute;
     left: 0;
@@ -797,11 +823,18 @@
     .scenario-banner { font-size: 1.1rem; letter-spacing: 1.5px; }
     .scenario-banner .req { font-size: 0.78rem; }
     .exchange-zones { grid-template-columns: 1fr; gap: 10px; min-height: 0; }
-    .zone { min-height: 180px; padding: 26px 10px 10px; }
-    .chip-stack { width: 44px; height: 64px; }
-    .chip-stack:not(.toppled) .chip-piece { height: 14px; }
-    .chip-stack.toppled { height: 30px; }
-    .chip-stack.toppled .chip-piece { width: 14px; height: 26px; margin-right: -10px; }
+    .zone { min-height: 180px; padding: 26px 8px 10px; }
+    /* Smaller, uniform chips so 5 stacks (plus the staggered row offset)
+       fit inside the narrow mobile incoming zone without overflowing the
+       right edge. Every chip stack still uses the exact same dimensions —
+       no row gets shrunk individually. */
+    .chip-grid { gap: 16px; }
+    .chip-row { gap: 6px; }
+    .chip-row:nth-child(even) { margin-left: 18px; }
+    .chip-stack { width: 36px; height: 54px; }
+    .chip-stack:not(.toppled) .chip-piece { height: 12px; }
+    .chip-stack.toppled { height: 28px; }
+    .chip-stack.toppled .chip-piece { width: 12px; height: 22px; margin-right: -8px; }
     .chip-tray-stack { width: 32px; height: 100px; }
     .chip-tray-stack .chip-edge { height: 13px; }
     .chip-tray-stack .chip-label { font-size: 0.55rem; letter-spacing: 0; }
@@ -849,6 +882,13 @@
             <label>Max <span class="vs-val" id="cash-max-val">$500</span></label>
             <input type="range" id="cash-max" min="20" max="25000" step="20" value="500" oninput="Game.onRange('cashMax', this.value)">
           </div>
+        </div>
+        <div class="vs-row vs-row-toggle">
+          <span class="vs-label">Bills</span>
+          <label class="vs-toggle">
+            <input type="checkbox" id="big-bills-only" onchange="Game.toggleBigBillsOnly(this.checked)">
+            <span>$100s &amp; $20s only (no $50/$10/$5/$1)</span>
+          </label>
         </div>
       </div>
     </details>
@@ -941,12 +981,16 @@ const RANGE = {
    When OFF, the dealer counts on their own without any number readouts. */
 let helpEnabled = true;
 
+/* Big-bills-only option: when true, the "changing" cash scenarios only
+   generate $100 and $20 bills (no $50/$10/$5/$1). */
+let bigBillsOnly = false;
+
 /* ---------- Persistence ---------- */
 const STORAGE_KEY = 'cheque-exchange-settings-v1';
 
 function saveSettings() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ enabledTypes, RANGE, helpEnabled }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ enabledTypes, RANGE, helpEnabled, bigBillsOnly }));
   } catch (e) { /* private mode / storage disabled — ignore */ }
 }
 
@@ -971,6 +1015,7 @@ function loadSettings() {
     if (RANGE.colorMin < 25) RANGE.colorMin = 50;
     if (RANGE.colorMax < 25) RANGE.colorMax = 2000;
     if (data && typeof data.helpEnabled === 'boolean') helpEnabled = data.helpEnabled;
+    if (data && typeof data.bigBillsOnly === 'boolean') bigBillsOnly = data.bigBillsOnly;
   } catch (e) { /* ignore */ }
 }
 
@@ -998,6 +1043,8 @@ function syncControlsFromState() {
     helpBtn.classList.toggle('on', helpEnabled);
     helpBtn.classList.toggle('off', !helpEnabled);
   }
+  const bigBillsBox = document.getElementById('big-bills-only');
+  if (bigBillsBox) bigBillsBox.checked = bigBillsOnly;
 }
 
 /* ---------- Utilities ---------- */
@@ -1114,6 +1161,15 @@ function makeStackEl(denom, size, toppled) {
   const stack = document.createElement('div');
   stack.className = 'chip-stack' + (toppled ? ' toppled' : '');
   const STEP = 5;
+  if (!toppled) {
+    /* Reserve enough vertical space inside the stack box for every chip
+       piece. Without this, the chip-pieces (absolutely positioned with
+       `bottom: i*STEP`) overflow the chip-stack's CSS height and visually
+       poke up into the row above, hiding chips in the row that's behind. */
+    const isMobile = window.matchMedia('(max-width: 560px)').matches;
+    const CHIP_H = isMobile ? 12 : 18;     // matches CSS .chip-piece height per breakpoint
+    stack.style.height = ((size - 1) * STEP + CHIP_H) + 'px';
+  }
   for (let i = 0; i < size; i++) {
     const chip = document.createElement('div');
     chip.className = 'chip-piece cp-' + denom.color;
@@ -1181,10 +1237,26 @@ function makeBillV(denom) {
 
 /* Render one batch (≤ 5 stacks) as columns of vertical bills, left to right.
    Generous offset so most of each bill is visible — minimal overlap. */
+/* Trigger the slide-out animation on the currently-visible cash batch, then
+   invoke `done()`. If the .cash-grid element isn't present (defensive guard),
+   the callback fires immediately. */
+function slideCurrentBatchOut(done) {
+  const billsHost = document.getElementById('incoming-bills');
+  const grid = billsHost && billsHost.querySelector('.cash-grid');
+  if (!grid) { done(); return; }
+  grid.classList.remove('slide-in');
+  /* Force a reflow so the browser re-evaluates the animation. */
+  void grid.offsetWidth;
+  grid.classList.add('slide-out');
+  setTimeout(done, 320);
+}
+
 function renderCashBatch(parent, batch) {
   parent.innerHTML = '';
   const grid = document.createElement('div');
-  grid.className = 'cash-grid';
+  /* Always animate fresh bills in from the right. The slide-out animation
+     is applied separately by Game.done before re-render. */
+  grid.className = 'cash-grid slide-in';
   const OFFSET = 24;   // px each successive bill rises — minimal overlap
   const BILL_H = 70;
   for (const stack of batch) {
@@ -1323,8 +1395,22 @@ function genColorComingIn() {
     const blacksFromValue = Math.floor(remaining / 100);
 
     if (blacksFromValue <= bulkBudget) {
-      /* Easy case — the entire bulk fits in $100 blacks. */
-      n100 = blacksFromValue;
+      /* Easy case — the entire bulk fits in $100 blacks. For larger totals
+         ($1k+), optionally sprinkle in a few $500 purples for realism —
+         real players coloring up a sizable buy-in usually have at least
+         some purples mixed into their pile. Blacks still dominate. */
+      if (remaining >= 1000) {
+        const maxPurple = Math.min(15, Math.floor(remaining / 1000));
+        const r = Math.random();
+        if      (r < 0.40) n500 = 0;                                       // 40%: blacks-only
+        else if (r < 0.80) n500 = randInt(1, Math.min(3, maxPurple));      // 40%: 1–3 purples
+        else               n500 = randInt(1, maxPurple);                   // 20%: random up to cap
+      }
+      /* Important: `remaining` represents the total bulk-to-allocate and
+         must not be mutated here — `bulkVal` (computed below) already
+         includes n500 * 500, so subtracting it from `remaining` would
+         double-count and the residue check would reject the attempt. */
+      n100 = Math.floor((remaining - n500 * 500) / 100);
     } else {
       /* Black chips alone would overflow the 240-chip cap. Use the
          minimum number of $500 purples needed so the remaining blacks
@@ -1449,8 +1535,38 @@ const COLUMNS_PER_BATCH = 5;
 
 /* Random bill breakdown. Non-$100 denominations ($5/$10/$20/$50) can each
    appear up to 25 times; $100s have no cap. This produces more varied
-   scenarios than pure greedy (which would always max out $100s first). */
+   scenarios than pure greedy (which would always max out $100s first).
+   When the "big bills only" option is enabled, the breakdown is restricted
+   to $100s and $20s exclusively. */
 function randomBillBreakdown(total) {
+  /* In big-bills-only mode, the only non-$100 denomination is $20.
+     A clean $20 multiple of `total` is guaranteed because the cash slider
+     steps in $20 increments. */
+  if (bigBillsOnly) {
+    const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
+    /* Pick a random number of $20s, leaving the residue (in $100 multiples)
+       for hundreds. The $100 part must be a multiple of $100, which means
+       $20s must come in multiples of 5 (= $100) … unless we just pick a
+       count that leaves a multiple-of-100 residue. We pick $20s up to a
+       random cap, then bump it down until the residue is a $100 multiple. */
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const max20 = Math.min(25, Math.floor(total / 20));
+      let n20 = Math.floor(Math.random() * (max20 + 1));
+      let residue = total - n20 * 20;
+      /* Shave $20 chips off until residue is a clean $100 multiple. */
+      while (residue % 100 !== 0 && n20 > 0) { n20--; residue += 20; }
+      if (residue % 100 === 0 && residue >= 0) {
+        counts[20]  = n20;
+        counts[100] = residue / 100;
+        return counts;
+      }
+    }
+    /* Greedy fallback for big-bills mode. */
+    counts[100] = Math.floor(total / 100);
+    counts[20]  = (total - counts[100] * 100) / 20;
+    return counts;
+  }
+
   for (let attempt = 0; attempt < 200; attempt++) {
     const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
     let remaining = total;
@@ -1593,6 +1709,14 @@ Game.toggleHelp = function() {
   saveSettings();
   /* Refresh the visible numbers (status line, done-button label). */
   this.renderOutgoing();
+};
+
+Game.toggleBigBillsOnly = function(checked) {
+  bigBillsOnly = !!checked;
+  saveSettings();
+  /* If the user flips this mid-scenario, regenerate the current cash
+     scenario so the new constraint takes effect. */
+  if (scenario && scenario.type === 'cash') this.nextScenario();
 };
 
 Game.toggleType = function(type) {
@@ -1772,6 +1896,7 @@ Game.done = function() {
      advance ("Changing $X, and counting"); the final batch validates the
      outgoing chips and announces the final total. */
   if (scenario.type === 'cash') {
+    if (Game._cashAnimating) return;   // ignore rapid re-clicks during animation
     const batches = scenario.cashBatches;
     const idx = scenario.cashBatchIdx;
     const thisBatchValue = batchValue(batches[idx]);
@@ -1779,13 +1904,17 @@ Game.done = function() {
     const isLast = idx === batches.length - 1;
 
     if (!isLast) {
-      /* "Changing $X, and counting" — move current batch into counted piles
-         and advance. No chip validation yet. */
-      scenario.countedPiles.push({ value: thisBatchValue });
-      scenario.cashBatchIdx++;
-      flashStatus(`Changing ${formatMoney(cumulative)}, and counting…`, 'good');
-      this.renderScenario();
-      this.updateStatus();
+      /* Intermediate batch — slide the counted cash off the table first,
+         then advance to the next batch (which renders with slide-in). */
+      Game._cashAnimating = true;
+      slideCurrentBatchOut(() => {
+        scenario.countedPiles.push({ value: thisBatchValue });
+        scenario.cashBatchIdx++;
+        flashStatus(`Changing ${formatMoney(cumulative)}, and counting…`, 'good');
+        Game.renderScenario();
+        Game.updateStatus();
+        Game._cashAnimating = false;
+      });
       return;
     }
     /* Final batch — chips must equal the total cash. */
@@ -1794,11 +1923,19 @@ Game.done = function() {
       flashStatus(`Outgoing is ${formatMoney(total)} but should be ${formatMoney(scenario.value)}.`, 'bad');
       return;
     }
-    $('announce-title').textContent = 'Changing';
-    $('announce-amount').textContent = formatMoney(scenario.value);
-    $('announce-detail').textContent = 'Returned ' + describeOutgoing(outgoing);
-    $('announce-modal').classList.add('open');
-    setTimeout(() => { $('announce-modal').classList.remove('open'); Game.nextScenario(); }, 1800);
+    /* Slide the final batch off the table, then announce. */
+    Game._cashAnimating = true;
+    slideCurrentBatchOut(() => {
+      $('announce-title').textContent = 'Changing';
+      $('announce-amount').textContent = formatMoney(scenario.value);
+      $('announce-detail').textContent = 'Returned ' + describeOutgoing(outgoing);
+      $('announce-modal').classList.add('open');
+      setTimeout(() => {
+        $('announce-modal').classList.remove('open');
+        Game._cashAnimating = false;
+        Game.nextScenario();
+      }, 1800);
+    });
     return;
   }
 
