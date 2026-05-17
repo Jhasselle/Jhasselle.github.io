@@ -128,6 +128,9 @@
     vertical-align: middle;
     text-transform: uppercase;
   }
+  .mode-btn .cs-badge.beta {
+    background: var(--accent);   /* teal/blue — distinct from yellow "coming soon" */
+  }
   .mode-btn span { color: var(--muted); font-size: 0.88rem; }
   .back-link {
     display: inline-block;
@@ -596,12 +599,12 @@
         <b>Side-bet Flashcards</b>
         <span>21+3 Xtreme, Bust Bonus, and Red &amp; Blue Jackpot &mdash; all shuffled together. See the hand or up-card, recall the payout.</span>
       </button>
-      <button class="mode-btn" onclick="location.href='dealing-simulator.html'">
+      <button class="mode-btn" onclick="Nav.goSection('dealing-section')">
         <b>Dealing Simulator</b>
         <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
       </button>
-      <button class="mode-btn coming-soon" disabled aria-disabled="true">
-        <b>Cheque &amp; Money Exchange <span class="cs-badge">Coming soon</span></b>
+      <button class="mode-btn" onclick="location.href='cheque-money-exchange.html'">
+        <b>Cheque &amp; Money Exchange <span class="cs-badge beta">beta</span></b>
         <span>Single-station drill. Color coming in, cheque change, and money changing &mdash; build the outgoing stack from the chip tray.</span>
       </button>
     </div>
@@ -942,6 +945,26 @@
 
   </div><!-- /sidebets-section -->
 
+  <!-- ==================== DEALING SIMULATOR SECTION (mode picker) ==================== -->
+  <div id="dealing-section" class="section" style="display:none">
+
+    <button class="back-link" onclick="Nav.goMain()">&larr; Main menu</button>
+    <h2>Dealing Simulator</h2>
+    <div class="sub">Pick the game variant</div>
+
+    <div id="dealing-home" class="card screen">
+      <button class="mode-btn" onclick="location.href='dealing-simulator.html'">
+        <b>6-Deck Shoe</b>
+        <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
+      </button>
+      <button class="mode-btn coming-soon" disabled aria-disabled="true">
+        <b>2-Deck Pitch <span class="cs-badge">Coming soon</span></b>
+        <span>Hand-pitched blackjack from two decks. Cards dealt face-down to players.</span>
+      </button>
+    </div>
+
+  </div><!-- /dealing-section -->
+
 </div><!-- /wrap -->
 
 <script>
@@ -980,6 +1003,11 @@ const SECTIONS = [
     home: "sidebets-home",
     screens: ["sidebets-home", "sidebets-quiz"],
     onEnter: function() { Sidebets.renderList(); }
+  },
+  {
+    id: "dealing-section",
+    home: "dealing-home",
+    screens: ["dealing-home"],
   },
 ];
 
