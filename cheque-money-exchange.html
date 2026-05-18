@@ -631,6 +631,11 @@
   }
 
   /* ---------- Chip tray (bottom) + action buttons stacked on the right ---------- */
+  /* Sticky to the bottom of the viewport. When the outgoing chip pile
+     grows and pushes the rest of the layout down, the tray stays pinned
+     under the dealer's thumb so STACK buttons don't slide out from
+     under tapping fingers. A subtle felt-colored backdrop keeps the
+     scrolling chips above from bleeding visually into the tray. */
   .chip-tray-wrap {
     display: flex;
     flex-direction: row;
@@ -639,6 +644,18 @@
     justify-content: center;
     gap: 14px;
     margin-top: 6px;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    padding: 10px 6px 8px;
+    margin-left: -22px;
+    margin-right: -22px;
+    background: linear-gradient(180deg,
+      rgba(46, 16, 101, 0)   0%,
+      rgba(46, 16, 101, 0.92) 22%,
+      rgba(46, 16, 101, 0.98) 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
   .tray-actions {
     display: flex;
@@ -1109,18 +1126,23 @@ function layoutDenom(count, stackSize) {
   for (let i = 0; i < fullCount; i++) logicals.push({ size: 20, isFull: true });
   if (partial > 0)                    logicals.push({ size: partial, isFull: false });
 
+  /* Generalized rule: in every row, the LAST stack is shown broken down
+     into stackSize-sized smaller piles — regardless of whether the row
+     has 5 stacks or fewer. So a 4-stack row of $100 blacks renders as
+     3 full 20-stacks + 4 smaller stacks of 5. A 1-stack row renders as
+     4 smaller stacks of 5 (no full upright). The remainder (a sub-20
+     partial) also stays broken. */
   const rows = [];
   for (let i = 0; i < logicals.length; i += 5) {
     const rowLogicals = logicals.slice(i, i + 5);
     const stacks = [];
     for (let j = 0; j < rowLogicals.length; j++) {
       const ls = rowLogicals[j];
-      const isFifth = j === 4 && rowLogicals.length === 5;
-      const isLast  = j === rowLogicals.length - 1;
+      const isLast = j === rowLogicals.length - 1;
       /* Break this stack into stackSize-sized chunks when:
-         - it's the 5th of a full 5-stack row (always shown broken), OR
-         - it's the last stack of the row and it's a partial (under 20). */
-      const shouldBreak = isFifth || (isLast && !ls.isFull);
+         - it's the LAST stack of the row (always shown broken), OR
+         - it's a partial (under 20) — partials are always broken. */
+      const shouldBreak = isLast || !ls.isFull;
       if (shouldBreak) {
         let r = ls.size;
         while (r > 0) {
@@ -2046,9 +2068,12 @@ Game.updateStatus = function() {
 };
 
 function flashStatus(text, kind) {
-  const el = $('status');
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.className = 'status';
+  if (kind) el.classList.add('flash-' + kind);
   el.innerHTML = text;
-  el.className = 'status flash-' + (kind || 'good');
+  setTimeout(() => { if (Game && Game.updateStatus) Game.updateStatus(); }, 1500);
 }
 
 Game.start();
