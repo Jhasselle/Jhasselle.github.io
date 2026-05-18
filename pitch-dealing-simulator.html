@@ -427,7 +427,7 @@
        translate the cards toward the bet circle and lower their
        z-index so the chip-stack visualisation renders ON TOP of the
        tucked edge. ============================================================ */
-  .bet-cluster { z-index: 5; }   /* ensure bet always paints over tucked cards */
+  .bet-cluster { position: relative; z-index: 5; }   /* z-index needs non-static position to take effect; chips paint over tucked cards */
   /* All cards in a stood hand (face-down AND face-up) slide LEFT into the
      bet-cluster area. With .bet-cluster z-index 5 and these cards at z-index
      0, the chip-stack-viz paints OVER the tucked edges, so the front of each
@@ -435,14 +435,18 @@
      adds a slight personal tilt so the pile reads as hand-held rather than
      mechanically aligned. */
   .playing-card.pitch-stood {
-    transform: translate3d(-65px, 10px, 0) rotate(var(--stood-rot, 0deg));
+    /* The tuck direction depends on viewport: on desktop the bet-cluster
+       sits to the LEFT of the cards, so we slide cards LEFT into it. On
+       mobile (player-body switches to flex-column with chips ABOVE), we
+       slide cards UP instead. The two --tuck-* CSS variables make that a
+       one-line override in the mobile media query. */
+    transform: translate3d(var(--tuck-x, -65px), var(--tuck-y, 10px), 0)
+               rotate(var(--stood-rot, 0deg));
     z-index: 0;
     transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
                 top 300ms cubic-bezier(0.4, 0, 0.2, 1),
                 right 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* Container-level marker for stood hands — purely informational, but
-     useful for any future per-hand styling. */
   .player-cards.pitch-stood-hand { /* placeholder for future hooks */ }
 
   /* ---------- Bottom bar: shoe | chip tray | red button ---------- */
@@ -820,6 +824,15 @@
       flex-direction: column;        /* cards below the bet cluster */
       align-items: center;
       gap: 4px;
+    }
+    /* Mobile tuck: bet-cluster is ABOVE the cards, so stood/doubled cards
+       slide UP instead of LEFT to overlap into the chip area. */
+    .playing-card.pitch-stood { --tuck-x: 0px; --tuck-y: -55px; }
+    /* Mobile doubled-layout positions are overridden inline by renderPlayerCards
+       when mobile mode is detected — but in case mode-detect fails we provide
+       reasonable defaults via this scope. */
+    .player-cards.pitch-doubled .playing-card.doubled-card {
+      --doubled-mobile: 1;
     }
     .player-cards { width: 92px; height: 134px; }
     .playing-card { width: 64px; height: 90px; border-radius: 6px; }
@@ -2150,6 +2163,11 @@ function renderPlayerCards(playerIdx, limit) {
     const faceDown = !!pl.faceDown[idx];
     el.appendChild(makeCardEl(pl.cards[idx], idx, faceDown, false, playerIdx));
   }
+  /* Detect mobile mode (bet-cluster ABOVE cards) vs desktop (bet-cluster
+     LEFT of cards). The doubled card and the stood layout both need
+     different geometry because the bet-cluster is in a different place
+     relative to .player-cards. */
+  const isMobileLayout = window.matchMedia('(max-width: 520px)').matches;
   /* DOUBLED HAND LAYOUT (pitch). Two variants depending on whether the
      doubled card is still face-down (during play) or has been revealed
      (settlement). */
@@ -2159,32 +2177,62 @@ function renderPlayerCards(playerIdx, limit) {
     const doubledIsFaceDown = !!(pl.faceDown && pl.faceDown[2]);
     if (doubledIsFaceDown) {
       /* === DURING PLAY ===
-         Originals shown side-by-side in the lower half; doubled card
-         (face-down, horizontal) hidden behind the chip stack at the top. */
-      if (cards[0]) { cards[0].style.right = '0';    cards[0].style.top = '78px'; }
-      if (cards[1]) { cards[1].style.right = '44px'; cards[1].style.top = '102px'; }
-      if (doubledCard) {
-        doubledCard.classList.add('doubled-card');
-        doubledCard.style.right = 'auto';
-        doubledCard.style.left = '-60px';
-        doubledCard.style.top = '-22px';
+         The doubled card sits MOSTLY behind the chip stack, leaving only
+         a small peek visible. It must NOT visually overlap the face-up
+         originals.
+
+         Geometry math (card rotated 90° around center):
+           unrotated card W×H = cardW × cardH
+           visual W × H       = cardH × cardW
+           visual X range     = [left + cardW/2 − cardH/2, left + cardW/2 + cardH/2]
+           visual Y range     = [top  + cardH/2 − cardW/2, top  + cardH/2 + cardW/2]
+                              = [top + (cardH−cardW)/2, top + (cardH+cardW)/2]
+         For desktop cards 80×112 → visual Y = [top+16, top+96]. With
+         originals at top:78, we need top+96 ≤ 78 → top ≤ −18 to avoid
+         overlap. left:−80 leaves visual X right edge at 16 (a ~16px peek
+         to the right of the chip-cluster).
+         For mobile cards 64×90 → visual Y = [top+13, top+77]. With
+         originals at top:40, top+77 ≤ 40 → top ≤ −37 to avoid overlap.
+         top:−69 puts the visual Y range fully above the originals with
+         an ~8px peek visible at the bottom of the chip area. */
+      if (isMobileLayout) {
+        if (cards[0]) { cards[0].style.right = '0';    cards[0].style.top = '40px'; }
+        if (cards[1]) { cards[1].style.right = '28px'; cards[1].style.top = '60px'; }
+        if (doubledCard) {
+          doubledCard.classList.add('doubled-card');
+          doubledCard.style.right = 'auto';
+          doubledCard.style.left = '1px';
+          doubledCard.style.top  = '-69px';
+        }
+      } else {
+        if (cards[0]) { cards[0].style.right = '0';    cards[0].style.top = '78px'; }
+        if (cards[1]) { cards[1].style.right = '44px'; cards[1].style.top = '102px'; }
+        if (doubledCard) {
+          doubledCard.classList.add('doubled-card');
+          doubledCard.style.right = 'auto';
+          doubledCard.style.left = '-80px';
+          doubledCard.style.top  = '-30px';
+        }
       }
     } else {
       /* === AFTER REVEAL ===
-         Originals fall back to the default cascade (top:0 / top:24 from
-         makeCardEl — no inline overrides needed). The doubled card moves
-         out from behind the chips and lays horizontal BELOW the originals,
-         joining the face-up pile but in its sideways orientation. */
+         Originals fall back to the default cascade. The doubled card lays
+         horizontal BELOW the originals, slightly tucked on top of the
+         bottom original. Same idea on desktop & mobile, just different
+         numeric offsets because the card sizes differ. */
       if (doubledCard) {
         doubledCard.classList.add('doubled-card');
         doubledCard.style.right = 'auto';
-        doubledCard.style.left = '12px';
-        /* Card 1 (the lower original) sits at top:24 → bottom edge Y=136.
-           The doubled card is rotated 90° so its visual top edge = (top + 16).
-           top:110 puts the visual top at Y=126 — 10px above card 1's bottom,
-           giving a slight overlap so the doubled card looks like it's
-           tucked on top of the bottom original. */
-        doubledCard.style.top  = '110px';
+        if (isMobileLayout) {
+          /* Mobile cards 64×90. Card 1 sits at top:24+yStep — but on
+             mobile yStep is bigger (36 narrow vs 24 desktop). Card 1
+             bottom ≈ 36+90=126. Rotated doubled card visual top = top+13. */
+          doubledCard.style.left = '14px';
+          doubledCard.style.top  = '92px';
+        } else {
+          doubledCard.style.left = '12px';
+          doubledCard.style.top  = '110px';
+        }
       }
     }
     return;
@@ -2730,15 +2778,16 @@ function finishSettlement() {
   const stackEl = $('chip-stack-display');
   if (stackEl) stackEl.innerHTML = '';
   // Branch on dealer's up card: 10/J/Q/K → peek; A → insurance + peek; else → play.
-  // For peek paths, force any 21+3 losers to be collected BEFORE the dealer
-  // reveals the hole card (no turn phase to defer them to).
+  // 21+3 losers are collected during each player's turn — no pre-peek
+  // forcing here. The dealer-BJ path has its own loser sweep
+  // (settle-21-loser-bj) when peek confirms a BJ.
   const upKey = dealerUpKey(dealer.cards[0]);
   if (upKey === '10') {
     setStatus('Side bets settled.');
-    setTimeout(() => startPrePeek21LoserCollection(startPeek10), 700);
+    setTimeout(startPeek10, 700);
   } else if (upKey === 'A') {
     setStatus('Side bets settled.');
-    setTimeout(() => startPrePeek21LoserCollection(startInsurance), 700);
+    setTimeout(startInsurance, 700);
   } else {
     setStatus('Side bets settled.');
     setTimeout(payNaturalBJsThenStartPlay, 700);
@@ -2796,7 +2845,8 @@ const _origCollectChip = Game.collectChip;
    late-collection dispatcher below must NOT fire here. */
 const PITCH_THREE_OWNED_PHASES = new Set([
   'collecting', 'settle-21-loser', 'settle-21-loser-bj',
-  '21-loser-before-bj', 'pre-peek-21-loser', 'settle-winners',
+  '21-loser-before-bj', 'pre-peek-21-loser',
+  'await-21-loser-end-turn', 'settle-winners',
 ]);
 
 Game.collectChip = function(playerIdx, key) {
@@ -2805,6 +2855,7 @@ Game.collectChip = function(playerIdx, key) {
   if (phase === 'settle-21-loser-bj' && key === 'three') return collect21LoserForDealerBJ(playerIdx);
   if (phase === '21-loser-before-bj' && key === 'three') return collect21LoserBeforeBJ(playerIdx);
   if (phase === 'pre-peek-21-loser' && key === 'three') return collectPrePeek21Loser(playerIdx);
+  if (phase === 'await-21-loser-end-turn' && key === 'three') return collect21LoserEndingTurn(playerIdx);
   if (phase === 'settle-winners') return payWinnerCircle(playerIdx, key);
   /* Pitch: any time after a player's turn has started, the dealer may
      click their unsettled 21+3 loser chip to collect it — through play,
@@ -3018,6 +3069,30 @@ function startBlackjackPlay() {
   setTimeout(advancePlayer, 400);
 }
 
+/* Called when a player's turn has ended (stand / double final / bust
+   cleanup complete). If the just-finished player has an unsettled 21+3
+   loser bet, we block in a dedicated phase and force the dealer to
+   collect before advancing. Otherwise we increment and advance normally. */
+let pendingEndTurnPlayer = null;
+function endPlayerTurn() {
+  const justFinished = currentPlayerIdx;
+  const pl = players[justFinished];
+  if (pl && pl.three > 0 && pl.results && pl.results.three &&
+      !pl.results.three.win && !pl.results.three.settled) {
+    /* Block advance until the dealer collects the loser chip. */
+    setPhase('await-21-loser-end-turn');
+    pendingEndTurnPlayer = justFinished;
+    /* refresh21LoserHighlightForActive already paints the chip glow based
+       on actsStarted + unsettled-loser — it'll light up under this phase
+       too because the player still meets the criteria. */
+    refresh21LoserHighlightForActive();
+    setStatus(`Collect Player ${justFinished+1}'s losing 21+3 chip to end their turn.`);
+    return;
+  }
+  currentPlayerIdx++;
+  setTimeout(advancePlayer, 600);
+}
+
 function advancePlayer() {
   /* Pitch: deal + play LTR (P1 → P2 → P3); settle RTL. */
   while (currentPlayerIdx < NUM_PLAYERS) {
@@ -3095,8 +3170,7 @@ function decidePlayerAction() {
     showPlayerSignal(currentPlayerIdx, 'stand');
     helpStatus(`Player ${currentPlayerIdx+1} stands at ${totDesc}.`, `Player ${currentPlayerIdx+1}`);
     enableShoe(false);
-    currentPlayerIdx++;   // pitch: LTR play
-    setTimeout(advancePlayer, 600);
+    setTimeout(endPlayerTurn, 600);   // gated on 21+3 loser collection
     return;
   }
   if (action === 'D') {
@@ -3145,8 +3219,7 @@ function dealCardToActive() {
   if (currentAction === 'D') {
     pl.stood = true;
     setStatus(`Player ${currentPlayerIdx+1}: doubled, stands at ${t.soft ? 'soft ' : ''}${t.total}.`);
-    currentPlayerIdx++;   // pitch: LTR play
-    setTimeout(advancePlayer, 700);
+    setTimeout(endPlayerTurn, 700);   // gated on 21+3 loser collection
     return;
   }
   // continued HIT — re-decide
@@ -3204,9 +3277,8 @@ function collectBustCardsAll(i) {
   setTimeout(() => {
     players[i].cards = [];
     cardsEl.innerHTML = '';
-    currentPlayerIdx++;   // pitch: LTR play
     setPhase('playing');
-    advancePlayer();
+    endPlayerTurn();   // gated on 21+3 loser collection
   }, 320);
 }
 
@@ -3348,9 +3420,9 @@ function startBJPayoutSettlement() {
   const i = pendingBJPayouts[0];
   const pl = players[i];
   const threeRes = pl.results && pl.results.three;
-  /* 21+3 LOSER on a BJ player: collect it BEFORE the BJ payout. The play
-     phase normally handles 21+3 losers, but BJ players skip play — so we
-     do it inline here. */
+  /* Pitch: ALWAYS reveal the BJ hand first so the table sees the natural
+     21. Then, if 21+3 was a loser, collect that chip before paying out. */
+  revealPlayerHand(i);
   if (pl.three > 0 && threeRes && !threeRes.win && !threeRes.settled) {
     setPhase('21-loser-before-bj');
     pending21BeforeBJ = i;
@@ -3361,8 +3433,6 @@ function startBJPayoutSettlement() {
   setPhase('bj-payout');
   enableChipTray(true);
   inHandChips = [];
-  /* Pitch: player reveals their natural BJ before getting paid. */
-  revealPlayerHand(i);
   const owed = roundPayoutUp(pl.main * 1.5);
   /* 21+3 WINNER on a BJ player: pay both bets in the same transaction. */
   const pendingBets = [];
@@ -3387,6 +3457,23 @@ function startBJPayoutSettlement() {
 
 /* Player-index pending the pre-BJ 21+3 loser pickup. */
 let pending21BeforeBJ = null;
+
+function collect21LoserEndingTurn(playerIdx) {
+  if (phase !== 'await-21-loser-end-turn') return;
+  if (pendingEndTurnPlayer !== playerIdx) return;
+  const pl = players[playerIdx];
+  if (!pl.results.three || pl.results.three.win || pl.results.three.settled) return;
+  animateChipsToRack($('p'+playerIdx+'-three'));
+  pl.results.three.settled = true;
+  pl.three = 0;
+  renderSide(playerIdx, 'three', 0, '<span class="lbl dark">3</span>');
+  refresh21LoserHighlightForActive();
+  pendingEndTurnPlayer = null;
+  /* Now safe to advance. */
+  currentPlayerIdx++;
+  setPhase('playing');
+  setTimeout(advancePlayer, 300);
+}
 
 function collect21LoserBeforeBJ(playerIdx) {
   if (phase !== '21-loser-before-bj') return;
