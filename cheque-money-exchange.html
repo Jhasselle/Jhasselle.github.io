@@ -859,6 +859,39 @@
     .bill-stack { width: 56px; height: 34px; }
     .bill-piece { height: 26px; font-size: 0.75rem; }
   }
+
+
+/* ============================================================
+   TABLE DEALER TRAINER — themed chrome overlay.
+   Adds the indigo/violet/cyan radial wash to the page background
+   plus animated gradient strips at the top and bottom of the
+   viewport. The simulator's own surfaces (felt, players, cards,
+   chip tray) are unchanged.
+   ============================================================ */
+body {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c !important;
+  background-attachment: fixed !important;
+}
+body::before, body::after {
+  content: "";
+  position: fixed; left: 0; right: 0;
+  height: 6px; z-index: 9998;
+  pointer-events: none;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: tdt-strip-slide 12s linear infinite;
+}
+body::before { top: 0; }
+body::after  { bottom: 0; animation-direction: reverse; }
+@keyframes tdt-strip-slide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+
 </style>
 </head>
 <body>
@@ -1877,6 +1910,14 @@ Game.renderOutgoing = function() {
      button label is "Changing $X, and counting" on intermediate batches and
      "Changing $X" on the final batch — and ready-state only requires chip
      match on the final batch. */
+  /* Ready (green) state rules:
+       - Help ON  → ready ONLY when the outgoing chips exactly match. The
+                    button stays grey as a visual cue while building.
+       - Help OFF → ready ALWAYS. No visual hint about correctness — the
+                    dealer has to know without help. (Game.done still
+                    enforces the actual match on click.) */
+  const isCorrect = scenario &&
+    Math.abs(total - scenario.value) < 0.001 && outgoing.length > 0;
   if (scenario && scenario.type === 'cash') {
     const idx = scenario.cashBatchIdx;
     const batches = scenario.cashBatches;
@@ -1885,11 +1926,7 @@ Game.renderOutgoing = function() {
     const isLast = idx === batches.length - 1;
     if (isLast) {
       doneBtn.textContent = helpEnabled ? `Changing ${formatMoney(scenario.value)}` : 'Changing';
-      if (Math.abs(total - scenario.value) < 0.001 && outgoing.length > 0) {
-        doneBtn.classList.add('ready');
-      } else {
-        doneBtn.classList.remove('ready');
-      }
+      doneBtn.classList.toggle('ready', helpEnabled ? !!isCorrect : true);
     } else {
       doneBtn.textContent = helpEnabled
         ? `Changing ${formatMoney(cumulative)}, and counting`
@@ -1898,11 +1935,7 @@ Game.renderOutgoing = function() {
     }
   } else {
     doneBtn.textContent = 'Done';
-    if (scenario && Math.abs(total - scenario.value) < 0.001 && outgoing.length > 0) {
-      doneBtn.classList.add('ready');
-    } else {
-      doneBtn.classList.remove('ready');
-    }
+    doneBtn.classList.toggle('ready', helpEnabled ? !!isCorrect : true);
   }
 
   this.updateStatus();
