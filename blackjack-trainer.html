@@ -502,6 +502,49 @@
   .chip-green  { background: #16a34a; border-color: #dcfce7; }
   .chip-black  { background: #111827; border-color: #6b7280; }
   .chip-purple { background: #9333ea; border-color: #f3e8ff; }
+  .chip-orange { background: #ea580c; border-color: #ffedd5; }
+
+  /* Prominent collapsible options panel on the side-bet practice screens. */
+  .sbp-settings {
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.08);
+    margin: 0 0 14px;
+    overflow: hidden;
+  }
+  .sbp-settings > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 16px;
+    color: var(--accent);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .sbp-settings > summary::-webkit-details-marker { display: none; }
+  .sbp-settings > summary::before {
+    content: "⚙";
+    font-size: 1.15rem;
+    opacity: 0.9;
+  }
+  .sbp-settings > summary::after {
+    content: "▾";
+    margin-left: auto;
+    opacity: 0.8;
+    transition: transform 0.2s ease;
+  }
+  .sbp-settings[open] > summary {
+    background: rgba(56, 189, 248, 0.14);
+    border-bottom: 1px solid rgba(56,189,248,0.25);
+  }
+  .sbp-settings[open] > summary::after { transform: rotate(180deg); }
+  .sbp-settings > summary:hover { background: rgba(56,189,248,0.12); }
+  .sbp-settings > div { padding: 12px 16px 16px; }
 
   .chip-static { cursor: default; }
   .chip-static:hover  { box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
@@ -569,9 +612,178 @@
     .chip-stack { height: 48px; }
     .chip-buttons { gap: 6px; }
   }
+
+
+/* ============================================================
+   THEMED OVERLAY — Table Dealer Trainer modern dark restyle.
+   Layered on top of the original styles so all functionality
+   stays intact while the look refreshes. Mostly main-menu +
+   shared chrome (buttons, cards, headers).
+   ============================================================ */
+body {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+}
+.wrap { max-width: 980px; padding: 28px 22px 80px; }
+h1, h2 {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.018em;
+}
+h1 {
+  font-size: 34px; font-weight: 800;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+h2 { font-size: 22px; font-weight: 700; }
+.sub { color: rgba(255,255,255,0.55); font-size: 14px; }
+
+/* Main menu / mode tiles — refreshed card design */
+.menu-tile, button.menu-tile, a.menu-tile, .tile, .mode-btn, button.mode-btn {
+  display: block; width: 100%; text-align: left;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  padding: 18px 20px !important;
+  margin-bottom: 12px !important;
+  cursor: pointer; color: #f4f4f5 !important;
+  font-family: inherit; font-size: 14px;
+  position: relative; overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.5);
+}
+.menu-tile::before, a.menu-tile::before, button.menu-tile::before,
+.tile::before, .mode-btn::before, button.mode-btn::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, #6366f1, #a855f7);
+  transform: scaleY(0); transform-origin: top;
+  transition: transform 0.25s ease;
+}
+.menu-tile:hover, a.menu-tile:hover, button.menu-tile:hover,
+.tile:hover, .mode-btn:hover, button.mode-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 110, 247, 0.45) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%) !important;
+}
+.menu-tile:hover::before, a.menu-tile:hover::before, button.menu-tile:hover::before,
+.tile:hover::before, .mode-btn:hover::before, button.mode-btn:hover::before { transform: scaleY(1); }
+.menu-tile b, .mode-btn b { display: block; font-weight: 700; font-size: 17px; margin-bottom: 4px; letter-spacing: -0.01em; }
+.menu-tile span, .mode-btn span { color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.5; }
+
+/* Primary / ghost button refresh */
+button.primary, .primary {
+  background: linear-gradient(135deg, #6366f1, #4338ca) !important;
+  color: #fff !important; border: 0 !important; border-radius: 10px !important;
+  padding: 11px 22px !important; font-weight: 700; letter-spacing: -0.005em;
+  box-shadow: none !important;
+  transition: transform 0.12s, background 0.18s;
+}
+button.primary:hover, .primary:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #7c7ff5, #4f46e5) !important;
+  box-shadow: none !important;
+}
+button.ghost, .ghost {
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  color: rgba(255,255,255,0.85) !important;
+  border-radius: 10px !important; padding: 10px 18px !important;
+  transition: background 0.15s, border-color 0.15s;
+}
+button.ghost:hover, .ghost:hover {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.28) !important;
+}
+
+/* Card containers */
+.card {
+  background: linear-gradient(180deg, rgba(20,22,30,0.92) 0%, rgba(14,16,22,0.92) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 18px 40px -20px rgba(0,0,0,0.6);
+}
+
+/* Back link arrow */
+.back-link {
+  color: rgba(255,255,255,0.55) !important;
+  font-size: 13px; text-decoration: none;
+  display: inline-block; margin-bottom: 14px;
+  transition: color 0.12s, transform 0.12s;
+}
+.back-link:hover { color: #a5b4fc !important; transform: translateX(-2px); }
+
+/* Floating "Home" button — returns to the UI test page (variant 31). */
+.themed-home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 9999;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", -apple-system, system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.themed-home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.themed-home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+/* Mobile: the Home button now sits in its own row above the page title
+   so it never overlaps the heading. */
+@media (max-width: 560px) {
+  .themed-home-btn {
+    top: 10px; left: 12px;
+    padding: 7px 14px 7px 10px;
+    font-size: 11px;
+  }
+  .wrap { padding-top: 64px !important; }
+}
+
 </style>
 </head>
 <body>
+<a class="themed-home-btn" href="table-dealer-trainer.html" style="display:none">Home</a>
+<script>
+/* Show the Home button only when the main menu screen is active. Watches
+   #main-menu's display state and toggles the button accordingly. */
+(function(){
+  function init() {
+    const btn = document.querySelector('.themed-home-btn');
+    const menu = document.getElementById('main-menu');
+    if (!btn || !menu) return;
+    function update() {
+      const isMenu = getComputedStyle(menu).display !== 'none';
+      btn.style.display = isMenu ? 'inline-flex' : 'none';
+    }
+    const observers = [];
+    const mkObs = (el) => {
+      const o = new MutationObserver(update);
+      o.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+      observers.push(o);
+    };
+    mkObs(menu);
+    document.querySelectorAll('.section').forEach(mkObs);
+    update();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
 <div class="wrap">
 
   <!-- ==================== MAIN MENU ==================== -->
@@ -596,7 +808,7 @@
         <span>Random hands dealt from a 6-deck shoe per basic strategy. Add the total in your head, then reveal.</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('sidebets-section')">
-        <b>Side-bet Flashcards</b>
+        <b>Side-bet Practice</b>
         <span>21+3 Xtreme, Bust Bonus, and Red &amp; Blue Jackpot &mdash; all shuffled together. See the hand or up-card, recall the payout.</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('dealing-section')">
@@ -902,24 +1114,18 @@
   <div id="sidebets-section" class="section" style="display:none">
 
     <button class="back-link" onclick="Nav.goMain()">&larr; Main menu</button>
-    <div class="sidebets-header">
-      <div>
-        <h2 style="margin:0">Side-bet Flashcards</h2>
-        <div class="sub" id="sidebets-sub" style="margin:4px 0 0">21+3 Xtreme, Bust Bonus, Red Jackpot, Blue Jackpot &mdash; all shuffled together</div>
-      </div>
-      <select class="sidebets-filter" id="sidebets-filter" onchange="Sidebets.setFilter(this.value)" aria-label="Choose which side bet to practice">
-        <option value="all">All side bets</option>
-        <option value="three">21+3 Xtreme</option>
-        <option value="bust">Bust Bonus</option>
-        <option value="jackpot">Red &amp; Blue Jackpot</option>
-      </select>
-    </div>
+    <h2>Side-bet Practice</h2>
+    <div class="sub">Drill the four side-bet paytables &mdash; flashcards or payout practice</div>
 
-    <!-- Side-bet Home -->
+    <!-- Side-bet Practice Home: mode picker -->
     <div id="sidebets-home" class="card screen">
-      <button class="mode-btn" onclick="Sidebets.start()">
-        <b>Start drilling</b>
+      <button class="mode-btn" onclick="SidebetMode.toFlashcards()">
+        <b>Side-bet Flashcards</b>
         <span>Random card from any of the four paytables. See the qualifying hand or dealer up-card, then reveal the payout.</span>
+      </button>
+      <button class="mode-btn" onclick="SidebetMode.toPayouts()">
+        <b>Side-bet Payouts</b>
+        <span>Random bets across the four side bets &mdash; think the dollar payout or build it from chips, then reveal.</span>
       </button>
       <details style="margin-top:14px">
         <summary>View all paytables</summary>
@@ -927,7 +1133,30 @@
       </details>
     </div>
 
-    <!-- Side-bet Quiz -->
+    <!-- Flashcards Home (the filter lives here so it doesn't pollute the payouts mode) -->
+    <div id="sidebets-flashcards-home" class="card screen" style="display:none">
+      <div class="sidebets-header">
+        <div>
+          <b style="font-size:1.05rem">Side-bet Flashcards</b>
+          <div class="sub" id="sidebets-sub" style="margin:4px 0 0">21+3 Xtreme, Bust Bonus, Red Jackpot, Blue Jackpot &mdash; all shuffled together</div>
+        </div>
+        <select class="sidebets-filter" id="sidebets-filter" onchange="Sidebets.setFilter(this.value)" aria-label="Choose which side bet to practice">
+          <option value="all">All side bets</option>
+          <option value="three">21+3 Xtreme</option>
+          <option value="bust">Bust Bonus</option>
+          <option value="jackpot">Red &amp; Blue Jackpot</option>
+        </select>
+      </div>
+      <button class="mode-btn" onclick="Sidebets.start()" style="margin-top:14px">
+        <b>Start drilling</b>
+        <span>Reveal the payout for the shown qualifying hand or dealer up-card.</span>
+      </button>
+      <div style="text-align:center;margin-top:10px">
+        <button class="ghost" onclick="SidebetMode.toHome()">&larr; Back to Side-bet Practice</button>
+      </div>
+    </div>
+
+    <!-- Flashcards Quiz -->
     <div id="sidebets-quiz" class="card screen" style="display:none">
       <div class="fc-prompt">
         <span class="fc-label" id="sidebets-title">&nbsp;</span>
@@ -939,7 +1168,183 @@
       </div>
       <div class="score" style="margin-top:18px">
         <span style="color:var(--muted)" id="sidebets-counter"></span>
-        <button class="ghost" onclick="Nav.goHome('sidebets-section')">Back</button>
+        <button class="ghost" onclick="SidebetMode.toFlashcards()">Back</button>
+      </div>
+    </div>
+
+    <!-- Side-bet Payouts Home: numbers vs chips picker. The settings panel
+         lives at the top of each quiz screen instead (collapsible). -->
+    <div id="sidebets-payouts-home" class="card screen" style="display:none">
+      <button class="mode-btn" onclick="SidebetPays.start('numbers')">
+        <b>Numbers</b>
+        <span>Random side bet and amount &mdash; think of the dollar payout, then reveal to check.</span>
+      </button>
+      <button class="mode-btn" onclick="SidebetPays.start('chips')">
+        <b>Chips</b>
+        <span>Side bet shown as a chip stack &mdash; build the payout from chip buttons.</span>
+      </button>
+      <div style="text-align:center;margin-top:14px">
+        <button class="ghost" onclick="SidebetMode.toHome()">&larr; Back to Side-bet Practice</button>
+      </div>
+    </div>
+
+    <!-- Side-bet Payouts Numbers Quiz -->
+    <div id="sidebets-payouts-numbers-quiz" class="card screen" style="display:none">
+      <details class="sbp-settings">
+        <summary>Side-bet options</summary>
+        <div class="count-options">
+          <div style="color:var(--muted);font-size:0.78rem;letter-spacing:1px;margin-bottom:6px">SIDE BETS</div>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-three-n" checked onchange="SidebetPays.toggleType('three', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">21+3 Xtreme</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-bust-n" checked onchange="SidebetPays.toggleType('bust', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Bust Bonus</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-red-n" checked onchange="SidebetPays.toggleType('red', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Red Jackpot ($5 fixed)</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-blue-n" checked onchange="SidebetPays.toggleType('blue', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Blue Jackpot ($1 fixed)</span>
+          </label>
+
+          <div style="color:var(--muted);font-size:0.78rem;letter-spacing:1px;margin:14px 0 6px">BET SOURCE (21+3 &amp; Bust Bonus)</div>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-common-n" onchange="SidebetPays.toggleCommon(this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Use common Blackjack bets (otherwise use random range slider)</span>
+          </label>
+          <div id="sbp-range-block-n" style="margin-top:8px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="font-size:0.85rem;color:var(--muted)">Min <b style="color:var(--text)" id="sbp-min-val-n">$15</b></label>
+              <input type="range" id="sbp-min-n" min="15" max="1000" step="5" value="15" oninput="SidebetPays.onRange('min', this.value)" style="flex:1;min-width:140px">
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px">
+              <label style="font-size:0.85rem;color:var(--muted)">Max <b style="color:var(--text)" id="sbp-max-val-n">$1,000</b></label>
+              <input type="range" id="sbp-max-n" min="15" max="1000" step="5" value="1000" oninput="SidebetPays.onRange('max', this.value)" style="flex:1;min-width:140px">
+            </div>
+          </div>
+
+          <label class="toggle" style="margin-top:14px">
+            <input type="checkbox" id="sbp-unusual-n" onchange="SidebetPays.toggleUnusual(this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Include $1 / $2.50 chip bets (allow odd-dollar amounts)</span>
+          </label>
+          <label class="toggle" style="margin-top:6px">
+            <input type="checkbox" id="sbp-help-n" onchange="SidebetPays.toggleHelp(this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Help: show payout ratio next to the bet type</span>
+          </label>
+        </div>
+      </details>
+      <div class="fc-prompt">
+        <span class="fc-label" id="sbp-num-title">SIDE BET</span>
+        <span id="sbp-num-prompt" style="font-size:1.4rem;font-weight:700;display:block">&nbsp;</span>
+        <span id="sbp-num-bet" style="font-size:1.6rem;font-weight:700;display:block;color:var(--accent);margin-top:6px">&nbsp;</span>
+      </div>
+      <div id="sbp-num-answer" style="text-align:center">
+        <div id="sbp-num-payout" style="font-size:1.6rem;font-weight:700;color:var(--good);padding:12px 0;min-height:60px;visibility:hidden">&nbsp;</div>
+        <button class="primary" id="sbp-num-action-btn" onclick="SidebetPays.action()" style="margin-top:8px">Reveal payout</button>
+      </div>
+      <div class="score" style="margin-top:18px">
+        <span style="color:var(--muted)" id="sbp-num-counter"></span>
+        <button class="ghost" onclick="SidebetMode.toPayouts()">Back</button>
+      </div>
+    </div>
+
+    <!-- Side-bet Payouts Chips Quiz -->
+    <div id="sidebets-payouts-chips-quiz" class="card screen" style="display:none">
+      <details class="sbp-settings">
+        <summary>Side-bet options</summary>
+        <div class="count-options">
+          <div style="color:var(--muted);font-size:0.78rem;letter-spacing:1px;margin-bottom:6px">SIDE BETS</div>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-three-c" checked onchange="SidebetPays.toggleType('three', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">21+3 Xtreme</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-bust-c" checked onchange="SidebetPays.toggleType('bust', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Bust Bonus</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-red-c" checked onchange="SidebetPays.toggleType('red', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Red Jackpot ($5 fixed)</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-blue-c" checked onchange="SidebetPays.toggleType('blue', this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Blue Jackpot ($1 fixed)</span>
+          </label>
+
+          <div style="color:var(--muted);font-size:0.78rem;letter-spacing:1px;margin:14px 0 6px">BET SOURCE (21+3 &amp; Bust Bonus)</div>
+          <label class="toggle">
+            <input type="checkbox" id="sbp-common-c" onchange="SidebetPays.toggleCommon(this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Use common Blackjack bets (otherwise use random range slider)</span>
+          </label>
+          <div id="sbp-range-block-c" style="margin-top:8px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="font-size:0.85rem;color:var(--muted)">Min <b style="color:var(--text)" id="sbp-min-val-c">$15</b></label>
+              <input type="range" id="sbp-min-c" min="15" max="1000" step="5" value="15" oninput="SidebetPays.onRange('min', this.value)" style="flex:1;min-width:140px">
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px">
+              <label style="font-size:0.85rem;color:var(--muted)">Max <b style="color:var(--text)" id="sbp-max-val-c">$1,000</b></label>
+              <input type="range" id="sbp-max-c" min="15" max="1000" step="5" value="1000" oninput="SidebetPays.onRange('max', this.value)" style="flex:1;min-width:140px">
+            </div>
+          </div>
+
+          <label class="toggle" style="margin-top:14px">
+            <input type="checkbox" id="sbp-unusual-c" onchange="SidebetPays.toggleUnusual(this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Include $1 / $2.50 chip bets (allow odd-dollar amounts)</span>
+          </label>
+          <label class="toggle" style="margin-top:6px">
+            <input type="checkbox" id="sbp-help-c" onchange="SidebetPays.toggleHelp(this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">Help: show payout ratio next to the bet type</span>
+          </label>
+        </div>
+      </details>
+      <div class="fc-prompt">
+        <span class="fc-label" id="sbp-chip-title">SIDE BET</span>
+        <span id="sbp-chip-prompt" style="font-size:1.25rem;font-weight:700;display:block">&nbsp;</span>
+      </div>
+
+      <div class="chip-area">
+        <div class="fc-label" style="font-size:0.75rem;color:var(--muted);letter-spacing:0.5px">BET</div>
+        <div id="sbp-chip-bet-amount" class="chip-amount"></div>
+        <div id="sbp-chip-bet-stack" class="chip-stack"></div>
+      </div>
+
+      <hr class="chip-divider">
+
+      <div class="chip-area">
+        <div class="fc-label" style="font-size:0.75rem;color:var(--muted);letter-spacing:0.5px">YOUR PAYOUT</div>
+        <div id="sbp-chip-user-amount" class="chip-amount user">$0.00</div>
+        <div id="sbp-chip-user-stack" class="chip-stack"></div>
+      </div>
+
+      <div id="sbp-chip-buttons" class="chip-buttons"></div>
+
+      <div class="chips-actions">
+        <button class="primary" id="sbp-chip-pay-btn" onclick="SidebetPays.chipsAction()">Pay</button>
+      </div>
+
+      <div id="sbp-chip-feedback" class="feedback"></div>
+
+      <div class="score" style="margin-top:18px">
+        <span style="color:var(--muted)" id="sbp-chip-counter"></span>
+        <button class="ghost" onclick="SidebetMode.toPayouts()">Back</button>
       </div>
     </div>
 
@@ -1001,7 +1406,14 @@ const SECTIONS = [
   {
     id: "sidebets-section",
     home: "sidebets-home",
-    screens: ["sidebets-home", "sidebets-quiz"],
+    screens: [
+      "sidebets-home",
+      "sidebets-flashcards-home",
+      "sidebets-quiz",
+      "sidebets-payouts-home",
+      "sidebets-payouts-numbers-quiz",
+      "sidebets-payouts-chips-quiz",
+    ],
     onEnter: function() { Sidebets.renderList(); }
   },
   {
@@ -1936,6 +2348,7 @@ const Pays = (() => {
     { name: "green",  value: 25,   cents: 2500,  display: "$25"  },
     { name: "black",  value: 100,  cents: 10000, display: "$100" },
     { name: "purple", value: 500,  cents: 50000, display: "$500" },
+    { name: "orange", value: 1000, cents: 100000,display: "$1000"},
   ];
   const CHIP_BY_NAME = Object.fromEntries(CHIP_VALUES.map(c => [c.name, c]));
 
@@ -2444,7 +2857,6 @@ const Count = (() => {
 const SIDEBET_PAYS_21_3 = {
   'Straight Flush':         30,
   'Three of a Kind':        20,
-  'Suited Three of a Kind': 20,  // folded into 3-of-a-kind in the dealing-sim
   'Straight':               10,
   'Flush':                   5,
 };
@@ -2634,6 +3046,445 @@ const Sidebets = (() => {
   return { start, next, reveal, action, renderList, setFilter };
 })();
 
+
+/* ================================================================
+   SIDE-BET PRACTICE: screen switcher
+   Routes between the three home/quiz screens inside the section so
+   the existing Nav.goHome() returns to the mode picker rather than
+   jumping straight back to the main menu.
+   ================================================================ */
+const SidebetMode = (() => {
+  function show(homeId) {
+    ['sidebets-home',
+     'sidebets-flashcards-home',
+     'sidebets-quiz',
+     'sidebets-payouts-home',
+     'sidebets-payouts-numbers-quiz',
+     'sidebets-payouts-chips-quiz'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (id === homeId) ? '' : 'none';
+    });
+  }
+  return {
+    toHome:        () => show('sidebets-home'),
+    toFlashcards:  () => show('sidebets-flashcards-home'),
+    toPayouts:     () => show('sidebets-payouts-home'),
+    showFlashcardsQuiz: () => show('sidebets-quiz'),
+    showPayoutsNumbers: () => show('sidebets-payouts-numbers-quiz'),
+    showPayoutsChips:   () => show('sidebets-payouts-chips-quiz'),
+  };
+})();
+
+/* ================================================================
+   SIDE-BET PAYOUTS
+   ----------------------------------------------------------------
+   Random side-bet payout drill, two modes (Numbers / Chips) modeled
+   on the Blackjack Payouts section. Each round picks a random
+   enabled side bet, computes a random bet + qualifying outcome, and
+   asks the user to produce the payout.
+
+   Bet amounts:
+     - 21+3 Xtreme & Bust Bonus: between sliders Min/Max (defaults
+       15 / 1000), in $5 increments. Toggle 'unusual chips' switches
+       to $1 increments AND allows $2.50 half-dollar bets, mirroring
+       Pays mode.
+     - Red Jackpot: always $5 fixed.
+     - Blue Jackpot: always $1 fixed.
+
+   Help toggle (on by default):
+     - Help ON  → prompt also shows the payout ratio next to the
+                  side-bet name (e.g. "21+3 Xtreme · Straight Flush
+                  (30 to 1)").
+     - Help OFF → prompt shows ONLY the side-bet name and outcome
+                  (no ratio hint).
+   ================================================================ */
+const SidebetPays = (() => {
+  /* Unusual half-dollar / odd-dollar bets — must mirror the Pays module's
+     UNUSUAL_BET_AMOUNTS list, used when both useCommonBets AND unusualOn
+     are true so the drill matches what the Blackjack Payouts drill shows. */
+  const UNUSUAL_BET_AMOUNTS = [
+    2.5, 7.5, 12.5, 17.5, 22.5, 27.5, 32.5, 42.5, 47.5,
+    57.5, 62.5, 67.5, 72.5, 82.5, 92.5, 97.5,
+    11, 13, 14, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29
+  ];
+  /* All four side bets — start with everything on, user can disable. */
+  const enabled = { three: true, bust: true, red: true, blue: true };
+  const range   = { min: 15, max: 1000 };
+  let unusualOn = false;
+  let helpOn    = false;       // help is OFF by default
+  let useCommonBets = false;   // false → random slider, true → PAYS list
+  const STORAGE_KEY = 'sbp-settings-v1';
+
+  /* ----- Persistence ----- */
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        enabled, range, unusualOn, helpOn, useCommonBets,
+      }));
+    } catch (e) { /* private mode / storage disabled */ }
+  }
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.enabled) {
+        for (const k of ['three','bust','red','blue']) {
+          if (typeof data.enabled[k] === 'boolean') enabled[k] = data.enabled[k];
+        }
+        if (!Object.values(enabled).some(Boolean)) enabled.three = true;
+      }
+      if (data.range) {
+        if (typeof data.range.min === 'number') range.min = data.range.min;
+        if (typeof data.range.max === 'number') range.max = data.range.max;
+      }
+      if (typeof data.unusualOn === 'boolean') unusualOn = data.unusualOn;
+      if (typeof data.helpOn    === 'boolean') helpOn    = data.helpOn;
+      if (typeof data.useCommonBets === 'boolean') useCommonBets = data.useCommonBets;
+    } catch (e) { /* ignore */ }
+  }
+  /* Push current state to every -n / -c control copy so the two quiz
+     screens stay in sync. */
+  function syncControls() {
+    for (const key of ['three','bust','red','blue']) {
+      for (const sfx of ['n','c']) {
+        const cb = document.getElementById('sbp-' + key + '-' + sfx);
+        if (cb) cb.checked = enabled[key];
+      }
+    }
+    for (const sfx of ['n','c']) {
+      const minIn = document.getElementById('sbp-min-' + sfx);
+      const maxIn = document.getElementById('sbp-max-' + sfx);
+      const minOut= document.getElementById('sbp-min-val-' + sfx);
+      const maxOut= document.getElementById('sbp-max-val-' + sfx);
+      if (minIn)  minIn.value  = range.min;
+      if (maxIn)  maxIn.value  = range.max;
+      if (minOut) minOut.textContent = formatAmount(range.min);
+      if (maxOut) maxOut.textContent = formatAmount(range.max);
+      const u = document.getElementById('sbp-unusual-' + sfx);
+      const h = document.getElementById('sbp-help-' + sfx);
+      const c = document.getElementById('sbp-common-' + sfx);
+      const range_block = document.getElementById('sbp-range-block-' + sfx);
+      if (u) u.checked = unusualOn;
+      if (h) h.checked = helpOn;
+      if (c) c.checked = useCommonBets;
+      if (range_block) {
+        /* Dim+disable the slider when common-bets mode is on. */
+        range_block.style.opacity = useCommonBets ? '0.4' : '1';
+        range_block.style.pointerEvents = useCommonBets ? 'none' : '';
+      }
+    }
+  }
+  loadSettings();
+  /* Sync once the DOM is in place (this IIFE runs at parse-time when the
+     inputs exist further down the page — but to be safe also re-sync after
+     DOMContentLoaded in case ordering changes). */
+  if (document.readyState !== 'loading') syncControls();
+  else document.addEventListener('DOMContentLoaded', syncControls);
+
+  /* Chip system — match Pays. */
+  const CHIP_VALUES = [
+    { name: 'white',  value: 1,    cents: 100,   display: '$1'   },
+    { name: 'pink',   value: 2.5,  cents: 250,   display: '$2.50'},
+    { name: 'red',    value: 5,    cents: 500,   display: '$5'   },
+    { name: 'green',  value: 25,   cents: 2500,  display: '$25'  },
+    { name: 'black',  value: 100,  cents: 10000, display: '$100' },
+    { name: 'purple', value: 500,  cents: 50000, display: '$500' },
+    { name: 'orange', value: 1000, cents: 100000,display: '$1000'},
+  ];
+  const CHIP_BY_NAME = Object.fromEntries(CHIP_VALUES.map(c => [c.name, c]));
+
+  function formatAmount(n) {
+    const parts = n.toFixed(2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '$' + parts.join('.');
+  }
+
+  /* Greedy decomposition into chips. Half-dollar amounts get a single
+     pink chip first, the rest goes purple→white. Returns null if not
+     payable in chips. */
+  function chipsForAmount(amount) {
+    let cents = Math.round(amount * 100);
+    const result = [];
+    if (cents % 100 === 50) {
+      if (cents < 250) return null;
+      result.push('pink');
+      cents -= 250;
+    }
+    for (let i = CHIP_VALUES.length - 1; i >= 0; i--) {
+      const c = CHIP_VALUES[i];
+      if (c.name === 'pink') continue;
+      while (cents >= c.cents) {
+        result.push(c.name);
+        cents -= c.cents;
+      }
+    }
+    if (cents !== 0) return null;
+    return result.sort((a, b) => CHIP_BY_NAME[b].value - CHIP_BY_NAME[a].value);
+  }
+
+  /* ----- Side bet picker ----- */
+  function pickRandomSidebet() {
+    const types = Object.keys(enabled).filter(k => enabled[k]);
+    if (types.length === 0) return null;
+    const type = types[Math.floor(Math.random() * types.length)];
+    if (type === 'three') {
+      const hands = Object.keys(SIDEBET_PAYS_21_3);
+      const hand  = hands[Math.floor(Math.random() * hands.length)];
+      const mult  = SIDEBET_PAYS_21_3[hand];
+      const bet   = pickVariableBet();
+      return {
+        type, label: '21+3 Xtreme', outcome: hand, ratio: mult + ' to 1',
+        bet, payout: Math.round(bet * mult * 100) / 100,
+      };
+    }
+    if (type === 'bust') {
+      const upcards = ['A','2','3','4','5','6','7','8','9','10','888'];
+      const u = upcards[Math.floor(Math.random() * upcards.length)];
+      const suitedRoll = Math.random() < 0.5;
+      const table = (u === '888') ? SIDEBET_BUST_888 : SIDEBET_BUST[u];
+      const mult = suitedRoll ? table.suited : table.unsuited;
+      const desc = (u === '888' ? 'Dealer busts with three 8s' : 'Dealer up-card: ' + u)
+                 + (suitedRoll ? ' (suited bust)' : ' (unsuited bust)');
+      const bet = pickVariableBet();
+      return {
+        type, label: 'Bust Bonus', outcome: desc, ratio: mult + ' to 1',
+        bet, payout: Math.round(bet * mult * 100) / 100,
+      };
+    }
+    if (type === 'red' || type === 'blue') {
+      const row = SIDEBET_JACKPOTS[Math.floor(Math.random() * SIDEBET_JACKPOTS.length)];
+      const bet = (type === 'red') ? 5 : 1;
+      const fixedPayout = (type === 'red') ? row.red : row.blue;
+      const label = (type === 'red' ? 'Red Jackpot ($5)' : 'Blue Jackpot ($1)');
+      return {
+        type, label, outcome: row.hand,
+        ratio: formatAmount(fixedPayout) + ' fixed',
+        bet, payout: fixedPayout,
+      };
+    }
+    return null;
+  }
+
+  /* Variable bet (21+3 / Bust). Two sources:
+       useCommonBets=true  → random pick from the PAYS table (same bets the
+                             Blackjack Payouts drill uses). $5-multiples
+                             only unless unusualOn is true.
+       useCommonBets=false → random integer inside the slider range; when
+                             unusualOn=true, $1 increments + 20% chance of
+                             a $0.50 half-dollar. */
+  function pickVariableBet() {
+    if (useCommonBets) {
+      /* Build a pool from PAYS (and UNUSUAL_BET_AMOUNTS if allowed). */
+      const pool = [];
+      for (const p of PAYS) {
+        const amt = parseFloat(p.bet.replace(/[$,]/g, ''));
+        if (!Number.isFinite(amt) || amt <= 0) continue;
+        const cents = Math.round(amt * 100);
+        const isFiveMul = cents % 500 === 0;
+        if (unusualOn || isFiveMul) pool.push(amt);
+      }
+      if (unusualOn && typeof UNUSUAL_BET_AMOUNTS !== 'undefined') {
+        for (const a of UNUSUAL_BET_AMOUNTS) pool.push(a);
+      }
+      if (pool.length === 0) return 15;   // safe fallback
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    const lo = Math.min(range.min, range.max);
+    const hi = Math.max(range.min, range.max);
+    if (!unusualOn) {
+      const steps = Math.max(0, Math.floor((hi - lo) / 5));
+      return lo + Math.floor(Math.random() * (steps + 1)) * 5;
+    }
+    const rollHalf = Math.random() < 0.20;
+    const steps = hi - lo;
+    const whole = lo + Math.floor(Math.random() * (steps + 1));
+    return rollHalf ? whole + 0.5 : whole;
+  }
+
+  /* ----- Settings handlers ----- */
+  function toggleType(key, on) {
+    enabled[key] = !!on;
+    /* Don't allow turning every type off — re-enable the one being clicked. */
+    if (!Object.values(enabled).some(Boolean)) enabled[key] = true;
+    syncControls();
+    saveSettings();
+  }
+  function onRange(which, value) {
+    const v = parseInt(value, 10);
+    if (!Number.isFinite(v)) return;
+    range[which] = v;
+    /* Keep min <= max. */
+    if (which === 'min' && range.min > range.max) range.max = range.min;
+    if (which === 'max' && range.max < range.min) range.min = range.max;
+    syncControls();
+    saveSettings();
+  }
+  function toggleUnusual(on) { unusualOn = !!on; syncControls(); saveSettings(); }
+  function toggleHelp(on)    { helpOn    = !!on; syncControls(); saveSettings(); }
+  function toggleCommon(on)  { useCommonBets = !!on; syncControls(); saveSettings(); }
+
+  /* ----- Numbers mode ----- */
+  let current = null;
+  let count = 0;
+  let revealed = false;
+  let mode = 'numbers';
+
+  function start(whichMode) {
+    mode = whichMode;
+    count = 0;
+    current = null;
+    revealed = false;
+    if (mode === 'numbers') SidebetMode.showPayoutsNumbers();
+    else                     SidebetMode.showPayoutsChips();
+    next();
+  }
+
+  function buildPrompt(card) {
+    const ratioPart = helpOn ? ` <span style="color:var(--accent)">(${card.ratio})</span>` : '';
+    return `<span style="color:var(--text)">${card.label}</span>${ratioPart}<br><span style="font-size:1.05rem;color:var(--muted)">${card.outcome}</span>`;
+  }
+
+  function next() {
+    let card = pickRandomSidebet();
+    if (!card) return;
+    /* Reject any chips-mode card whose payout isn't payable in chips
+       (e.g., requires fractions smaller than $0.50). Re-roll up to 20x. */
+    if (mode === 'chips') {
+      let attempts = 0;
+      while (attempts < 20 && !chipsForAmount(card.payout)) {
+        card = pickRandomSidebet();
+        if (!card) return;
+        attempts++;
+      }
+    }
+    current = card;
+    count++;
+    revealed = false;
+    if (mode === 'numbers') {
+      document.getElementById('sbp-num-prompt').innerHTML = buildPrompt(card);
+      document.getElementById('sbp-num-bet').textContent  = formatAmount(card.bet) + ' bet';
+      const payoutEl = document.getElementById('sbp-num-payout');
+      payoutEl.style.visibility = 'hidden';
+      payoutEl.innerHTML = '&nbsp;';
+      document.getElementById('sbp-num-action-btn').textContent = 'Reveal payout';
+      document.getElementById('sbp-num-counter').textContent = 'Bet #' + count;
+    } else {
+      document.getElementById('sbp-chip-prompt').innerHTML = buildPrompt(card);
+      document.getElementById('sbp-chip-bet-amount').textContent = formatAmount(card.bet);
+      renderChipStack('sbp-chip-bet-stack', chipsForAmount(card.bet), false);
+      renderChipButtons();
+      chipsUserChips = [];
+      renderUserStack();
+      updateUserTotal();
+      document.getElementById('sbp-chip-bet-amount').style.visibility  = 'hidden';
+      document.getElementById('sbp-chip-user-amount').style.visibility = 'hidden';
+      const fb = document.getElementById('sbp-chip-feedback');
+      fb.textContent = ''; fb.className = 'feedback';
+      document.getElementById('sbp-chip-pay-btn').textContent = 'Pay';
+      document.getElementById('sbp-chip-counter').textContent = 'Bet #' + count;
+    }
+  }
+
+  function reveal() {
+    if (!current) return;
+    revealed = true;
+    document.getElementById('sbp-num-payout').textContent = formatAmount(current.payout);
+    document.getElementById('sbp-num-payout').style.visibility = 'visible';
+    document.getElementById('sbp-num-action-btn').textContent = 'Next';
+  }
+  function action() { if (!revealed) reveal(); else next(); }
+
+  /* ----- Chips mode ----- */
+  let chipsUserChips = [];
+  let chipsRevealed = false;
+
+  function chipsAction() {
+    if (chipsRevealed) { chipsRevealed = false; next(); }
+    else chipsPay();
+  }
+  function chipsPay() {
+    const target = current.payout;
+    const userTotal = chipsUserChips.reduce((s, n) => s + CHIP_BY_NAME[n].value, 0);
+    const userCount = chipsUserChips.length;
+    chipsRevealed = true;
+    document.getElementById('sbp-chip-bet-amount').style.visibility  = 'visible';
+    document.getElementById('sbp-chip-user-amount').style.visibility = 'visible';
+    const fb = document.getElementById('sbp-chip-feedback');
+    if (Math.abs(userTotal - target) > 0.001) {
+      const isFixed = / fixed$/.test(current.ratio);
+      const ratioDetail = isFixed
+        ? current.ratio
+        : `${current.ratio} on ${formatAmount(current.bet)}`;
+      fb.innerHTML =
+        `<div>✗ You paid <b>${formatAmount(userTotal)}</b></div>` +
+        `<div style="margin-top:4px">Correct: <b style="color:var(--good)">${formatAmount(target)}</b> ` +
+        `<span style="color:var(--muted);font-weight:500">(${ratioDetail})</span></div>`;
+      fb.className = 'feedback bad';
+    } else {
+      fb.textContent = `✓ Correct — ${userCount} chip${userCount === 1 ? '' : 's'} (${current.ratio})`;
+      fb.className = 'feedback good';
+    }
+    document.getElementById('sbp-chip-pay-btn').textContent = 'Next';
+  }
+
+  function addChip(name) {
+    if (chipsRevealed) return;
+    chipsUserChips.push(name);
+    chipsUserChips.sort((a, b) => CHIP_BY_NAME[b].value - CHIP_BY_NAME[a].value);
+    renderUserStack();
+    updateUserTotal();
+  }
+  function removeChip(i) {
+    if (chipsRevealed) return;
+    chipsUserChips.splice(i, 1);
+    renderUserStack();
+    updateUserTotal();
+  }
+  function updateUserTotal() {
+    const total = chipsUserChips.reduce((s, n) => s + CHIP_BY_NAME[n].value, 0);
+    document.getElementById('sbp-chip-user-amount').textContent = formatAmount(total);
+  }
+  function renderUserStack() {
+    renderChipStack('sbp-chip-user-stack', chipsUserChips, true);
+  }
+  function renderChipStack(containerId, chips, clickable) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const chipW = (window.innerWidth <= 520) ? 48 : 56;
+    const offsetX = Math.round(chipW * 0.55);
+    if (!chips || chips.length === 0) {
+      container.style.width = '240px';
+      container.innerHTML = clickable ? '<div class="chip-stack-empty">Tap chips below to build the payout</div>' : '';
+      return;
+    }
+    container.style.width = (chipW + (chips.length - 1) * offsetX) + 'px';
+    container.innerHTML = chips.map((name, i) => {
+      const chip = CHIP_BY_NAME[name];
+      const onclick = clickable ? `onclick="SidebetPays.removeChip(${i})"` : '';
+      const cls = clickable ? 'chip' : 'chip chip-static';
+      return `<button type="button" class="${cls} chip-${name}" style="left:${i * offsetX}px; z-index:${i + 1}" ${onclick}>${chip.display}</button>`;
+    }).join('');
+  }
+  function renderChipButtons() {
+    const visible = CHIP_VALUES.slice().reverse();
+    document.getElementById('sbp-chip-buttons').innerHTML = visible.map(c =>
+      `<button type="button" class="chip chip-${c.name}" onclick="SidebetPays.addChip('${c.name}')">${c.display}</button>`
+    ).join('');
+  }
+
+  /* Re-layout on viewport resize. */
+  window.addEventListener('resize', () => {
+    if (document.getElementById('sidebets-payouts-chips-quiz').style.display === 'none') return;
+    if (current) renderChipStack('sbp-chip-bet-stack', chipsForAmount(current.bet), false);
+    renderUserStack();
+  });
+
+  return {
+    start, action, chipsAction, addChip, removeChip,
+    toggleType, toggleUnusual, toggleHelp, toggleCommon, onRange,
+  };
+})();
 
 /* ================================================================
    INIT
