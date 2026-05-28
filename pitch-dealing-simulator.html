@@ -1264,6 +1264,39 @@
     left: 0;
     right: 0;
   }
+
+
+/* ============================================================
+   TABLE DEALER TRAINER — themed chrome overlay.
+   Adds the indigo/violet/cyan radial wash to the page background
+   plus animated gradient strips at the top and bottom of the
+   viewport. The simulator's own surfaces (felt, players, cards,
+   chip tray) are unchanged.
+   ============================================================ */
+body {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c !important;
+  background-attachment: fixed !important;
+}
+body::before, body::after {
+  content: "";
+  position: fixed; left: 0; right: 0;
+  height: 6px; z-index: 9998;
+  pointer-events: none;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: tdt-strip-slide 12s linear infinite;
+}
+body::before { top: 0; }
+body::after  { bottom: 0; animation-direction: reverse; }
+@keyframes tdt-strip-slide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+
 </style>
 </head>
 <body>
@@ -1403,7 +1436,6 @@ const RANK_VAL = {A:1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:
 const PAYS_21_3 = {
   'Straight Flush':         30,
   'Three of a Kind':        20,
-  'Suited Three of a Kind': 20,  // user's table folds suited trips into 3-of-a-kind
   'Straight':               10,
   'Flush':                   5,
   'Lose':                    0,
@@ -1868,7 +1900,6 @@ function detect21Plus3(playerCards, dealerUp) {
     const aceHigh = vals.map(v => v === 1 ? 14 : v).sort((a,b)=>a-b);
     straight = isStraight(aceHigh);
   }
-  if (sameRank && sameSuit) return 'Suited Three of a Kind';
   if (straight && sameSuit) return 'Straight Flush';
   if (sameRank)             return 'Three of a Kind';
   if (straight)             return 'Straight';
@@ -2507,6 +2538,17 @@ function tryPayNextBet(playerIdx, key) {
   if (!next) return false;
   if (next.key !== key) {
     flashStatus(`Wrong order. Click ${labelForKey(next.key)} next.`);
+    return false;
+  }
+  /* Bug fix: previously peelChipsForAmount only checked that a PREFIX of
+     the stack matched next.owed and silently kept any chips beyond the
+     prefix. That meant a dealer could over-pay (e.g. $30 + 50 purples)
+     and the payment was accepted. Require the in-hand total to exactly
+     equal the SUM of all remaining pending bets. */
+  const totalStillOwed = currentTarget.pendingBets.reduce((s, b) => s + b.owed, 0);
+  const handTotal = inHandTotal();
+  if (Math.abs(handTotal - totalStillOwed) > 0.001) {
+    flashStatus(`Stack total $${formatMoney(handTotal)} doesn't match the $${formatMoney(totalStillOwed)} still owed. Use clear to reset.`);
     return false;
   }
   if (!peelChipsForAmount(next.owed)) {
@@ -3721,6 +3763,17 @@ function resolveDealerBJ() {
     }
   }
   if (extra) logEl.innerHTML += extra;
+
+  /* Reveal every PUSH hand (player BJ vs dealer BJ) so the table can see
+     the matching natural. The push bet itself just sits on the felt and
+     gets auto-cleared in finishRound — no chip collection happens — but
+     without revealing, the player's cards would stay face-down and the
+     round would skip them silently. */
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    if (players[i].mainOutcome === 'PUSH') {
+      revealPlayerHand(i);
+    }
+  }
 
   // Set up queues + hook to chain main losers → insurance winners → finishRound
   pendingMainLosers = [];
