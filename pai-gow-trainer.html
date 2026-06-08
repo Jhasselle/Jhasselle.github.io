@@ -113,7 +113,11 @@ h1 {
 
 .zone {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 14px;
-  min-height: 130px;
+  /* Fixed height — fits two card rows (100px each) + gap + house-way label
+     without clipping. Cards stay anchored to the top row. */
+  height: 268px;
+  align-content: flex-start;
+  align-items: flex-start;
   border-radius: 12px;
   background: rgba(0,0,0,0.18);
   border: 1px dashed rgba(255,255,255,0.1);
@@ -228,6 +232,26 @@ button.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(
 }
 .result .houseway b { color: #e0e7ff; font-weight: 600; }
 
+/* House-way correct-row inside the zone — sits directly underneath
+   the user's incorrect placement (forced onto its own flex row). */
+.row-break {
+  flex-basis: 100%;
+  height: 0;
+  margin: 0;
+}
+.card.correct-hint {
+  border-color: rgba(52,211,153,0.7);
+  box-shadow: 0 0 0 2px rgba(52,211,153,0.35), 0 4px 10px rgba(0,0,0,0.45);
+  cursor: default; touch-action: auto;
+}
+.card.correct-hint:hover { transform: none; }
+.correct-label {
+  flex-basis: 100%;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(52,211,153,0.85); font-weight: 700;
+  margin: 2px 2px -4px; height: auto;
+}
+
 @media (max-width: 560px) {
   .page { padding: 60px 14px 60px; }
   h1 { font-size: 28px; }
@@ -237,7 +261,7 @@ button.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(
   .card .corner small { font-size: 10px; }
   .card .center { font-size: 24px; }
   .card-ghost { width: 56px; height: 80px; }
-  .zone { padding: 10px; min-height: 100px; gap: 6px; }
+  .zone { padding: 10px; height: 222px; gap: 6px; }
   .trainer { padding: 18px; }
 }
 
@@ -527,13 +551,18 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
   function evalFive(cards) {
     const hasJoker = cards.some(c => c.joker);
     const real = cards.filter(c => !c.joker);
+    /* Vegas rule: joker is wild ONLY for straights/flushes/SF — elsewhere it
+       plays as an Ace. */
     if (hasJoker && real.filter(c => c.rank === 'A').length === 4)
       return { cat: CAT.FIVE_ACES, key: [], label: 'Five Aces' };
+    /* Counts: joker counts as an Ace for pair/trip/quad detection */
     const rc = {};
     for (const c of real) rc[c.rank] = (rc[c.rank] || 0) + 1;
+    if (hasJoker) rc['A'] = (rc['A'] || 0) + 1;
     const counts = Object.values(rc).sort((a, b) => b - a);
     const ranksByCount = Object.entries(rc)
       .sort((a, b) => b[1] - a[1] || rankVal(b[0]) - rankVal(a[0]));
+    /* Flush detection — joker is wild */
     const suitCount = {};
     for (const c of real) suitCount[c.suit] = (suitCount[c.suit] || 0) + 1;
     const flushSuit = Object.entries(suitCount).find(([, n]) => n + (hasJoker ? 1 : 0) >= 5);
@@ -562,11 +591,11 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       if (sf.hi === 14) return { cat: CAT.ROYAL_FL, key: [14], label: 'Royal Flush' };
       return { cat: CAT.STRAIGHT_FL, key: [sf.hi], label: 'Straight Flush' };
     }
-    if (counts[0] === 4 || (counts[0] === 3 && hasJoker)) {
+    if (counts[0] === 4) {
       const top = ranksByCount[0][0];
       return { cat: CAT.QUADS, key: [rankVal(top)], label: 'Four ' + top + 's' };
     }
-    if ((counts[0] === 3 && counts[1] === 2) || (counts[0] === 3 && counts[1] === 1 && hasJoker)) {
+    if (counts[0] === 3 && counts[1] === 2) {
       return { cat: CAT.FULL_HOUSE, key: [rankVal(ranksByCount[0][0])], label: 'Full House' };
     }
     if (flush)    return { cat: CAT.FLUSH,    key: [], label: 'Flush' };
@@ -574,10 +603,6 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     if (counts[0] === 3) {
       const t = ranksByCount[0][0];
       return { cat: CAT.THREE, key: [rankVal(t)], label: 'Three ' + t + 's' };
-    }
-    if (counts[0] === 2 && hasJoker && counts[1] !== 2) {
-      const p = ranksByCount[0][0];
-      return { cat: CAT.THREE, key: [rankVal(p)], label: 'Three ' + p + 's' };
     }
     if (counts[0] === 2 && counts[1] === 2) {
       const hi = ranksByCount[0][0], lo = ranksByCount[1][0];
@@ -587,8 +612,8 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       const p = ranksByCount[0][0];
       return { cat: CAT.PAIR, key: [rankVal(p)], label: 'Pair of ' + p + 's' };
     }
-    if (hasJoker) return { cat: CAT.PAIR, key: [14], label: 'Pair of Aces (joker)' };
     const desc = real.map(c => rankVal(c.rank)).sort((a, b) => b - a);
+    if (hasJoker) desc.unshift(14);
     return { cat: CAT.HIGH, key: desc.slice(0, 5), label: valToRank(desc[0]) + ' high' };
   }
   function evalTwo(cards) {
@@ -624,49 +649,69 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     });
     const real = sorted.filter(c => !c.joker);
     const joker = sorted.find(c => c.joker) || null;
+    const realAces = real.filter(c => c.rank === 'A');
+    function build(back, front, reason) { return { back, front, reason }; }
+    /* FIVE ACES — handled first so the joker-as-Ace grouping below doesn't
+       mask the special case. */
+    if (joker && realAces.length === 4) {
+      const aaaa = realAces;
+      const others = sorted.filter(c => c.rank !== 'A' && !c.joker);
+      /* User rule: only keep five aces together if there is a pair of Kings
+         (or better, e.g. AAA where impossible here) to use in the low hand.
+         Otherwise split AAA back + AA front. */
+      const byRankReal = {};
+      for (const c of real) (byRankReal[c.rank] = byRankReal[c.rank] || []).push(c);
+      const realPairs = Object.values(byRankReal)
+        .filter(g => g.length === 2)
+        .sort((a, b) => rankVal(b[0].rank) - rankVal(a[0].rank));
+      const kingsOrBetter = realPairs.find(p => rankVal(p[0].rank) >= 13);
+      if (kingsOrBetter) {
+        return build([...aaaa, joker], kingsOrBetter,
+          'Five Aces with a pair of Kings: keep AAAAA in back, KK in front.');
+      }
+      return build(
+        [aaaa[0], aaaa[1], aaaa[2], ...others.slice(0, 2)],
+        [aaaa[3], joker],
+        'Five Aces (no KK to use in low hand): split — AAA in back, AA in front.');
+    }
+    /* For pair/trip/quad detection, joker plays as an Ace (Vegas rule).
+       Note: the joker is still tracked separately so it can be assigned to a
+       specific slot, but it counts in the Ace group for grouping decisions. */
     const byRank = {};
     for (const c of real) (byRank[c.rank] = byRank[c.rank] || []).push(c);
+    if (joker) (byRank['A'] = byRank['A'] || []).push(joker);
     const groups = Object.values(byRank).sort((a, b) =>
       b.length - a.length || rankVal(b[0].rank) - rankVal(a[0].rank));
     const pairs = groups.filter(g => g.length === 2);
     const trips = groups.filter(g => g.length === 3);
     const quads = groups.filter(g => g.length === 4);
-    function build(back, front, reason) { return { back, front, reason }; }
-    if (quads.length === 1 && quads[0][0].rank === 'A' && joker) {
-      const others = sorted.filter(c => !quads[0].includes(c) && !c.joker);
-      const hasHighPair = pairs.some(p => rankVal(p[0].rank) >= 13);
-      if (hasHighPair) {
-        return build([...quads[0], joker], pairs[0],
-          'Five Aces with a pair of Kings or higher: keep AAAAA in back, pair in front.');
-      }
-      return build(
-        [quads[0][0], quads[0][1], quads[0][2], ...others.slice(0, 2)],
-        [quads[0][3], joker],
-        'Five Aces: split — AAA in back, AA in front.');
-    }
     if (quads.length === 1) {
       const q = quads[0];
       const qv = rankVal(q[0].rank);
       const others = sorted.filter(c => !q.includes(c));
-      if (qv <= 6) return build([...q, others[0]], others.slice(1, 3),
-        'Low four-of-a-kind (2-6): keep together in back.');
-      if (qv <= 10) return build([...q, others[0]], others.slice(1, 3),
-        'Medium four-of-a-kind (7-10): keep together in back.');
-      if (qv <= 13) {
-        const hasAce = others.some(c => c.rank === 'A' || c.joker);
-        if (hasAce) return build([...q, others[0]], others.slice(1, 3),
-          'Four ' + q[0].rank + 's with an ace: keep together; ace high in front.');
-        return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]],
-          'Four ' + q[0].rank + 's, no ace: split — pair in front, pair plus 3 high in back.');
-      }
+      if (qv <= 5) return build([...q, others[0]], others.slice(1, 3),
+        'Low four-of-a-kind (2-5): keep together in back.');
+      // 6 and above: always split — pair in front, pair + 3 highest in back
       return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]],
-        'Four aces: split — AA in back, AA in front.');
+        'Four ' + q[0].rank + 's (6 or higher): split — pair in front, pair + 3 high in back.');
     }
     if (trips.length === 1 && pairs.length >= 1) {
-      const t = trips[0], p = pairs[0];
+      const t = trips[0];
+      const tIsAces = t[0].rank === 'A';
+      // Trip aces + 2 pair → split aces: AA front, 1 ace + both pairs back
+      if (tIsAces && pairs.length >= 2) {
+        const p1 = pairs[0], p2 = pairs[1];
+        return build([t[0], ...p1, ...p2], [t[1], t[2]],
+          'Trip aces + two pair: split aces — AA to front, 1 ace + both pairs to back.');
+      }
+      // Trips + Two Pair (non-ace trips): trips + LOWER pair → back as full house,
+      // highest pair → front. Trips + just one pair = same code path.
+      const p = pairs[0];  // highest pair → front
       const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
       return build([...t, ...others.slice(0, 2)], p,
-        'Full house: always split — trips in back, pair in front.');
+        pairs.length >= 2
+          ? 'Trips + two pair: play the highest pair in the low hand; lower pair joins trips in back as full house.'
+          : 'Full house: trips in back, pair in front.');
     }
     if (trips.length === 2) {
       const hi = trips[0], lo = trips[1];
@@ -674,35 +719,70 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       return build([...lo, hi[0], other[0]], [hi[1], hi[2]],
         'Two trips: lower trip stays as back, higher trip becomes front pair.');
     }
-    const sf = bestStraightFlush(cards);
-    if (sf) {
-      const rest = cards.filter(c => !sf.cards.includes(c));
-      rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
-      const rp = findPair(rest);
-      if (rp) return build(sf.cards, rp, 'Straight flush in back, pair in front.');
-      return build(sf.cards, rest.slice(0, 2), 'Straight flush in back, two highest others in front.');
+    /* If two pairs of 6+ exist alongside a straight/flush, BREAK the straight/flush
+       and play two pair instead (high pair in back, low pair in front). */
+    const highPairs = pairs.filter(p => rankVal(p[0].rank) >= 6);
+    const sfPre = bestStraightFlush(cards);
+    const flPre = bestFlush(cards);
+    const stPre = bestStraight(cards);
+    if ((sfPre || flPre || stPre) && highPairs.length >= 2) {
+      const [hi, lo] = highPairs;
+      const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+      return build([...hi, ...others.slice(0, 3)], lo,
+        'Two pair (both 6+) with a straight/flush available: break the straight/flush, play two pair.');
     }
-    const fl = bestFlush(cards);
-    if (fl) {
-      const rest = cards.filter(c => !fl.cards.includes(c));
-      rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
-      const rp = findPair(rest);
-      if (rp) return build(fl.cards, rp, 'Flush in back, pair in front.');
-      return build(fl.cards, rest.slice(0, 2), 'Flush in back, two highest others in front.');
+    /* Helper — score a 2-card front-hand for "give higher low hand" comparisons */
+    function frontScore(twoCards) {
+      const e = evalTwo(twoCards);
+      // pair beats any high-card combo
+      return e.cat * 1000 + (e.key[0] || 0) * 20 + (e.key[1] || 0);
     }
-    const st = bestStraight(cards);
-    if (st) {
-      const rest = cards.filter(c => !st.cards.includes(c));
+    /* Pick the best of {straight-flush, flush, straight}, preferring whichever
+       gives the HIGHEST low (front) hand. Royal flush breaks for any pair. */
+    let bestPlay = null;
+    function consider(fiveCards, label) {
+      if (!fiveCards) return;
+      const rest = cards.filter(c => !fiveCards.includes(c));
       rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
       const rp = findPair(rest);
-      if (rp) return build(st.cards, rp, 'Straight in back, pair in front.');
-      return build(st.cards, rest.slice(0, 2), 'Straight in back, two highest others in front.');
+      const front = rp || rest.slice(0, 2);
+      const score = frontScore(front);
+      if (!bestPlay || score > bestPlay.score) {
+        bestPlay = {
+          back: fiveCards, front, score,
+          reason: rp ? (label + ' in back, pair in front.')
+                     : (label + ' in back, two highest others in front.')
+        };
+      }
+    }
+    if (sfPre) {
+      /* Royal flush break: if the SF is a royal AND there's any pair in the rest,
+         play a non-royal straight or flush instead so the pair can go to the low hand. */
+      const restAfterSF = cards.filter(c => !sfPre.cards.includes(c));
+      const restPair = findPair(restAfterSF);
+      const isRoyal = sfPre.hi === 14;
+      if (isRoyal && restPair) {
+        for (const fl of allFlushes(cards)) consider(fl.cards, 'Flush (broke royal flush — pair to front)');
+        for (const st of allStraights(cards)) consider(st.cards, 'Straight (broke royal flush — pair to front)');
+        if (!bestPlay) consider(sfPre.cards, 'Straight flush');
+      } else {
+        consider(sfPre.cards, 'Straight flush');
+      }
+    } else {
+      /* Enumerate all 5-card straights and flushes; pick whichever leaves the
+         highest 2-card low hand. This handles 6/7-card straights AND
+         the "straight over flush when low hand is higher" rule. */
+      for (const fl of allFlushes(cards)) consider(fl.cards, 'Flush');
+      for (const st of allStraights(cards)) consider(st.cards, 'Straight');
+    }
+    if (bestPlay) {
+      return build(bestPlay.back, bestPlay.front, bestPlay.reason);
     }
     if (trips.length === 1) {
       const t = trips[0];
       const others = sorted.filter(c => !t.includes(c));
-      if (t[0].rank === 'A') return build([t[0], ...others.slice(0, 4)], [t[1], t[2]],
-        'Three aces: split — AA in front, A in back with four highest.');
+      if (t[0].rank === 'A') return build([t[0], t[1], ...others.slice(1, 4)], [t[2], others[0]],
+        'Three aces: split — AA in back, A + highest kicker in front.');
       return build([...t, others[2], others[3]], [others[0], others[1]],
         'Three of a kind: trips in back, two highest others in front.');
     }
@@ -716,21 +796,38 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       const [hi, lo] = pairs;
       const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
       const hv = rankVal(hi[0].rank);
+      const lv = rankVal(lo[0].rank);
+      const hiIsHigh = hv >= 6;  // 6+ is high
+      const loIsHigh = lv >= 6;
       const hasAce = others.some(c => c.rank === 'A' || c.joker);
-      if (hv <= 6 && hasAce) {
-        const ace = others.find(c => c.rank === 'A' || c.joker);
-        const rest = others.filter(c => c !== ace);
-        return build([...hi, ...lo, ace], rest.slice(0, 2),
-          'Two small pair with an ace: keep both pairs in back, ace high in front.');
+      const ace = hasAce ? others.find(c => c.rank === 'A' || c.joker) : null;
+      const restNoAce = hasAce ? others.filter(c => c !== ace) : others;
+      // Both pairs low (2-5): keep together in back. Ace + highest non-ace to front
+      // if ace present; else two highest others to front.
+      if (!hiIsHigh && !loIsHigh) {
+        if (hasAce) {
+          // restNoAce has 2 cards (7 = 4 pair + 1 ace + 2 others). Highest joins ace
+          // in the front; lowest stays in the back as the 5th card.
+          const naSorted = restNoAce.slice().sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+          const frontKicker = naSorted[0];
+          const backKicker = naSorted[1] || naSorted[0];
+          return build([...hi, ...lo, backKicker], [ace, frontKicker],
+            'Two low pair (both ≤5) with ace: keep both pairs in back, ace high in front.');
+        }
+        return build([...hi, ...lo, others[2]], [others[0], others[1]],
+          'Two low pair (both ≤5), no ace: keep both pairs in back, two highest others in front.');
       }
-      if (hv <= 10 && hasAce && rankVal(lo[0].rank) <= 6) {
-        const ace = others.find(c => c.rank === 'A' || c.joker);
-        const rest = others.filter(c => c !== ace);
-        return build([...hi, ...lo, ace], rest.slice(0, 2),
-          'Medium-high pair with low pair and ace: keep both pairs in back.');
+      // High + Low pair with ace: keep both pairs in back, ace high in front.
+      if (hiIsHigh && !loIsHigh && hasAce) {
+        const naSorted = restNoAce.slice().sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+        const frontKicker = naSorted[0];
+        const backKicker = naSorted[1] || naSorted[0];
+        return build([...hi, ...lo, backKicker], [ace, frontKicker],
+          'High pair + low pair with ace: keep both pairs in back, ace high in front.');
       }
+      // Everything else (high+low w/o ace, high+high any): split
       return build([...hi, ...others.slice(0, 3)], lo,
-        'Two pair: high pair in back, low pair in front.');
+        'Two pair: split — high pair in back, low pair in front.');
     }
     if (pairs.length === 1) {
       const p = pairs[0];
@@ -786,6 +883,69 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     }
     return best;
   }
+  /* Return ALL possible 5-card straights from 7 cards, each as { hi, cards }. */
+  function allStraights(seven) {
+    const real = seven.filter(c => !c.joker);
+    const joker = seven.find(c => c.joker) || null;
+    const byVal = {};
+    for (const c of real) (byVal[rankVal(c.rank)] = byVal[rankVal(c.rank)] || []).push(c);
+    const out = [];
+    for (let hi = 14; hi >= 5; hi--) {
+      const need = [hi, hi - 1, hi - 2, hi - 3, hi - 4];
+      const have = [];
+      let miss = 0;
+      for (const v of need) {
+        let look = v;
+        if (hi === 5 && v === 1) look = 14;
+        if (byVal[look] && byVal[look].length) have.push(byVal[look][0]);
+        else miss++;
+      }
+      if (miss === 0) out.push({ hi, cards: have.slice() });
+      else if (miss === 1 && joker) out.push({ hi, cards: [...have, joker] });
+    }
+    return out;
+  }
+  /* Return ALL possible 5-card flushes from 7 cards (each flush-eligible
+     suit yields one entry — picking the 5 highest of that suit).
+     We don't enumerate every 5-pick because Vegas play already says
+     "highest five of the suit"; comparison value is whichever leaves the
+     best low hand. */
+  function allFlushes(seven) {
+    const out = [];
+    const joker = seven.find(c => c.joker);
+    for (const suit of SUITS) {
+      const inSuit = seven.filter(c => c.suit === suit);
+      if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+      inSuit.sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+      // For 6+ same-suit cards (with or without joker), enumerate each choice
+      // of "which card stays out" so we can compare resulting front hands.
+      const maxLen = Math.min(inSuit.length, 6);
+      const need = joker ? 4 : 5;
+      if (inSuit.length === need) {
+        const pick = inSuit.slice();
+        if (joker) pick.unshift(joker);
+        out.push({ cards: pick });
+      } else {
+        // pick (need) of inSuit, leaving the rest out — iterate combinations of which to omit
+        // for need=5 from 6 cards: 6 ways. Keep it simple.
+        const omit = inSuit.length - need;
+        // For omit=1 (6 cards): 6 combos. omit=2 (7 cards): 21 combos.
+        // We use a simple enumerator:
+        function combos(arr, k) {
+          if (k === 0) return [[]];
+          if (arr.length < k) return [];
+          const [h, ...t] = arr;
+          return combos(t, k - 1).map(c => [h, ...c]).concat(combos(t, k));
+        }
+        for (const picked of combos(inSuit, need)) {
+          const pick = picked.slice();
+          if (joker) pick.unshift(joker);
+          out.push({ cards: pick });
+        }
+      }
+    }
+    return out;
+  }
   function findPair(cs) {
     const m = {};
     for (const c of cs) {
@@ -832,31 +992,39 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
 
   /* Re-using categoryOf to detect what hand-type a 7-card draw is. */
   function categoryOf(cards) {
+    /* Vegas rule: joker is wild ONLY for straights/flushes/SF; otherwise it plays
+       as an Ace. So for pair/trip/quad detection, treat the joker as an Ace
+       (which can pair / trip / quad with the real aces in the hand). */
     const hasJoker = cards.some(c => c.joker);
     const real = cards.filter(c => !c.joker);
-    if (hasJoker && real.filter(c => c.rank === 'A').length === 4) return 'five_aces';
+    const realAceCount = real.filter(c => c.rank === 'A').length;
+    /* Five aces: 4 real aces + joker */
+    if (hasJoker && realAceCount === 4) return 'five_aces';
+    /* Straight flush / royal — joker as wild card */
+    const sf = bestStraightFlush(cards);
+    if (sf) return sf.hi === 14 ? 'royal_flush' : 'straight_flush';
+    /* Counts: include the joker as an Ace */
     const byRank = {};
     for (const c of real) (byRank[c.rank] = byRank[c.rank] || []).push(c);
+    if (hasJoker) {
+      const aces = (byRank['A'] || []).slice();
+      aces.push({ rank: 'A', suit: 'joker', joker: true });
+      byRank['A'] = aces;
+    }
     const groups = Object.values(byRank);
     const pairs = groups.filter(g => g.length === 2);
     const trips = groups.filter(g => g.length === 3);
     const quads = groups.filter(g => g.length === 4);
-    const sf = bestStraightFlush(cards);
-    if (sf) return sf.hi === 14 ? 'royal_flush' : 'straight_flush';
     if (quads.length === 1) return 'quads';
-    if (trips.length === 1 && hasJoker && pairs.length === 0) return 'quads';
-    if (trips.length === 1 && pairs.length === 2) return 'trips_two_pair';
+    if (trips.length === 1 && pairs.length >= 2) return 'trips_two_pair';
     if (trips.length === 1 && pairs.length === 1) return 'full_house';
-    if (trips.length === 1 && pairs.length === 0 && hasJoker) return 'full_house';
     if (trips.length === 2) return 'two_trips';
     if (bestFlush(cards)) return 'flush';
     if (bestStraight(cards)) return 'straight';
     if (trips.length === 1) return 'three_kind';
-    if (pairs.length === 2 && hasJoker) return 'three_kind';
     if (pairs.length === 3) return 'three_pair';
     if (pairs.length === 2) return 'two_pair';
     if (pairs.length === 1) return 'one_pair';
-    if (hasJoker) return 'one_pair';
     return 'high_card';
   }
 
@@ -977,22 +1145,33 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     /* Pick a straight start (1-10 where 1 = A-low). */
     const lo = 1 + Math.floor(Math.random() * 10);
     const vals = [lo, lo+1, lo+2, lo+3, lo+4];
+    const straightRanks = [];
     const cards = vals.map(v => {
       const rank = v === 1 ? 'A' : (v <= 10 ? String(v) : (v === 11 ? 'J' : v === 12 ? 'Q' : v === 13 ? 'K' : 'A'));
-      return makeCard(rank === '14' ? 'A' : rank, randSuit(), false);
+      const finalRank = (rank === '14' ? 'A' : rank);
+      straightRanks.push(finalRank);
+      return makeCard(finalRank, randSuit(), false);
     });
-    /* Two more cards — random ranks NOT extending straight + suits avoiding flush */
+    /* Two more cards — sometimes pair one of the straight ranks for "straight + pair" tests. */
     const sCount = {'♠':0,'♥':0,'♦':0,'♣':0};
     cards.forEach(c => sCount[c.suit]++);
+    /* Mode: roughly 50% chance the extras include a pair with a straight rank. */
+    const wantPair = Math.random() < 0.5;
     let added = 0, tries = 0;
-    while (added < 2 && tries++ < 200) {
-      const r = RANKS[Math.floor(Math.random()*RANKS.length)];
+    while (added < 2 && tries++ < 300) {
+      let r;
+      /* On the first extra, if we want a pair, pick one of the straight ranks. */
+      if (wantPair && added === 0 && Math.random() < 0.85) {
+        r = straightRanks[Math.floor(Math.random() * straightRanks.length)];
+      } else {
+        r = RANKS[Math.floor(Math.random() * RANKS.length)];
+      }
       const v = rankVal(r);
       /* Don't extend straight at either end */
       if (v === lo - 1 || v === lo + 5) continue;
       if (lo === 1 && v === 6) continue;
       if (lo === 10 && v === 9) continue;
-      const s = SUITS[Math.floor(Math.random()*4)];
+      const s = SUITS[Math.floor(Math.random() * 4)];
       if (sCount[s] >= 4) continue;
       if (cards.some(c => c.rank === r && c.suit === s)) continue;
       cards.push(makeCard(r, s, false));
@@ -1005,11 +1184,26 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     const suit = randSuit();
     const flushRanks = pickN(RANKS, 5);
     const cards = flushRanks.map(r => makeCard(r, suit, false));
-    /* Two more cards from other suits */
+    /* Two more cards from other suits.
+       Roughly 50% of the time, include a pair (one of the extras matches a flush rank). */
     const otherSuits = SUITS.filter(s => s !== suit);
-    const usedRanks = new Set(flushRanks);
-    const extraRanks = pickN(RANKS.filter(r => !usedRanks.has(r)), 2);
-    extraRanks.forEach((r, i) => cards.push(makeCard(r, otherSuits[i % 3], false)));
+    const wantPair = Math.random() < 0.5;
+    let extras;
+    if (wantPair) {
+      /* one extra duplicates a flush rank, one is fresh */
+      const pairRank = flushRanks[Math.floor(Math.random() * flushRanks.length)];
+      const freshRank = pickN(RANKS.filter(r => r !== pairRank && !flushRanks.includes(r) || r === pairRank), 1)[0]
+        || RANKS.find(r => r !== pairRank);
+      extras = [pairRank, freshRank];
+    } else {
+      const usedRanks = new Set(flushRanks);
+      extras = pickN(RANKS.filter(r => !usedRanks.has(r)), 2);
+    }
+    extras.forEach((r, i) => {
+      /* Avoid creating an accidental flush with the off-suit extras */
+      cards.push(makeCard(r, otherSuits[i % 3], false));
+    });
+    /* If the extras paired up by both being the same rank, that's still fine. */
     return cards;
   }
   function tryStraightFlush() {
@@ -1349,11 +1543,15 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     revealed = true;
     const frontZ = document.getElementById('zone-front');
     const backZ  = document.getElementById('zone-back');
-    frontZ.innerHTML = '';
-    backZ.innerHTML = '';
+    /* Keep the user's placement in the zones; only re-style each card so it
+       can no longer be dragged and gets the match/mismatch highlight. */
     const cls = matches ? 'match' : 'mismatch';
-    hw.front.forEach(c => frontZ.appendChild(makeCardEl(c, { matchClass: cls, revealed: true })));
-    hw.back.forEach(c  => backZ.appendChild(makeCardEl(c,  { matchClass: cls, revealed: true })));
+    function relockZone(zone, cards) {
+      zone.innerHTML = '';
+      cards.forEach(c => zone.appendChild(makeCardEl(c, { matchClass: cls, revealed: true })));
+    }
+    relockZone(frontZ, front);
+    relockZone(backZ,  back);
 
     const panel = document.getElementById('result-panel');
     panel.className = 'result ' + (matches ? 'correct' : 'incorrect');
@@ -1373,6 +1571,32 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       'Your back:   <b>' + userBackRank.label + '</b><br>' +
       'Your front:  <b>' + userFrontRank.label + '</b>' +
       '</div>';
+
+    /* If wrong, render the correct house-way row INSIDE each zone, directly
+       beneath the user's row. A 100%-width row-break element forces the flex
+       container to wrap onto a new line. */
+    if (!matches) {
+      function appendCorrectRow(zone, cards) {
+        const brk1 = document.createElement('div');
+        brk1.className = 'row-break';
+        zone.appendChild(brk1);
+        const lbl = document.createElement('div');
+        lbl.className = 'correct-label';
+        lbl.textContent = 'House way';
+        zone.appendChild(lbl);
+        const brk2 = document.createElement('div');
+        brk2.className = 'row-break';
+        zone.appendChild(brk2);
+        cards.forEach(c => {
+          const el = makeCardEl(c, { revealed: true });
+          el.classList.add('correct-hint');
+          zone.appendChild(el);
+        });
+      }
+      appendCorrectRow(frontZ, hw.front);
+      appendCorrectRow(backZ,  hw.back);
+    }
+
     document.getElementById('btn-reveal').disabled = true;
   }
 
