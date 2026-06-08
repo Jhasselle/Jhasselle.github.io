@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pai Gow Trainer — Table Dealer Trainer</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em; text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92); color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.page {
+  position: relative; z-index: 1;
+  max-width: 860px; margin: 0 auto;
+  padding: 70px 22px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 6px 0 8px; font-size: 36px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lede {
+  margin: 0 0 24px; font-size: 14px; color: rgba(255,255,255,0.6);
+  max-width: 64ch; line-height: 1.55;
+}
+
+.trainer {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 18px 40px -20px rgba(0,0,0,0.6);
+}
+.section-title {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600; margin-bottom: 8px;
+}
+.zone-label {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: 0 4px 10px;
+}
+.zone-label h3 {
+  margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: rgba(255,255,255,0.7);
+}
+.zone-label .count {
+  font-size: 13px; color: rgba(255,255,255,0.55);
+  font-variant-numeric: tabular-nums;
+}
+.zone-label .count b { color: #f4f4f5; font-weight: 700; }
+.zone-label .count.full b { color: #34d399; }
+.zone-label .count.over b { color: #f87171; }
+
+.zone {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 14px;
+  min-height: 130px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.18);
+  border: 1px dashed rgba(255,255,255,0.1);
+  margin-bottom: 18px;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.zone.front { background: rgba(99,102,241,0.06); border-color: rgba(99,102,241,0.22); }
+.zone.back  { background: rgba(168,85,247,0.06); border-color: rgba(168,85,247,0.22); }
+.zone.drag-over.front {
+  background: rgba(99,102,241,0.16);
+  border-color: rgba(99,102,241,0.6);
+  border-style: solid;
+  box-shadow: inset 0 0 0 1px rgba(99,102,241,0.4), 0 0 22px rgba(99,102,241,0.18);
+}
+.zone.drag-over.back {
+  background: rgba(168,85,247,0.16);
+  border-color: rgba(168,85,247,0.6);
+  border-style: solid;
+  box-shadow: inset 0 0 0 1px rgba(168,85,247,0.4), 0 0 22px rgba(168,85,247,0.2);
+}
+
+.card {
+  width: 70px; height: 100px;
+  background: #f7f7f3;
+  border: 1px solid #c4c4c4;
+  border-radius: 7px;
+  position: relative;
+  cursor: grab;
+  user-select: none; -webkit-user-select: none;
+  touch-action: none;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+  flex: 0 0 auto;
+}
+.card.red   { color: #b91c1c; }
+.card.black { color: #111827; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.55); }
+.card .corner {
+  position: absolute; font-weight: 700; line-height: 1;
+  text-align: center; font-family: "Helvetica Neue", Arial, sans-serif;
+  pointer-events: none;
+}
+.card .corner-tl { top: 5px; left: 6px; font-size: 14px; }
+.card .corner-br { bottom: 5px; right: 6px; font-size: 14px; transform: rotate(180deg); }
+.card .corner small { display: block; font-size: 11px; margin-top: 1px; }
+.card .center {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px; line-height: 1;
+  pointer-events: none;
+}
+.card.joker {
+  background: linear-gradient(135deg, #fef08a, #fde047);
+  color: #7c2d12;
+  border-color: #ca8a04;
+}
+.card.joker .center { font-size: 24px; }
+.card.dragging {
+  position: fixed !important;
+  z-index: 1000; cursor: grabbing;
+  box-shadow: 0 16px 32px rgba(0,0,0,0.6), 0 0 0 2px rgba(168,85,247,0.6);
+  transform: rotate(4deg) scale(1.04);
+  transition: none; pointer-events: none;
+}
+.card-ghost {
+  width: 70px; height: 100px;
+  background: rgba(168,85,247,0.12);
+  border: 1px dashed rgba(168,85,247,0.4);
+  border-radius: 7px;
+  flex: 0 0 auto;
+  transition: background 0.15s, border-color 0.15s;
+}
+.zone.front .card-ghost { background: rgba(99,102,241,0.14); border-color: rgba(99,102,241,0.5); }
+.card.match    { border-color: #34d399; box-shadow: 0 0 0 2px rgba(52,211,153,0.45), 0 4px 10px rgba(0,0,0,0.45); }
+.card.mismatch { border-color: #f87171; box-shadow: 0 0 0 2px rgba(248,113,113,0.5), 0 4px 10px rgba(0,0,0,0.45); }
+.card.revealed { cursor: default; touch-action: auto; }
+
+.controls { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+button.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 10px;
+  padding: 11px 22px; font-weight: 700; font-size: 13.5px; letter-spacing: -0.005em;
+  cursor: pointer; font-family: inherit;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+}
+button.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+button.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; background: linear-gradient(135deg, #6366f1, #4338ca); }
+button.btn.ghost {
+  background: transparent; border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.85);
+}
+button.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.28); background-image: none; }
+
+.hint { font-size: 12px; color: rgba(255,255,255,0.5); margin: 8px 4px 0; line-height: 1.5; }
+
+.result {
+  margin-top: 22px; padding: 18px 20px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+  background: rgba(0,0,0,0.2);
+}
+.result.correct   { border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.06); }
+.result.incorrect { border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.06); }
+.result h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.result.correct h3 { color: #34d399; }
+.result.incorrect h3 { color: #f87171; }
+.result .reason { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.55; }
+.result .reason b { color: #f4f4f5; }
+.result .houseway {
+  margin-top: 12px; font-size: 12px; color: rgba(255,255,255,0.55);
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  letter-spacing: 0.02em;
+}
+.result .houseway b { color: #e0e7ff; font-weight: 600; }
+
+@media (max-width: 560px) {
+  .page { padding: 60px 14px 60px; }
+  h1 { font-size: 28px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .card { width: 56px; height: 80px; }
+  .card .corner-tl, .card .corner-br { font-size: 12px; }
+  .card .corner small { font-size: 10px; }
+  .card .center { font-size: 24px; }
+  .card-ghost { width: 56px; height: 80px; }
+  .zone { padding: 10px; min-height: 100px; gap: 6px; }
+  .trainer { padding: 18px; }
+}
+
+/* Settings button + modal overlay */
+.settings-btn {
+  background: transparent; border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.85);
+  border-radius: 10px; padding: 10px 16px;
+  cursor: pointer; font: inherit; font-size: 13.5px;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.settings-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.28); }
+.settings-btn::before { content: "⚙"; font-size: 14px; opacity: 0.9; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,6,10,0.7);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: linear-gradient(180deg, #14161e 0%, #0c0e16 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 22px 24px;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.7);
+  position: relative;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h3 {
+  margin: 0 0 16px; font-size: 18px; font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.modal .close-x {
+  position: absolute; top: 14px; right: 16px;
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.55); font-size: 22px; line-height: 1;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.modal .close-x:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.modal .group { margin-bottom: 18px; }
+.modal .group:last-child { margin-bottom: 0; }
+.modal .group-title {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 700; margin-bottom: 10px;
+}
+.modal .row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.modal .row:last-child { border-bottom: 0; }
+.modal .row .label { font-size: 14px; font-weight: 500; }
+.modal .row .desc { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+/* Toggle switch */
+.toggle {
+  position: relative; width: 40px; height: 22px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px; cursor: pointer;
+  transition: background 0.18s;
+}
+.toggle.on { background: linear-gradient(135deg, #6366f1, #a855f7); }
+.toggle::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.toggle.on::after { transform: translateX(18px); }
+
+/* Radio-style mode picker */
+.mode-picker {
+  display: flex; gap: 6px; padding: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.mode-picker button {
+  flex: 1; background: transparent; border: 0;
+  color: rgba(255,255,255,0.65);
+  padding: 8px 10px; border-radius: 7px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-picker button.active {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff;
+}
+
+select.category-select {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #f4f4f5;
+  padding: 9px 12px;
+  font: inherit; font-size: 13.5px;
+  cursor: pointer;
+}
+select.category-select:focus { outline: 0; border-color: rgba(139, 110, 247, 0.5); }
+select.category-select option { background: #14161e; color: #f4f4f5; }
+
+
+/* Prominent settings button above the front hand */
+.trainer-header {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 0 14px;
+}
+.settings-btn-prominent {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18));
+  border: 1px solid rgba(168,85,247,0.45);
+  color: #f4f4f5;
+  cursor: pointer;
+  font: 700 13px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 16px -4px rgba(99,102,241,0.4);
+  transition: transform 0.12s ease, border-color 0.15s, background 0.15s, box-shadow 0.18s;
+}
+.settings-btn-prominent:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(99,102,241,0.28), rgba(168,85,247,0.28));
+  border-color: rgba(168,85,247,0.75);
+  box-shadow: 0 10px 22px -6px rgba(99,102,241,0.55);
+}
+.settings-btn-prominent .gear {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  font-size: 14px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="poker.html">Poker</a>
+
+<div class="page">
+  <div class="greet">Poker · Pai Gow Poker</div>
+  <h1>House Way Trainer</h1>
+  <p class="lede">
+    Seven cards are dealt. <b>Drag</b> exactly two of them up to the
+    <b>Front</b> zone; the other five stay in <b>Back</b>. You can also drag
+    cards inside a zone to reorder them. Joker plays as an Ace, or completes
+    a straight or flush.
+  </p>
+
+  <div class="trainer">
+    <div class="trainer-header">
+      <button class="settings-btn-prominent" id="btn-settings" type="button">
+        <span class="gear">⚙</span><span>Settings</span>
+      </button>
+    </div>
+    <div class="section-title">Front hand · 2 cards (low)</div>
+    <div class="zone-label">
+      <h3>Front</h3>
+      <div class="count" id="front-count">0 / 2</div>
+    </div>
+    <div class="zone front" id="zone-front" data-zone="front"></div>
+
+    <div class="section-title">Back hand · 5 cards (high)</div>
+    <div class="zone-label">
+      <h3>Back</h3>
+      <div class="count" id="back-count">0 / 5</div>
+    </div>
+    <div class="zone back" id="zone-back" data-zone="back"></div>
+
+    <div class="controls">
+      <button class="btn" id="btn-reveal" disabled>Reveal house way</button>
+      <button class="btn ghost" id="btn-new">New hand</button>
+      <button class="btn ghost" id="btn-clear">Reset placement</button>
+    </div>
+    <p class="hint">Drag between zones to assign, or within a zone to reorder. Reveal enables when 2 cards sit in the front and 5 in the back.</p>
+
+    <div id="result-panel"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <button class="close-x" id="settings-close" aria-label="Close">&times;</button>
+    <h3>Trainer Settings</h3>
+    <div class="group">
+      <div class="group-title">Hand source</div>
+      <div class="mode-picker">
+        <button id="mode-random">Random deck</button>
+        <button id="mode-category">Specific hand</button>
+      </div>
+      <select class="category-select" id="cat-select">
+        <option value="high_card">No Pair</option>
+        <option value="one_pair">One Pair</option>
+        <option value="two_pair">Two Pair</option>
+        <option value="three_pair">Three Pair</option>
+        <option value="three_kind">Three of a Kind</option>
+        <option value="trips_two_pair">Trips + Two Pair</option>
+        <option value="two_trips">Two Three of a Kind</option>
+        <option value="straight">Straight</option>
+        <option value="flush">Flush</option>
+        <option value="full_house">Full House</option>
+        <option value="quads">Four of a Kind</option>
+        <option value="straight_flush">Straight Flush</option>
+        <option value="royal_flush">Royal Flush</option>
+        <option value="five_aces">Five Aces</option>
+      </select>
+    </div>
+    <div class="group">
+      <div class="group-title">Modifiers</div>
+      <div class="row">
+        <div>
+          <div class="label">Always include an Ace</div>
+          <div class="desc">Forces at least one Ace into every hand.</div>
+        </div>
+        <div class="toggle" id="tog-ace"></div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="label">Always include the Joker</div>
+          <div class="desc">Forces the joker into every hand.</div>
+        </div>
+        <div class="toggle" id="tog-joker"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ============================================================
+     Card model + deck
+     ============================================================ */
+  const RANKS  = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const SUITS  = ['♠','♥','♦','♣'];
+  const SUIT_COLOR = { '♠':'black', '♣':'black', '♥':'red', '♦':'red' };
+  function rankVal(r) {
+    if (r === 'A') return 14;
+    if (r === 'K') return 13;
+    if (r === 'Q') return 12;
+    if (r === 'J') return 11;
+    if (r === '10') return 10;
+    return parseInt(r, 10);
+  }
+  function valToRank(v) {
+    if (v === 14) return 'A'; if (v === 13) return 'K';
+    if (v === 12) return 'Q'; if (v === 11) return 'J';
+    return String(v);
+  }
+  let cardIdSeq = 0;
+  function makeCard(rank, suit, joker = false) {
+    return { id: ++cardIdSeq, rank, suit, joker };
+  }
+  function buildDeck() {
+    const d = [];
+    for (const s of SUITS) for (const r of RANKS) d.push(makeCard(r, s, false));
+    d.push(makeCard('Joker', '', true));
+    return d;
+  }
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function deal7() { return shuffle(buildDeck()).slice(0, 7); }
+
+  /* ============================================================
+     Hand evaluators (5-card back, 2-card front, foul check)
+     ============================================================ */
+  const CAT = {
+    HIGH:1, PAIR:2, TWO_PAIR:3, THREE:4, STRAIGHT:5, FLUSH:6,
+    FULL_HOUSE:7, QUADS:8, STRAIGHT_FL:9, ROYAL_FL:10, FIVE_ACES:11,
+  };
+  function evalFive(cards) {
+    const hasJoker = cards.some(c => c.joker);
+    const real = cards.filter(c => !c.joker);
+    if (hasJoker && real.filter(c => c.rank === 'A').length === 4)
+      return { cat: CAT.FIVE_ACES, key: [], label: 'Five Aces' };
+    const rc = {};
+    for (const c of real) rc[c.rank] = (rc[c.rank] || 0) + 1;
+    const counts = Object.values(rc).sort((a, b) => b - a);
+    const ranksByCount = Object.entries(rc)
+      .sort((a, b) => b[1] - a[1] || rankVal(b[0]) - rankVal(a[0]));
+    const suitCount = {};
+    for (const c of real) suitCount[c.suit] = (suitCount[c.suit] || 0) + 1;
+    const flushSuit = Object.entries(suitCount).find(([, n]) => n + (hasJoker ? 1 : 0) >= 5);
+    const flush = !!flushSuit;
+    const vals = real.map(c => rankVal(c.rank));
+    function isStraightVals(arr, hasJ) {
+      const u = [...new Set(arr)].sort((a, b) => a - b);
+      const all = new Set(u);
+      if (u.includes(14)) all.add(1);
+      for (let lo = 1; lo <= 10; lo++) {
+        const need = [lo, lo + 1, lo + 2, lo + 3, lo + 4];
+        let miss = 0;
+        for (const n of need) if (!all.has(n)) miss++;
+        if (miss === 0) return { hi: lo + 4 };
+        if (miss === 1 && hasJ) return { hi: lo + 4 };
+      }
+      return null;
+    }
+    const straight = isStraightVals(vals, hasJoker);
+    let sf = null;
+    if (flush && straight) {
+      const fCards = real.filter(c => c.suit === flushSuit[0]);
+      sf = isStraightVals(fCards.map(c => rankVal(c.rank)), hasJoker);
+    }
+    if (sf) {
+      if (sf.hi === 14) return { cat: CAT.ROYAL_FL, key: [14], label: 'Royal Flush' };
+      return { cat: CAT.STRAIGHT_FL, key: [sf.hi], label: 'Straight Flush' };
+    }
+    if (counts[0] === 4 || (counts[0] === 3 && hasJoker)) {
+      const top = ranksByCount[0][0];
+      return { cat: CAT.QUADS, key: [rankVal(top)], label: 'Four ' + top + 's' };
+    }
+    if ((counts[0] === 3 && counts[1] === 2) || (counts[0] === 3 && counts[1] === 1 && hasJoker)) {
+      return { cat: CAT.FULL_HOUSE, key: [rankVal(ranksByCount[0][0])], label: 'Full House' };
+    }
+    if (flush)    return { cat: CAT.FLUSH,    key: [], label: 'Flush' };
+    if (straight) return { cat: CAT.STRAIGHT, key: [straight.hi], label: 'Straight' };
+    if (counts[0] === 3) {
+      const t = ranksByCount[0][0];
+      return { cat: CAT.THREE, key: [rankVal(t)], label: 'Three ' + t + 's' };
+    }
+    if (counts[0] === 2 && hasJoker && counts[1] !== 2) {
+      const p = ranksByCount[0][0];
+      return { cat: CAT.THREE, key: [rankVal(p)], label: 'Three ' + p + 's' };
+    }
+    if (counts[0] === 2 && counts[1] === 2) {
+      const hi = ranksByCount[0][0], lo = ranksByCount[1][0];
+      return { cat: CAT.TWO_PAIR, key: [rankVal(hi), rankVal(lo)], label: 'Two Pair (' + hi + 's & ' + lo + 's)' };
+    }
+    if (counts[0] === 2) {
+      const p = ranksByCount[0][0];
+      return { cat: CAT.PAIR, key: [rankVal(p)], label: 'Pair of ' + p + 's' };
+    }
+    if (hasJoker) return { cat: CAT.PAIR, key: [14], label: 'Pair of Aces (joker)' };
+    const desc = real.map(c => rankVal(c.rank)).sort((a, b) => b - a);
+    return { cat: CAT.HIGH, key: desc.slice(0, 5), label: valToRank(desc[0]) + ' high' };
+  }
+  function evalTwo(cards) {
+    const hasJoker = cards.some(c => c.joker);
+    const real = cards.filter(c => !c.joker);
+    if (real.length === 2 && real[0].rank === real[1].rank) {
+      return { cat: CAT.PAIR, key: [rankVal(real[0].rank)], label: 'Pair of ' + real[0].rank + 's' };
+    }
+    if (hasJoker && real.length === 1) {
+      return { cat: CAT.PAIR, key: [14], label: 'Pair of Aces (joker)' };
+    }
+    const vals = real.map(c => rankVal(c.rank)).sort((a, b) => b - a);
+    if (hasJoker) vals.unshift(14);
+    return { cat: CAT.HIGH, key: vals, label: vals.map(v => valToRank(v)).join('-') + ' high' };
+  }
+  function compare(a, b) {
+    if (a.cat !== b.cat) return a.cat - b.cat;
+    for (let i = 0; i < Math.max(a.key.length, b.key.length); i++) {
+      const x = a.key[i] || 0, y = b.key[i] || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  /* ============================================================
+     HOUSE WAY (same algorithm as before)
+     ============================================================ */
+  function houseWay(cards) {
+    const sorted = [...cards].sort((a, b) => {
+      const av = a.joker ? 15 : rankVal(a.rank);
+      const bv = b.joker ? 15 : rankVal(b.rank);
+      return bv - av;
+    });
+    const real = sorted.filter(c => !c.joker);
+    const joker = sorted.find(c => c.joker) || null;
+    const byRank = {};
+    for (const c of real) (byRank[c.rank] = byRank[c.rank] || []).push(c);
+    const groups = Object.values(byRank).sort((a, b) =>
+      b.length - a.length || rankVal(b[0].rank) - rankVal(a[0].rank));
+    const pairs = groups.filter(g => g.length === 2);
+    const trips = groups.filter(g => g.length === 3);
+    const quads = groups.filter(g => g.length === 4);
+    function build(back, front, reason) { return { back, front, reason }; }
+    if (quads.length === 1 && quads[0][0].rank === 'A' && joker) {
+      const others = sorted.filter(c => !quads[0].includes(c) && !c.joker);
+      const hasHighPair = pairs.some(p => rankVal(p[0].rank) >= 13);
+      if (hasHighPair) {
+        return build([...quads[0], joker], pairs[0],
+          'Five Aces with a pair of Kings or higher: keep AAAAA in back, pair in front.');
+      }
+      return build(
+        [quads[0][0], quads[0][1], quads[0][2], ...others.slice(0, 2)],
+        [quads[0][3], joker],
+        'Five Aces: split — AAA in back, AA in front.');
+    }
+    if (quads.length === 1) {
+      const q = quads[0];
+      const qv = rankVal(q[0].rank);
+      const others = sorted.filter(c => !q.includes(c));
+      if (qv <= 6) return build([...q, others[0]], others.slice(1, 3),
+        'Low four-of-a-kind (2-6): keep together in back.');
+      if (qv <= 10) return build([...q, others[0]], others.slice(1, 3),
+        'Medium four-of-a-kind (7-10): keep together in back.');
+      if (qv <= 13) {
+        const hasAce = others.some(c => c.rank === 'A' || c.joker);
+        if (hasAce) return build([...q, others[0]], others.slice(1, 3),
+          'Four ' + q[0].rank + 's with an ace: keep together; ace high in front.');
+        return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]],
+          'Four ' + q[0].rank + 's, no ace: split — pair in front, pair plus 3 high in back.');
+      }
+      return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]],
+        'Four aces: split — AA in back, AA in front.');
+    }
+    if (trips.length === 1 && pairs.length >= 1) {
+      const t = trips[0], p = pairs[0];
+      const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
+      return build([...t, ...others.slice(0, 2)], p,
+        'Full house: always split — trips in back, pair in front.');
+    }
+    if (trips.length === 2) {
+      const hi = trips[0], lo = trips[1];
+      const other = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+      return build([...lo, hi[0], other[0]], [hi[1], hi[2]],
+        'Two trips: lower trip stays as back, higher trip becomes front pair.');
+    }
+    const sf = bestStraightFlush(cards);
+    if (sf) {
+      const rest = cards.filter(c => !sf.cards.includes(c));
+      rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+      const rp = findPair(rest);
+      if (rp) return build(sf.cards, rp, 'Straight flush in back, pair in front.');
+      return build(sf.cards, rest.slice(0, 2), 'Straight flush in back, two highest others in front.');
+    }
+    const fl = bestFlush(cards);
+    if (fl) {
+      const rest = cards.filter(c => !fl.cards.includes(c));
+      rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+      const rp = findPair(rest);
+      if (rp) return build(fl.cards, rp, 'Flush in back, pair in front.');
+      return build(fl.cards, rest.slice(0, 2), 'Flush in back, two highest others in front.');
+    }
+    const st = bestStraight(cards);
+    if (st) {
+      const rest = cards.filter(c => !st.cards.includes(c));
+      rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+      const rp = findPair(rest);
+      if (rp) return build(st.cards, rp, 'Straight in back, pair in front.');
+      return build(st.cards, rest.slice(0, 2), 'Straight in back, two highest others in front.');
+    }
+    if (trips.length === 1) {
+      const t = trips[0];
+      const others = sorted.filter(c => !t.includes(c));
+      if (t[0].rank === 'A') return build([t[0], ...others.slice(0, 4)], [t[1], t[2]],
+        'Three aces: split — AA in front, A in back with four highest.');
+      return build([...t, others[2], others[3]], [others[0], others[1]],
+        'Three of a kind: trips in back, two highest others in front.');
+    }
+    if (pairs.length === 3) {
+      const [hi, mid, lo] = pairs;
+      const other = sorted.filter(c => !hi.includes(c) && !mid.includes(c) && !lo.includes(c));
+      return build([...mid, ...lo, other[0]], hi,
+        'Three pair: highest pair to front; lower two pairs in back with the lone card.');
+    }
+    if (pairs.length === 2) {
+      const [hi, lo] = pairs;
+      const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+      const hv = rankVal(hi[0].rank);
+      const hasAce = others.some(c => c.rank === 'A' || c.joker);
+      if (hv <= 6 && hasAce) {
+        const ace = others.find(c => c.rank === 'A' || c.joker);
+        const rest = others.filter(c => c !== ace);
+        return build([...hi, ...lo, ace], rest.slice(0, 2),
+          'Two small pair with an ace: keep both pairs in back, ace high in front.');
+      }
+      if (hv <= 10 && hasAce && rankVal(lo[0].rank) <= 6) {
+        const ace = others.find(c => c.rank === 'A' || c.joker);
+        const rest = others.filter(c => c !== ace);
+        return build([...hi, ...lo, ace], rest.slice(0, 2),
+          'Medium-high pair with low pair and ace: keep both pairs in back.');
+      }
+      return build([...hi, ...others.slice(0, 3)], lo,
+        'Two pair: high pair in back, low pair in front.');
+    }
+    if (pairs.length === 1) {
+      const p = pairs[0];
+      const others = sorted.filter(c => !p.includes(c));
+      return build([...p, ...others.slice(2, 5)], others.slice(0, 2),
+        'One pair: pair in back, two highest other cards in front.');
+    }
+    return build([sorted[0], ...sorted.slice(3)], [sorted[1], sorted[2]],
+      'No pair: highest card in back, next two highest in front.');
+  }
+  function bestStraightFlush(seven) {
+    for (const suit of SUITS) {
+      const inSuit = seven.filter(c => c.suit === suit);
+      const joker = seven.find(c => c.joker);
+      if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+      const r = bestStraightFrom(inSuit, joker);
+      if (r) return r;
+    }
+    return null;
+  }
+  function bestStraight(seven) {
+    return bestStraightFrom(seven.filter(c => !c.joker), seven.find(c => c.joker) || null);
+  }
+  function bestStraightFrom(real, joker) {
+    const byVal = {};
+    for (const c of real) byVal[rankVal(c.rank)] = c;
+    for (let hi = 14; hi >= 5; hi--) {
+      const need = [hi, hi - 1, hi - 2, hi - 3, hi - 4];
+      const have = [];
+      let miss = 0;
+      for (const v of need) {
+        let look = v;
+        if (hi === 5 && v === 1) look = 14;
+        if (byVal[look]) have.push(byVal[look]);
+        else miss++;
+      }
+      if (miss === 0) return { hi, cards: have };
+      if (miss === 1 && joker) return { hi, cards: [...have, joker] };
+    }
+    return null;
+  }
+  function bestFlush(seven) {
+    let best = null;
+    for (const suit of SUITS) {
+      const inSuit = seven.filter(c => c.suit === suit);
+      const joker = seven.find(c => c.joker);
+      if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+      inSuit.sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+      const pick = inSuit.slice(0, joker ? 4 : 5);
+      if (joker) pick.unshift(joker);
+      const score = pick.reduce((s, c) => s + (c.joker ? 14 : rankVal(c.rank)), 0);
+      if (!best || score > best.score) best = { cards: pick, score };
+    }
+    return best;
+  }
+  function findPair(cs) {
+    const m = {};
+    for (const c of cs) {
+      if (c.joker) continue;
+      (m[c.rank] = m[c.rank] || []).push(c);
+    }
+    const ps = Object.values(m).filter(g => g.length >= 2)
+      .sort((a, b) => rankVal(b[0].rank) - rankVal(a[0].rank));
+    return ps.length ? [ps[0][0], ps[0][1]] : null;
+  }
+
+  /* ============================================================
+     UI state — order arrays per zone
+     ============================================================ */
+  let currentHand = [];
+  let frontOrder = [];  /* array of card ids in display order */
+  let backOrder  = [];
+  let revealed = false;
+
+  function cardById(id) { return currentHand.find(c => c.id === id); }
+  function cardsInZone(zone) {
+    return (zone === 'front' ? frontOrder : backOrder).map(cardById).filter(Boolean);
+  }
+  function whichZone(cardId) {
+    if (frontOrder.includes(cardId)) return 'front';
+    if (backOrder.includes(cardId))  return 'back';
+    return null;
+  }
+
+  /* ============================================================
+     Settings + category generation
+     ============================================================ */
+  const STATE = (function() {
+    let s = { mode: 'random', category: 'one_pair', requireAce: false, requireJoker: false };
+    try {
+      const saved = JSON.parse(localStorage.getItem('paigow-settings') || 'null');
+      if (saved) s = Object.assign(s, saved);
+    } catch(e) {}
+    return s;
+  })();
+  function saveSettings() {
+    try { localStorage.setItem('paigow-settings', JSON.stringify(STATE)); } catch(e) {}
+  }
+
+  /* Re-using categoryOf to detect what hand-type a 7-card draw is. */
+  function categoryOf(cards) {
+    const hasJoker = cards.some(c => c.joker);
+    const real = cards.filter(c => !c.joker);
+    if (hasJoker && real.filter(c => c.rank === 'A').length === 4) return 'five_aces';
+    const byRank = {};
+    for (const c of real) (byRank[c.rank] = byRank[c.rank] || []).push(c);
+    const groups = Object.values(byRank);
+    const pairs = groups.filter(g => g.length === 2);
+    const trips = groups.filter(g => g.length === 3);
+    const quads = groups.filter(g => g.length === 4);
+    const sf = bestStraightFlush(cards);
+    if (sf) return sf.hi === 14 ? 'royal_flush' : 'straight_flush';
+    if (quads.length === 1) return 'quads';
+    if (trips.length === 1 && hasJoker && pairs.length === 0) return 'quads';
+    if (trips.length === 1 && pairs.length === 2) return 'trips_two_pair';
+    if (trips.length === 1 && pairs.length === 1) return 'full_house';
+    if (trips.length === 1 && pairs.length === 0 && hasJoker) return 'full_house';
+    if (trips.length === 2) return 'two_trips';
+    if (bestFlush(cards)) return 'flush';
+    if (bestStraight(cards)) return 'straight';
+    if (trips.length === 1) return 'three_kind';
+    if (pairs.length === 2 && hasJoker) return 'three_kind';
+    if (pairs.length === 3) return 'three_pair';
+    if (pairs.length === 2) return 'two_pair';
+    if (pairs.length === 1) return 'one_pair';
+    if (hasJoker) return 'one_pair';
+    return 'high_card';
+  }
+
+  function pickN(arr, n) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  }
+  function randSuit() { return SUITS[Math.floor(Math.random() * 4)]; }
+  function randCardNotIn(used) {
+    let tries = 0;
+    while (tries++ < 200) {
+      const r = RANKS[Math.floor(Math.random() * RANKS.length)];
+      const s = SUITS[Math.floor(Math.random() * 4)];
+      if (!used.some(c => c.rank === r && c.suit === s)) return makeCard(r, s, false);
+    }
+    return makeCard('2', '♣', false);
+  }
+
+  /* Per-category generators. Each returns 7 cards or null on failure. */
+  function genCategoryHand(catId) {
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const cards = buildCategory(catId);
+      if (cards && categoryOf(cards) === catId) return cards;
+    }
+    return null;
+  }
+  function buildCategory(cat) {
+    switch (cat) {
+      case 'high_card':       return tryHighCard();
+      case 'one_pair':        return tryOnePair();
+      case 'two_pair':        return tryTwoPair();
+      case 'three_pair':      return tryThreePair();
+      case 'three_kind':      return tryThreeKind();
+      case 'trips_two_pair':  return tryTripsTwoPair();
+      case 'two_trips':       return tryTwoTrips();
+      case 'straight':        return tryStraight();
+      case 'flush':           return tryFlush();
+      case 'full_house':      return tryFullHouse();
+      case 'quads':           return tryQuads();
+      case 'straight_flush':  return tryStraightFlush();
+      case 'royal_flush':     return tryRoyalFlush();
+      case 'five_aces':       return tryFiveAces();
+    }
+    return null;
+  }
+  function tryHighCard() {
+    const ranks = pickN(RANKS, 7);
+    return ranks.map(r => makeCard(r, randSuit(), false));
+  }
+  function tryOnePair() {
+    const pairRank = RANKS[Math.floor(Math.random()*RANKS.length)];
+    const pairSuits = pickN(SUITS, 2);
+    const otherRanks = pickN(RANKS.filter(r => r !== pairRank), 5);
+    const cards = pairSuits.map(s => makeCard(pairRank, s, false));
+    otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    return cards;
+  }
+  function tryTwoPair() {
+    const twoRanks = pickN(RANKS, 2);
+    const otherRanks = pickN(RANKS.filter(r => !twoRanks.includes(r)), 3);
+    const cards = [];
+    twoRanks.forEach(r => pickN(SUITS, 2).forEach(s => cards.push(makeCard(r, s, false))));
+    otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    return cards;
+  }
+  function tryThreePair() {
+    const threeRanks = pickN(RANKS, 3);
+    const oneRank = pickN(RANKS.filter(r => !threeRanks.includes(r)), 1)[0];
+    const cards = [];
+    threeRanks.forEach(r => pickN(SUITS, 2).forEach(s => cards.push(makeCard(r, s, false))));
+    cards.push(makeCard(oneRank, randSuit(), false));
+    return cards;
+  }
+  function tryThreeKind() {
+    const tripRank = RANKS[Math.floor(Math.random()*RANKS.length)];
+    const tripSuits = pickN(SUITS, 3);
+    const otherRanks = pickN(RANKS.filter(r => r !== tripRank), 4);
+    const cards = tripSuits.map(s => makeCard(tripRank, s, false));
+    otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    return cards;
+  }
+  function tryTripsTwoPair() {
+    const tripRank = RANKS[Math.floor(Math.random()*RANKS.length)];
+    const pairRanks = pickN(RANKS.filter(r => r !== tripRank), 2);
+    const cards = pickN(SUITS, 3).map(s => makeCard(tripRank, s, false));
+    pairRanks.forEach(r => pickN(SUITS, 2).forEach(s => cards.push(makeCard(r, s, false))));
+    return cards;
+  }
+  function tryTwoTrips() {
+    const tripRanks = pickN(RANKS, 2);
+    const oneRank = pickN(RANKS.filter(r => !tripRanks.includes(r)), 1)[0];
+    const cards = [];
+    tripRanks.forEach(r => pickN(SUITS, 3).forEach(s => cards.push(makeCard(r, s, false))));
+    cards.push(makeCard(oneRank, randSuit(), false));
+    return cards;
+  }
+  function tryFullHouse() {
+    const tripRank = RANKS[Math.floor(Math.random()*RANKS.length)];
+    const pairRank = pickN(RANKS.filter(r => r !== tripRank), 1)[0];
+    const otherRanks = pickN(RANKS.filter(r => r !== tripRank && r !== pairRank), 2);
+    const cards = pickN(SUITS, 3).map(s => makeCard(tripRank, s, false));
+    pickN(SUITS, 2).forEach(s => cards.push(makeCard(pairRank, s, false)));
+    otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    return cards;
+  }
+  function tryQuads() {
+    const quadRank = RANKS[Math.floor(Math.random()*RANKS.length)];
+    const otherRanks = pickN(RANKS.filter(r => r !== quadRank), 3);
+    const cards = SUITS.map(s => makeCard(quadRank, s, false));
+    otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    return cards;
+  }
+  function tryStraight() {
+    /* Pick a straight start (1-10 where 1 = A-low). */
+    const lo = 1 + Math.floor(Math.random() * 10);
+    const vals = [lo, lo+1, lo+2, lo+3, lo+4];
+    const cards = vals.map(v => {
+      const rank = v === 1 ? 'A' : (v <= 10 ? String(v) : (v === 11 ? 'J' : v === 12 ? 'Q' : v === 13 ? 'K' : 'A'));
+      return makeCard(rank === '14' ? 'A' : rank, randSuit(), false);
+    });
+    /* Two more cards — random ranks NOT extending straight + suits avoiding flush */
+    const sCount = {'♠':0,'♥':0,'♦':0,'♣':0};
+    cards.forEach(c => sCount[c.suit]++);
+    let added = 0, tries = 0;
+    while (added < 2 && tries++ < 200) {
+      const r = RANKS[Math.floor(Math.random()*RANKS.length)];
+      const v = rankVal(r);
+      /* Don't extend straight at either end */
+      if (v === lo - 1 || v === lo + 5) continue;
+      if (lo === 1 && v === 6) continue;
+      if (lo === 10 && v === 9) continue;
+      const s = SUITS[Math.floor(Math.random()*4)];
+      if (sCount[s] >= 4) continue;
+      if (cards.some(c => c.rank === r && c.suit === s)) continue;
+      cards.push(makeCard(r, s, false));
+      sCount[s]++;
+      added++;
+    }
+    return added === 2 ? cards : null;
+  }
+  function tryFlush() {
+    const suit = randSuit();
+    const flushRanks = pickN(RANKS, 5);
+    const cards = flushRanks.map(r => makeCard(r, suit, false));
+    /* Two more cards from other suits */
+    const otherSuits = SUITS.filter(s => s !== suit);
+    const usedRanks = new Set(flushRanks);
+    const extraRanks = pickN(RANKS.filter(r => !usedRanks.has(r)), 2);
+    extraRanks.forEach((r, i) => cards.push(makeCard(r, otherSuits[i % 3], false)));
+    return cards;
+  }
+  function tryStraightFlush() {
+    const suit = randSuit();
+    const lo = 1 + Math.floor(Math.random() * 9);  /* 1..9 → avoid royal */
+    const vals = [lo, lo+1, lo+2, lo+3, lo+4];
+    const ranks = vals.map(v => {
+      if (v === 1) return 'A';
+      if (v <= 10) return String(v);
+      if (v === 11) return 'J';
+      if (v === 12) return 'Q';
+      if (v === 13) return 'K';
+      return 'A';
+    });
+    const cards = ranks.map(r => makeCard(r, suit, false));
+    const otherSuits = SUITS.filter(s => s !== suit);
+    const extra = pickN(RANKS.filter(r => !ranks.includes(r)), 2);
+    extra.forEach((r, i) => cards.push(makeCard(r, otherSuits[i % 3], false)));
+    return cards;
+  }
+  function tryRoyalFlush() {
+    const suit = randSuit();
+    const royal = ['10','J','Q','K','A'];
+    const cards = royal.map(r => makeCard(r, suit, false));
+    const otherSuits = SUITS.filter(s => s !== suit);
+    const extra = pickN(RANKS.filter(r => !royal.includes(r)), 2);
+    extra.forEach((r, i) => cards.push(makeCard(r, otherSuits[i % 3], false)));
+    return cards;
+  }
+  function tryFiveAces() {
+    /* 4 aces + joker + 2 other cards */
+    const cards = SUITS.map(s => makeCard('A', s, false));
+    cards.push(makeCard('Joker', '', true));
+    const extra = pickN(RANKS.filter(r => r !== 'A'), 2);
+    extra.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    return cards;
+  }
+
+  /* Force modifiers — try to swap cards in without breaking the category. */
+  function injectJoker(cards, cat) {
+    if (cards.some(c => c.joker)) return cards;
+    /* Replace the most expendable card. For most categories, swap one of
+       the 2 "extra" cards beyond the meaningful 5. We just nuke a random
+       card and add the joker, then verify category. */
+    for (let i = 0; i < 30; i++) {
+      const idx = Math.floor(Math.random() * cards.length);
+      const out = [...cards];
+      out[idx] = makeCard('Joker', '', true);
+      if (cat == null || categoryOf(out) === cat) return out;
+    }
+    return cards;
+  }
+  function injectAce(cards, cat) {
+    if (cards.some(c => c.rank === 'A' || c.joker)) return cards;
+    for (let i = 0; i < 30; i++) {
+      const idx = Math.floor(Math.random() * cards.length);
+      const out = [...cards];
+      out[idx] = makeCard('A', randSuit(), false);
+      /* Dedupe: ensure no duplicate Ace */
+      const aces = out.filter(c => c.rank === 'A' && !c.joker);
+      if (new Set(aces.map(c => c.suit)).size !== aces.length) continue;
+      if (cat == null || categoryOf(out) === cat) return out;
+    }
+    return cards;
+  }
+
+  function generateHand() {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      let cards;
+      if (STATE.mode === 'category') {
+        cards = genCategoryHand(STATE.category);
+        if (!cards) continue;
+      } else {
+        cards = deal7();
+      }
+      if (STATE.requireJoker && !cards.some(c => c.joker)) {
+        cards = injectJoker(cards, STATE.mode === 'category' ? STATE.category : null);
+      }
+      if (STATE.requireAce && !cards.some(c => c.rank === 'A' || c.joker)) {
+        cards = injectAce(cards, STATE.mode === 'category' ? STATE.category : null);
+      }
+      /* Re-verify category — modifiers may have broken it */
+      if (STATE.mode === 'category' && categoryOf(cards) !== STATE.category) continue;
+      /* Re-verify modifiers stuck */
+      if (STATE.requireJoker && !cards.some(c => c.joker)) continue;
+      if (STATE.requireAce && !cards.some(c => c.rank === 'A' || c.joker)) continue;
+      /* Renumber card ids so per-render uniqueness holds */
+      cards.forEach(c => c.id = ++cardIdSeq);
+      return cards;
+    }
+    /* Fallback: just random */
+    return deal7();
+  }
+
+  function newHand() {
+    currentHand = generateHand();
+    frontOrder = [];
+    backOrder = currentHand.map(c => c.id);
+    revealed = false;
+    document.getElementById('result-panel').innerHTML = '';
+    render();
+  }
+
+  /* ============================================================
+     Settings UI wiring
+     ============================================================ */
+  function syncSettingsUI() {
+    document.getElementById('mode-random').classList.toggle('active', STATE.mode === 'random');
+    document.getElementById('mode-category').classList.toggle('active', STATE.mode === 'category');
+    document.getElementById('cat-select').value = STATE.category;
+    document.getElementById('cat-select').disabled = STATE.mode !== 'category';
+    document.getElementById('cat-select').style.opacity = STATE.mode === 'category' ? '1' : '0.5';
+    document.getElementById('tog-ace').classList.toggle('on', STATE.requireAce);
+    document.getElementById('tog-joker').classList.toggle('on', STATE.requireJoker);
+  }
+  document.getElementById('btn-settings').onclick = () => {
+    syncSettingsUI();
+    document.getElementById('settings-modal').classList.add('open');
+  };
+  document.getElementById('settings-close').onclick = () => {
+    document.getElementById('settings-modal').classList.remove('open');
+  };
+  document.getElementById('settings-modal').onclick = (e) => {
+    if (e.target.id === 'settings-modal') {
+      document.getElementById('settings-modal').classList.remove('open');
+    }
+  };
+  document.getElementById('mode-random').onclick = () => {
+    STATE.mode = 'random'; saveSettings(); syncSettingsUI();
+  };
+  document.getElementById('mode-category').onclick = () => {
+    STATE.mode = 'category'; saveSettings(); syncSettingsUI();
+  };
+  document.getElementById('cat-select').onchange = (e) => {
+    STATE.category = e.target.value; saveSettings();
+  };
+  document.getElementById('tog-ace').onclick = () => {
+    STATE.requireAce = !STATE.requireAce; saveSettings(); syncSettingsUI();
+  };
+  document.getElementById('tog-joker').onclick = () => {
+    STATE.requireJoker = !STATE.requireJoker; saveSettings(); syncSettingsUI();
+  };
+
+  function clearPlacement() {
+    if (revealed) return;
+    frontOrder = [];
+    backOrder = currentHand.map(c => c.id);
+    render();
+  }
+
+    /* ============================================================
+     Render
+     ============================================================ */
+  function makeCardEl(card, opts = {}) {
+    const el = document.createElement('div');
+    el.className = 'card ' + (card.joker ? 'joker' : SUIT_COLOR[card.suit]);
+    el.dataset.cardId = card.id;
+    if (opts.matchClass) el.classList.add(opts.matchClass);
+    if (opts.revealed)   el.classList.add('revealed');
+    if (card.joker) {
+      el.innerHTML =
+        '<div class="center">🃏</div>' +
+        '<div class="corner corner-tl">JKR</div>' +
+        '<div class="corner corner-br">JKR</div>';
+    } else {
+      el.innerHTML =
+        '<div class="corner corner-tl">' + card.rank + '<small>' + card.suit + '</small></div>' +
+        '<div class="center">' + card.suit + '</div>' +
+        '<div class="corner corner-br">' + card.rank + '<small>' + card.suit + '</small></div>';
+    }
+    if (!opts.revealed) attachDrag(el, card);
+    return el;
+  }
+
+  function render() {
+    const frontZ = document.getElementById('zone-front');
+    const backZ  = document.getElementById('zone-back');
+    frontZ.innerHTML = '';
+    backZ.innerHTML = '';
+    cardsInZone('front').forEach(c => frontZ.appendChild(makeCardEl(c)));
+    cardsInZone('back').forEach(c => backZ.appendChild(makeCardEl(c)));
+    const fc = document.getElementById('front-count'), bc = document.getElementById('back-count');
+    fc.innerHTML = '<b>' + frontOrder.length + '</b> / 2';
+    bc.innerHTML = '<b>' + backOrder.length + '</b> / 5';
+    fc.className = 'count' + (frontOrder.length === 2 ? ' full' : frontOrder.length > 2 ? ' over' : '');
+    bc.className = 'count' + (backOrder.length === 5 ? ' full' : backOrder.length > 5 ? ' over' : '');
+    const ok = frontOrder.length === 2 && backOrder.length === 5;
+    document.getElementById('btn-reveal').disabled = !ok || revealed;
+  }
+
+  /* ============================================================
+     Drag & drop — pointer events, with in-zone reordering
+     ============================================================ */
+  let drag = null;
+
+  function attachDrag(el, card) {
+    el.addEventListener('pointerdown', (e) => {
+      if (revealed) return;
+      if (e.button !== undefined && e.button !== 0) return;
+      e.preventDefault();
+      startDrag(e, el, card);
+    });
+  }
+
+  function startDrag(e, el, card) {
+    const rect = el.getBoundingClientRect();
+    /* Ghost in the source slot keeps layout stable and shows preview as
+       the card is dragged around. */
+    const ghost = document.createElement('div');
+    ghost.className = 'card-ghost';
+    ghost.dataset.cardId = card.id;
+    el.parentElement.replaceChild(ghost, el);
+
+    /* Lift the card out to body so position:fixed isn't clipped. */
+    document.body.appendChild(el);
+    drag = {
+      el, ghost, card,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      width:  rect.width,
+      height: rect.height,
+    };
+    el.classList.add('dragging');
+    el.style.width  = rect.width  + 'px';
+    el.style.height = rect.height + 'px';
+    moveDragTo(e.clientX, e.clientY);
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup',   onUp);
+    window.addEventListener('pointercancel', onUp);
+  }
+  function moveDragTo(x, y) {
+    if (!drag) return;
+    drag.el.style.left = (x - drag.offsetX) + 'px';
+    drag.el.style.top  = (y - drag.offsetY) + 'px';
+  }
+  function onMove(e) {
+    if (!drag) return;
+    e.preventDefault();
+    moveDragTo(e.clientX, e.clientY);
+    const zone = zoneAtPoint(e.clientX, e.clientY);
+    document.querySelectorAll('.zone').forEach(z => z.classList.toggle('drag-over', z === zone));
+    /* Live ghost repositioning — slide the placeholder to where the card
+       would land, so the user gets immediate feedback. */
+    if (zone && drag.ghost) {
+      const idx = dropIndexInZone(zone, e.clientX);
+      placeGhostAt(zone, idx);
+    }
+  }
+  function onUp(e) {
+    if (!drag) return;
+    const zone = zoneAtPoint(e.clientX, e.clientY);
+
+    drag.el.classList.remove('dragging');
+    drag.el.style.position = '';
+    drag.el.style.left = '';
+    drag.el.style.top = '';
+    drag.el.style.width = '';
+    drag.el.style.height = '';
+    drag.el.style.zIndex = '';
+    document.querySelectorAll('.zone').forEach(z => z.classList.remove('drag-over'));
+
+    if (zone) {
+      const targetZone = zone.dataset.zone;
+      const idx = dropIndexInZone(zone, e.clientX);
+      moveCardTo(drag.card.id, targetZone, idx);
+    }
+    if (drag.el.parentElement) drag.el.parentElement.removeChild(drag.el);
+    if (drag.ghost.parentElement) drag.ghost.parentElement.removeChild(drag.ghost);
+    drag = null;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup',   onUp);
+    window.removeEventListener('pointercancel', onUp);
+    render();
+  }
+
+  /* Compute the insertion index in the zone based on pointer X.
+     We look at the current card / ghost children of the zone and find
+     where the pointer falls relative to their centers. The dragged
+     card's OWN ghost is excluded so it doesn't influence its own slot. */
+  function dropIndexInZone(zone, x) {
+    const items = [...zone.children].filter(el =>
+      (el.classList.contains('card') || el.classList.contains('card-ghost')) &&
+      el !== drag.ghost
+    );
+    for (let i = 0; i < items.length; i++) {
+      const r = items[i].getBoundingClientRect();
+      if (x < r.left + r.width / 2) return i;
+    }
+    return items.length;
+  }
+
+  /* Move the ghost (placeholder) into a zone at a given index. */
+  function placeGhostAt(zone, idx) {
+    const others = [...zone.children].filter(el =>
+      (el.classList.contains('card') || el.classList.contains('card-ghost')) &&
+      el !== drag.ghost
+    );
+    if (idx >= others.length) zone.appendChild(drag.ghost);
+    else zone.insertBefore(drag.ghost, others[idx]);
+  }
+
+  /* Update the order arrays — remove cardId from wherever it lives, then
+     insert at the given index in the destination zone's order. */
+  function moveCardTo(cardId, destZone, idx) {
+    frontOrder = frontOrder.filter(id => id !== cardId);
+    backOrder  = backOrder.filter(id => id !== cardId);
+    const arr = (destZone === 'front') ? frontOrder : backOrder;
+    arr.splice(idx, 0, cardId);
+  }
+
+  function zoneAtPoint(x, y) {
+    for (const z of document.querySelectorAll('.zone')) {
+      const r = z.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return z;
+    }
+    return null;
+  }
+
+  /* ============================================================
+     Reveal flow
+     ============================================================ */
+  function reveal() {
+    if (revealed) return;
+    const front = cardsInZone('front');
+    const back  = cardsInZone('back');
+    if (front.length !== 2 || back.length !== 5) return;
+    const hw = houseWay(currentHand);
+    const hwFrontIds = new Set(hw.front.map(c => c.id));
+    const userFrontIds = new Set(front.map(c => c.id));
+    const matches = userFrontIds.size === hwFrontIds.size
+      && [...userFrontIds].every(id => hwFrontIds.has(id));
+    const userBackRank = evalFive(back);
+    const userFrontRank = evalTwo(front);
+    const invalid = compare(userBackRank, userFrontRank) < 0;
+
+    revealed = true;
+    const frontZ = document.getElementById('zone-front');
+    const backZ  = document.getElementById('zone-back');
+    frontZ.innerHTML = '';
+    backZ.innerHTML = '';
+    const cls = matches ? 'match' : 'mismatch';
+    hw.front.forEach(c => frontZ.appendChild(makeCardEl(c, { matchClass: cls, revealed: true })));
+    hw.back.forEach(c  => backZ.appendChild(makeCardEl(c,  { matchClass: cls, revealed: true })));
+
+    const panel = document.getElementById('result-panel');
+    panel.className = 'result ' + (matches ? 'correct' : 'incorrect');
+    let title = matches ? '✓ Matches house way' : '✗ Different from house way';
+    let extra = '';
+    if (invalid) {
+      title = '⚠ Foul: front ranks higher than back';
+      panel.className = 'result incorrect';
+      extra = '<div class="reason" style="margin-top:8px"><b>Foul:</b> the front hand outranks the back. The back must be equal to or higher than the front.</div>';
+    }
+    panel.innerHTML =
+      '<h3>' + title + '</h3>' +
+      '<div class="reason">' + hw.reason + '</div>' + extra +
+      '<div class="houseway">' +
+      'House back:  <b>' + evalFive(hw.back).label + '</b><br>' +
+      'House front: <b>' + evalTwo(hw.front).label + '</b><br>' +
+      'Your back:   <b>' + userBackRank.label + '</b><br>' +
+      'Your front:  <b>' + userFrontRank.label + '</b>' +
+      '</div>';
+    document.getElementById('btn-reveal').disabled = true;
+  }
+
+  document.getElementById('btn-new').onclick    = newHand;
+  document.getElementById('btn-reveal').onclick = reveal;
+  document.getElementById('btn-clear').onclick  = clearPlacement;
+
+  /* Stop the page from scrolling while a drag is active on touch */
+  document.addEventListener('touchmove', (e) => {
+    if (drag) e.preventDefault();
+  }, { passive: false });
+
+  newHand();
+})();
+</script>
+
+</body>
+</html>
