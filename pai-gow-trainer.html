@@ -1532,12 +1532,15 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     const back  = cardsInZone('back');
     if (front.length !== 2 || back.length !== 5) return;
     const hw = houseWay(currentHand);
-    const hwFrontIds = new Set(hw.front.map(c => c.id));
-    const userFrontIds = new Set(front.map(c => c.id));
-    const matches = userFrontIds.size === hwFrontIds.size
-      && [...userFrontIds].every(id => hwFrontIds.has(id));
-    const userBackRank = evalFive(back);
+    /* Compare by hand RANK, not by specific card IDs — pai-gow doesn't care
+       which suit-marked card you used. If the resulting front and back hands
+       have the same poker ranking as the house way, the play is correct. */
+    const userBackRank  = evalFive(back);
     const userFrontRank = evalTwo(front);
+    const hwBackRank    = evalFive(hw.back);
+    const hwFrontRank   = evalTwo(hw.front);
+    const matches = compare(userBackRank, hwBackRank) === 0
+                 && compare(userFrontRank, hwFrontRank) === 0;
     const invalid = compare(userBackRank, userFrontRank) < 0;
 
     revealed = true;
@@ -1604,7 +1607,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
   document.getElementById('btn-reveal').onclick = reveal;
   document.getElementById('btn-clear').onclick  = clearPlacement;
 
-  /* Stop the page from scrolling while a drag is active on touch */
+  /* Stop the page from  scrolling while a drag is active on touch */
   document.addEventListener('touchmove', (e) => {
     if (drag) e.preventDefault();
   }, { passive: false });
