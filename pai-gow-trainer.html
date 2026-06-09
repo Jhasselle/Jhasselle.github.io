@@ -825,19 +825,41 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
        comparison inside consider()). */
     const sfVariants = allStraightFlushes(cards);
     if (sfVariants.length > 0) {
-      /* Highest-hi SF wins among SFs; keep only those variants. */
-      const maxHi = Math.max(...sfVariants.map(v => v.hi));
-      const topSFs = sfVariants.filter(v => v.hi === maxHi);
+      /* Joker plays as an Ace by default (Vegas rule). Only put the joker
+         INTO the SF if a real-cards-only SF doesn't exist, or if doing so
+         materially improves the front (i.e. creates a pair). Otherwise keep
+         the joker in the front as an Ace. */
+      const noJokerSFs = sfVariants.filter(v => !v.cards.some(c => c.joker));
+      const pool = noJokerSFs.length > 0 ? noJokerSFs : sfVariants;
+      const maxHi = Math.max(...pool.map(v => v.hi));
+      const topSFs = pool.filter(v => v.hi === maxHi);
       const isRoyal = maxHi === 14;
       for (const sf of topSFs) {
         consider(sf.cards, isRoyal ? 'Royal flush' : 'Straight flush');
+      }
+      /* If the chosen play has only a high-card front, look for a
+         joker-in-SF variant that would FREE a duplicate rank to form a
+         pair in the front (this is the "JKR + 7♣8♣9♣10♣J♣ + 7♦" case —
+         joker into the SF as 7, real 7♣ pairs with 7♦ in front). Only use
+         such a variant if its front is actually a pair. */
+      const sfFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
+      if (!sfFrontIsPair && noJokerSFs.length > 0) {
+        const jokerSFs = sfVariants.filter(v => v.cards.some(c => c.joker));
+        for (const sf of jokerSFs) {
+          const rest = cards.filter(c => !sf.cards.includes(c));
+          rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+          const rp = findPair(rest);
+          if (rp) {
+            consider(sf.cards, sf.hi === 14 ? 'Royal flush' : 'Straight flush');
+          }
+        }
       }
       /* "Break royal/SF for pair" — only break if an alternative back hand
          (flush or straight) yields an actual PAIR in front. A higher
          high-card front (e.g., A-X high) is NOT a good enough reason to
          demote a royal flush down to a flush/straight. */
-      const sfFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
-      if (!sfFrontIsPair) {
+      const sfFrontStillNotPair = bestPlay && evalTwo(bestPlay.front).cat < CAT.PAIR;
+      if (sfFrontStillNotPair) {
         function tryBreakAlt(altCards, label) {
           const rest = cards.filter(c => !altCards.includes(c));
           rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
