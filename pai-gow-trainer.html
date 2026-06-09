@@ -732,17 +732,28 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       return build([...lo, hi[0], other[0]], [hi[1], hi[2]],
         'Two trips: lower trip stays as back, higher trip becomes front pair.');
     }
-    /* If two pairs of 6+ exist alongside a straight/flush, BREAK the straight/flush
-       and play two pair instead (high pair in back, low pair in front). */
-    const highPairs = pairs.filter(p => rankVal(p[0].rank) >= 6);
-    const sfPre = bestStraightFlush(cards);
-    const flPre = bestFlush(cards);
-    const stPre = bestStraight(cards);
-    if ((sfPre || flPre || stPre) && highPairs.length >= 2) {
-      const [hi, lo] = highPairs;
+    /* BREAK a straight/flush for two pair when either:
+         a) both pairs are 6+, OR
+         b) one of the pairs is aces (regardless of the other pair's rank).
+       Hi pair (or the ace pair, if present) goes to back with 3 highest others;
+       the other pair goes to the front. */
+    const highPairs   = pairs.filter(p => rankVal(p[0].rank) >= 6);
+    const hasAcePair  = pairs.some(p => p[0].rank === 'A');
+    const sfPre       = bestStraightFlush(cards);
+    const flPre       = bestFlush(cards);
+    const stPre       = bestStraight(cards);
+    const breakForTwoPair =
+      (highPairs.length >= 2) ||
+      (pairs.length >= 2 && hasAcePair);
+    if ((sfPre || flPre || stPre) && breakForTwoPair) {
+      /* Ace pair (if any) takes the back; otherwise the highest pair does. */
+      const hi = pairs.find(p => p[0].rank === 'A') || pairs[0];
+      const lo = pairs.find(p => p !== hi);
       const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
-      return build([...hi, ...others.slice(0, 3)], lo,
-        'Two pair (both 6+) with a straight/flush available: break the straight/flush, play two pair.');
+      const reason = hasAcePair && highPairs.length < 2
+        ? 'Two pair including aces with a straight/flush available: break the straight/flush, play two pair.'
+        : 'Two pair (both 6+) with a straight/flush available: break the straight/flush, play two pair.';
+      return build([...hi, ...others.slice(0, 3)], lo, reason);
     }
     /* Helper — score a 2-card front-hand for "give higher low hand" comparisons */
     function frontScore(twoCards) {
@@ -1689,7 +1700,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
   document.getElementById('btn-reveal').onclick = reveal;
   document.getElementById('btn-clear').onclick  = clearPlacement;
 
-  /* Stop the page from  scrolling while a drag is active on touch */
+  /* Stop the page from scrolling while a drag is active on touch */
   document.addEventListener('touchmove', (e) => {
     if (drag) e.preventDefault();
   }, { passive: false });
