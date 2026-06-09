@@ -113,9 +113,12 @@ h1 {
 
 .zone {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 14px;
-  /* Fixed height — fits two card rows (100px each) + gap + house-way label
-     without clipping. Cards stay anchored to the top row. */
-  height: 268px;
+  /* Min-height fits two card rows (100px each) + gap + house-way label
+     without clipping. Uses min-height (not height) so the box GROWS when
+     content wraps to an extra row at narrow widths — otherwise cards would
+     spill out the bottom and overlap the Reveal button (we saw this on
+     mid-width Android viewports). Cards still anchor to the top row. */
+  min-height: 268px;
   align-content: flex-start;
   align-items: flex-start;
   border-radius: 12px;
@@ -267,6 +270,16 @@ button.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(
   margin: 2px 2px -4px; height: auto;
 }
 
+/* Intermediate sizing for tablets / narrow desktops where 7 full-sized
+   cards don't fit in a single row but the viewport is wider than 560px. */
+@media (max-width: 720px) and (min-width: 561px) {
+  .card { width: 64px; height: 92px; }
+  .card .corner-tl, .card .corner-br { font-size: 13px; }
+  .card .corner small { font-size: 10px; }
+  .card .center { font-size: 28px; }
+  .card-ghost { width: 64px; height: 92px; }
+  .zone { padding: 12px; min-height: 244px; gap: 7px; }
+}
 @media (max-width: 560px) {
   .page { padding: 60px 14px 60px; }
   h1 { font-size: 28px; }
@@ -276,7 +289,7 @@ button.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(
   .card .corner small { font-size: 10px; }
   .card .center { font-size: 24px; }
   .card-ghost { width: 56px; height: 80px; }
-  .zone { padding: 10px; height: 222px; gap: 6px; }
+  .zone { padding: 10px; min-height: 222px; gap: 6px; }
   .trainer { padding: 18px; }
 }
 
