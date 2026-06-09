@@ -416,13 +416,6 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
 <div class="page">
   <div class="greet">Poker · Pai Gow Poker</div>
   <h1>House Way Trainer</h1>
-  <p class="lede">
-    Seven cards are dealt. <b>Drag</b> exactly two of them up to the
-    <b>Front</b> zone; the other five stay in <b>Back</b>. You can also drag
-    cards inside a zone to reorder them. Joker plays as an Ace, or completes
-    a straight or flush.
-  </p>
-
   <div class="trainer">
     <div class="trainer-header">
       <button class="settings-btn-prominent" id="btn-settings" type="button">
@@ -461,6 +454,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     <div class="group">
       <div class="group-title">Hand source</div>
       <div class="mode-picker">
+        <button id="mode-randomized">Randomized hand</button>
         <button id="mode-random">Random deck</button>
         <button id="mode-category">Specific hand</button>
       </div>
@@ -689,8 +683,12 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       const q = quads[0];
       const qv = rankVal(q[0].rank);
       const others = sorted.filter(c => !q.includes(c));
-      if (qv <= 5) return build([...q, others[0]], others.slice(1, 3),
-        'Low four-of-a-kind (2-5): keep together in back.');
+      if (qv <= 5) {
+        /* Keep quads together. Lowest non-quad fills the 5th back slot;
+           the two highest go to the front for the best low hand. */
+        return build([...q, others[others.length - 1]], others.slice(0, 2),
+          'Low four-of-a-kind (2-5): keep together in back; two highest others in front.');
+      }
       // 6 and above: always split — pair in front, pair + 3 highest in back
       return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]],
         'Four ' + q[0].rank + 's (6 or higher): split — pair in front, pair + 3 high in back.');
@@ -703,6 +701,21 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
         const p1 = pairs[0], p2 = pairs[1];
         return build([t[0], ...p1, ...p2], [t[1], t[2]],
           'Trip aces + two pair: split aces — AA to front, 1 ace + both pairs to back.');
+      }
+      // Full house of 2s and 3s (only) with an ace: keep full house together,
+      // play ace + remaining in the front. Triggers for 222+33 or 333+22.
+      if (pairs.length === 1) {
+        const p = pairs[0];
+        const tv = rankVal(t[0].rank);
+        const pv = rankVal(p[0].rank);
+        const lowOnly = (tv === 2 || tv === 3) && (pv === 2 || pv === 3) && tv !== pv;
+        const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
+        const ace = others.find(c => c.rank === 'A' || c.joker);
+        if (lowOnly && ace) {
+          const otherNonAce = others.find(c => c !== ace);
+          return build([...t, ...p], [ace, otherNonAce],
+            'Full house of 2s and 3s with an ace: keep full house together; ace + remaining to front.');
+        }
       }
       // Trips + Two Pair (non-ace trips): trips + LOWER pair → back as full house,
       // highest pair → front. Trips + just one pair = same code path.
@@ -979,10 +992,18 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
      Settings + category generation
      ============================================================ */
   const STATE = (function() {
-    let s = { mode: 'random', category: 'one_pair', requireAce: false, requireJoker: false };
+    let s = { mode: 'randomized', category: 'one_pair', requireAce: false, requireJoker: false, _v: 2 };
     try {
       const saved = JSON.parse(localStorage.getItem('paigow-settings') || 'null');
-      if (saved) s = Object.assign(s, saved);
+      if (saved) {
+        s = Object.assign(s, saved);
+        /* One-time migration: bump anyone still on the old v1 default
+           ('random') up to the new 'randomized' default. */
+        if (!saved._v) {
+          if (s.mode === 'random') s.mode = 'randomized';
+          s._v = 2;
+        }
+      }
     } catch(e) {}
     return s;
   })();
@@ -1220,18 +1241,50 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     });
     const cards = ranks.map(r => makeCard(r, suit, false));
     const otherSuits = SUITS.filter(s => s !== suit);
-    const extra = pickN(RANKS.filter(r => !ranks.includes(r)), 2);
-    extra.forEach((r, i) => cards.push(makeCard(r, otherSuits[i % 3], false)));
-    return cards;
+    /* Pick 2 extra cards. Sometimes pair one of the SF ranks (off-suit) so
+       house-way decisions like "two pair (6+) break SF" come up in practice.
+       Suits are randomised; we just avoid duplicating the SF suit so we don't
+       accidentally form a 6-card flush. */
+    const wantPair = Math.random() < 0.5;
+    const extras = [];
+    let tries = 0;
+    while (extras.length < 2 && tries++ < 200) {
+      let r;
+      if (wantPair && extras.length === 0 && Math.random() < 0.85) {
+        r = ranks[Math.floor(Math.random() * ranks.length)];
+      } else {
+        r = RANKS[Math.floor(Math.random() * RANKS.length)];
+      }
+      const s = otherSuits[Math.floor(Math.random() * otherSuits.length)];
+      if (cards.some(c => c.rank === r && c.suit === s)) continue;
+      cards.push(makeCard(r, s, false));
+      extras.push({ r, s });
+    }
+    return extras.length === 2 ? cards : null;
   }
   function tryRoyalFlush() {
     const suit = randSuit();
     const royal = ['10','J','Q','K','A'];
     const cards = royal.map(r => makeCard(r, suit, false));
     const otherSuits = SUITS.filter(s => s !== suit);
-    const extra = pickN(RANKS.filter(r => !royal.includes(r)), 2);
-    extra.forEach((r, i) => cards.push(makeCard(r, otherSuits[i % 3], false)));
-    return cards;
+    /* Pick 2 extra cards. Sometimes pair one of the royal ranks (off-suit) so
+       the "break royal for pair" rule comes up in practice. Random suits. */
+    const wantPair = Math.random() < 0.5;
+    const extras = [];
+    let tries = 0;
+    while (extras.length < 2 && tries++ < 200) {
+      let r;
+      if (wantPair && extras.length === 0 && Math.random() < 0.85) {
+        r = royal[Math.floor(Math.random() * royal.length)];
+      } else {
+        r = RANKS[Math.floor(Math.random() * RANKS.length)];
+      }
+      const s = otherSuits[Math.floor(Math.random() * otherSuits.length)];
+      if (cards.some(c => c.rank === r && c.suit === s)) continue;
+      cards.push(makeCard(r, s, false));
+      extras.push({ r, s });
+    }
+    return extras.length === 2 ? cards : null;
   }
   function tryFiveAces() {
     /* 4 aces + joker + 2 other cards */
@@ -1270,23 +1323,36 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     return cards;
   }
 
+  /* All category IDs that the trainer knows how to generate — used by
+     'randomized' mode to pick one at random each round. */
+  const CATEGORY_LIST = [
+    'high_card','one_pair','two_pair','three_pair','three_kind','trips_two_pair',
+    'two_trips','straight','flush','full_house','quads','straight_flush',
+    'royal_flush','five_aces'
+  ];
   function generateHand() {
     for (let attempt = 0; attempt < 50; attempt++) {
       let cards;
+      let effectiveCat = null;
       if (STATE.mode === 'category') {
-        cards = genCategoryHand(STATE.category);
+        effectiveCat = STATE.category;
+        cards = genCategoryHand(effectiveCat);
+        if (!cards) continue;
+      } else if (STATE.mode === 'randomized') {
+        effectiveCat = CATEGORY_LIST[Math.floor(Math.random() * CATEGORY_LIST.length)];
+        cards = genCategoryHand(effectiveCat);
         if (!cards) continue;
       } else {
         cards = deal7();
       }
       if (STATE.requireJoker && !cards.some(c => c.joker)) {
-        cards = injectJoker(cards, STATE.mode === 'category' ? STATE.category : null);
+        cards = injectJoker(cards, effectiveCat);
       }
       if (STATE.requireAce && !cards.some(c => c.rank === 'A' || c.joker)) {
-        cards = injectAce(cards, STATE.mode === 'category' ? STATE.category : null);
+        cards = injectAce(cards, effectiveCat);
       }
       /* Re-verify category — modifiers may have broken it */
-      if (STATE.mode === 'category' && categoryOf(cards) !== STATE.category) continue;
+      if (effectiveCat && categoryOf(cards) !== effectiveCat) continue;
       /* Re-verify modifiers stuck */
       if (STATE.requireJoker && !cards.some(c => c.joker)) continue;
       if (STATE.requireAce && !cards.some(c => c.rank === 'A' || c.joker)) continue;
@@ -1311,6 +1377,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
      Settings UI wiring
      ============================================================ */
   function syncSettingsUI() {
+    document.getElementById('mode-randomized').classList.toggle('active', STATE.mode === 'randomized');
     document.getElementById('mode-random').classList.toggle('active', STATE.mode === 'random');
     document.getElementById('mode-category').classList.toggle('active', STATE.mode === 'category');
     document.getElementById('cat-select').value = STATE.category;
@@ -1330,6 +1397,9 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     if (e.target.id === 'settings-modal') {
       document.getElementById('settings-modal').classList.remove('open');
     }
+  };
+  document.getElementById('mode-randomized').onclick = () => {
+    STATE.mode = 'randomized'; saveSettings(); syncSettingsUI();
   };
   document.getElementById('mode-random').onclick = () => {
     STATE.mode = 'random'; saveSettings(); syncSettingsUI();
