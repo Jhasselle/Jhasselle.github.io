@@ -778,7 +778,12 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     const sfPre = bestStraightFlush(cards);
     const flPre = bestFlush(cards);
     const stPre = bestStraight(cards);
-    if ((sfPre || flPre || stPre) && highPairs.length >= 2) {
+    /* NEVER break a royal flush, even for two pairs of 6+. The "AA pair" in
+       this kind of case is usually fake (joker grouped with a real ace,
+       while the joker is also needed for the royal). The two-pair break
+       still applies to SFs, regular flushes, and straights. */
+    const hasRoyal = sfPre && sfPre.hi === 14;
+    if (!hasRoyal && (sfPre || flPre || stPre) && highPairs.length >= 2) {
       const [hi, lo] = highPairs;
       const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
       return build([...hi, ...others.slice(0, 3)], lo,
@@ -854,12 +859,12 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
           }
         }
       }
-      /* "Break royal/SF for pair" — only break if an alternative back hand
-         (flush or straight) yields an actual PAIR in front. A higher
-         high-card front (e.g., A-X high) is NOT a good enough reason to
-         demote a royal flush down to a flush/straight. */
+      /* "Break STRAIGHT FLUSH (non-royal) for pair" — only break if an
+         alternative back yields an actual PAIR in front. Royal flushes are
+         NEVER broken: per user spec, even a real pair available in rest
+         doesn't justify giving up a royal. */
       const sfFrontStillNotPair = bestPlay && evalTwo(bestPlay.front).cat < CAT.PAIR;
-      if (sfFrontStillNotPair) {
+      if (sfFrontStillNotPair && !isRoyal) {
         function tryBreakAlt(altCards, label) {
           const rest = cards.filter(c => !altCards.includes(c));
           rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
@@ -868,14 +873,10 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
           consider(altCards, label);
         }
         for (const fl of allFlushes(cards)) {
-          tryBreakAlt(fl.cards, isRoyal
-            ? 'Flush (broke royal flush — pair to front)'
-            : 'Flush (broke straight flush — pair to front)');
+          tryBreakAlt(fl.cards, 'Flush (broke straight flush — pair to front)');
         }
         for (const st of allStraights(cards)) {
-          tryBreakAlt(st.cards, isRoyal
-            ? 'Straight (broke royal flush — pair to front)'
-            : 'Straight (broke straight flush — pair to front)');
+          tryBreakAlt(st.cards, 'Straight (broke straight flush — pair to front)');
         }
       }
     } else {
