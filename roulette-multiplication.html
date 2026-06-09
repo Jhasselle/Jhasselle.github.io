@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>17 Times Table — Roulette Trainer</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.page {
+  position: relative; z-index: 1;
+  max-width: 540px; margin: 0 auto;
+  padding: 70px 22px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 6px 0 22px; font-size: 32px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 36px 24px 32px;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+  text-align: center;
+}
+
+.prompt {
+  padding: 4px 0 22px;
+}
+.prompt .label {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); font-weight: 700; margin-bottom: 6px;
+}
+.prompt .expr {
+  font-size: clamp(56px, 12vw, 88px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #c7d2fe 0%, #a78bfa 60%, #f0abfc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  line-height: 1.05;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+}
+
+.answer-slot {
+  margin: 12px auto 18px;
+  min-height: 120px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: clamp(52px, 11vw, 80px);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #34d399;
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 14px 12px;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.answer-slot.empty {
+  color: rgba(255,255,255,0.18);
+  font-size: clamp(40px, 9vw, 60px);
+}
+.answer-slot.revealed {
+  border-style: solid;
+  border-color: rgba(52,211,153,0.45);
+  background: rgba(52,211,153,0.06);
+  animation: pop 0.25s ease;
+}
+@keyframes pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.btn-row {
+  display: flex; justify-content: center;
+}
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 12px;
+  padding: 14px 28px; font: 700 14px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 200px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+@media (max-width: 560px) {
+  .page { padding: 56px 14px 60px; }
+  h1 { font-size: 26px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .trainer { padding: 28px 18px 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="roulette.html">Home</a>
+
+<div class="page">
+  <div class="greet">Roulette · Multiplication practice</div>
+  <h1>17 times table</h1>
+
+  <div class="trainer">
+    <div class="prompt">
+      <div class="label">Solve</div>
+      <div class="expr" id="expr">17 × 2</div>
+    </div>
+
+    <div class="answer-slot empty" id="answer-slot">?</div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-show">Show answer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const FACTORS = [];
+  for (let n = 2; n <= 20; n++) FACTORS.push(n);
+
+  const $expr  = document.getElementById('expr');
+  const $slot  = document.getElementById('answer-slot');
+  const $btn   = document.getElementById('btn-show');
+
+  let currentFactor = null;
+
+  function pickFactor() {
+    let n, tries = 0;
+    do {
+      n = FACTORS[Math.floor(Math.random() * FACTORS.length)];
+    } while (n === currentFactor && tries++ < 10);
+    return n;
+  }
+
+  function newPrompt() {
+    currentFactor = pickFactor();
+    $expr.textContent = '17 × ' + currentFactor;
+    $slot.textContent = '?';
+    $slot.classList.add('empty');
+    $slot.classList.remove('revealed');
+    $btn.textContent = 'Show answer';
+    $btn.disabled = false;
+  }
+
+  function showAnswer() {
+    $slot.textContent = 17 * currentFactor;
+    $slot.classList.remove('empty');
+    $slot.classList.add('revealed');
+    /* Animation restart trick */
+    $slot.style.animation = 'none';
+    void $slot.offsetWidth;
+    $slot.style.animation = '';
+    $btn.textContent = 'Next';
+    $btn.disabled = false;
+  }
+
+  $btn.onclick = () => {
+    if ($slot.classList.contains('revealed')) newPrompt();
+    else showAnswer();
+  };
+
+  /* Keyboard: spacebar or enter advances/reveals */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      $btn.click();
+    }
+  });
+
+  newPrompt();
+})();
+</script>
+
+</body>
+</html>
