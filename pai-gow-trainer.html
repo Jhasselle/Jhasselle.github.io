@@ -816,23 +816,42 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
         };
       }
     }
-    if (sfPre) {
-      /* Royal flush break: if the SF is a royal AND there's any pair in the rest,
-         play a non-royal straight or flush instead so the pair can go to the low hand. */
-      const restAfterSF = cards.filter(c => !sfPre.cards.includes(c));
-      const restPair = findPair(restAfterSF);
-      const isRoyal = sfPre.hi === 14;
-      if (isRoyal && restPair) {
-        for (const fl of allFlushes(cards)) consider(fl.cards, 'Flush (broke royal flush — pair to front)');
-        for (const st of allStraights(cards)) consider(st.cards, 'Straight (broke royal flush — pair to front)');
-        if (!bestPlay) consider(sfPre.cards, 'Straight flush');
-      } else {
-        consider(sfPre.cards, 'Straight flush');
+    /* Enumerate every possible back-hand category and let consider() pick
+       the variant that leaves the best low (front) hand. Within each level
+       (SF/royal vs flush vs straight) we keep the existing precedence: a
+       higher-category back always wins unless the higher-category variants
+       all give a worse front than a "break". The break-for-pair logic is
+       still applied here by iterating non-SF alternatives when the only
+       SF variants would leave a sub-pair front (handled by the front-score
+       comparison inside consider()). */
+    const sfVariants = allStraightFlushes(cards);
+    if (sfVariants.length > 0) {
+      /* Highest-hi SF wins among SFs; keep only those variants. */
+      const maxHi = Math.max(...sfVariants.map(v => v.hi));
+      const topSFs = sfVariants.filter(v => v.hi === maxHi);
+      const isRoyal = maxHi === 14;
+      for (const sf of topSFs) {
+        consider(sf.cards, isRoyal ? 'Royal flush' : 'Straight flush');
+      }
+      /* "Break royal/SF for pair" — if the best SF play does NOT yield a pair
+         in front but a non-SF play would (e.g., breaking the royal frees a
+         pair), allow flushes/straights as alternatives. consider() already
+         picks higher front-score, so the break only wins when the non-SF
+         front is actually a pair (higher category than a high-card front). */
+      const sfFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
+      if (!sfFrontIsPair) {
+        for (const fl of allFlushes(cards)) {
+          consider(fl.cards, isRoyal
+            ? 'Flush (broke royal flush — pair to front)'
+            : 'Flush (broke straight flush — pair to front)');
+        }
+        for (const st of allStraights(cards)) {
+          consider(st.cards, isRoyal
+            ? 'Straight (broke royal flush — pair to front)'
+            : 'Straight (broke straight flush — pair to front)');
+        }
       }
     } else {
-      /* Enumerate all 5-card straights and flushes; pick whichever leaves the
-         highest 2-card low hand. This handles 6/7-card straights AND
-         the "straight over flush when low hand is higher" rule. */
       for (const fl of allFlushes(cards)) consider(fl.cards, 'Flush');
       for (const st of allStraights(cards)) consider(st.cards, 'Straight');
     }
@@ -961,8 +980,23 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
         if (byVal[look] && byVal[look].length) have.push(byVal[look][0]);
         else miss++;
       }
-      if (miss === 0) out.push({ hi, cards: have.slice() });
-      else if (miss === 1 && joker) out.push({ hi, cards: [...have, joker] });
+      if (miss === 0) {
+        out.push({ hi, cards: have.slice() });
+        /* Also generate joker-substitution variants: for each rank in the
+           straight, swap the joker IN and let the real card it displaced
+           go to leftover. Only useful when a duplicate of that rank exists
+           (otherwise the displaced real card is just a different leftover) —
+           but even then it's harmless because consider() will pick the best. */
+        if (joker) {
+          for (let i = 0; i < have.length; i++) {
+            const variant = have.slice();
+            variant[i] = joker;
+            out.push({ hi, cards: variant });
+          }
+        }
+      } else if (miss === 1 && joker) {
+        out.push({ hi, cards: [...have, joker] });
+      }
     }
     return out;
   }
@@ -974,48 +1008,98 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
   function allFlushes(seven) {
     const out = [];
     const joker = seven.find(c => c.joker);
+    function combos(arr, k) {
+      if (k === 0) return [[]];
+      if (arr.length < k) return [];
+      const [h, ...t] = arr;
+      return combos(t, k - 1).map(c => [h, ...c]).concat(combos(t, k));
+    }
     for (const suit of SUITS) {
       const inSuit = seven.filter(c => c.suit === suit);
       if (inSuit.length + (joker ? 1 : 0) < 5) continue;
       inSuit.sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
-      // For 6+ same-suit cards (with or without joker), enumerate each choice
-      // of "which card stays out" so we can compare resulting front hands.
-      const maxLen = Math.min(inSuit.length, 6);
-      const need = joker ? 4 : 5;
-      if (inSuit.length === need) {
-        const pick = inSuit.slice();
-        if (joker) pick.unshift(joker);
-        out.push({ cards: pick });
-      } else {
-        // pick (need) of inSuit, leaving the rest out — iterate combinations of which to omit
-        // for need=5 from 6 cards: 6 ways. Keep it simple.
-        const omit = inSuit.length - need;
-        // For omit=1 (6 cards): 6 combos. omit=2 (7 cards): 21 combos.
-        // We use a simple enumerator:
-        function combos(arr, k) {
-          if (k === 0) return [[]];
-          if (arr.length < k) return [];
-          const [h, ...t] = arr;
-          return combos(t, k - 1).map(c => [h, ...c]).concat(combos(t, k));
+      /* (a) Joker-in-flush variants: pick (5 - 1) = 4 from inSuit and add joker.
+             Iterate combos so each "which card is left out" is a separate variant. */
+      if (joker) {
+        for (const picked of combos(inSuit, 4)) {
+          out.push({ cards: [joker, ...picked] });
         }
-        for (const picked of combos(inSuit, need)) {
-          const pick = picked.slice();
-          if (joker) pick.unshift(joker);
-          out.push({ cards: pick });
+      }
+      /* (b) No-joker-in-flush variants: pick 5 from inSuit (only possible if
+             inSuit.length >= 5). This frees the joker to play as Ace in the
+             front, possibly pairing with a real Ace in the leftover. */
+      if (inSuit.length >= 5) {
+        for (const picked of combos(inSuit, 5)) {
+          out.push({ cards: picked.slice() });
+        }
+      }
+    }
+    return out;
+  }
+  /* Return ALL possible 5-card straight flushes from 7 cards, including
+     joker-substitution variants (joker swapped in for each card in the SF).
+     Each entry: { hi, cards }. */
+  function allStraightFlushes(seven) {
+    const out = [];
+    const joker = seven.find(c => c.joker);
+    for (const suit of SUITS) {
+      const inSuit = seven.filter(c => c.suit === suit);
+      if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+      const byVal = {};
+      for (const c of inSuit) byVal[rankVal(c.rank)] = c;
+      for (let hi = 14; hi >= 5; hi--) {
+        const need = [hi, hi - 1, hi - 2, hi - 3, hi - 4];
+        const have = [];
+        let miss = 0;
+        for (const v of need) {
+          let look = v;
+          if (hi === 5 && v === 1) look = 14;
+          if (byVal[look]) have.push(byVal[look]);
+          else miss++;
+        }
+        if (miss === 0) {
+          out.push({ hi, cards: have.slice() });
+          /* Joker-substitution variants — swap joker for each card in the SF
+             to potentially free a duplicate-rank card for the front pair. */
+          if (joker) {
+            for (let i = 0; i < have.length; i++) {
+              const variant = have.slice();
+              variant[i] = joker;
+              out.push({ hi, cards: variant });
+            }
+          }
+        } else if (miss === 1 && joker) {
+          out.push({ hi, cards: [...have, joker] });
         }
       }
     }
     return out;
   }
   function findPair(cs) {
+    /* Returns the highest pair available in the given cards. Joker plays as
+       an Ace, so a joker + real Ace forms a pair of Aces — the highest
+       possible pair. */
     const m = {};
+    const joker = cs.find(c => c.joker);
     for (const c of cs) {
       if (c.joker) continue;
       (m[c.rank] = m[c.rank] || []).push(c);
     }
-    const ps = Object.values(m).filter(g => g.length >= 2)
-      .sort((a, b) => rankVal(b[0].rank) - rankVal(a[0].rank));
-    return ps.length ? [ps[0][0], ps[0][1]] : null;
+    let best = null;
+    let bestVal = 0;
+    for (const k in m) {
+      if (m[k].length >= 2) {
+        const v = rankVal(k);
+        if (v > bestVal) { bestVal = v; best = [m[k][0], m[k][1]]; }
+      }
+    }
+    if (joker) {
+      const realA = m['A'];
+      if (realA && realA.length >= 1 && 14 > bestVal) {
+        bestVal = 14; best = [joker, realA[0]];
+      }
+    }
+    return best;
   }
 
   /* ============================================================
