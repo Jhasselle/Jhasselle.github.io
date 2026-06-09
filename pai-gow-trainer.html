@@ -1559,7 +1559,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     /* Live ghost repositioning — slide the placeholder to where the card
        would land, so the user gets immediate feedback. */
     if (zone && drag.ghost) {
-      const idx = dropIndexInZone(zone, e.clientX);
+      const idx = dropIndexInZone(zone, e.clientX, e.clientY);
       placeGhostAt(zone, idx);
     }
   }
@@ -1578,7 +1578,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
 
     if (zone) {
       const targetZone = zone.dataset.zone;
-      const idx = dropIndexInZone(zone, e.clientX);
+      const idx = dropIndexInZone(zone, e.clientX, e.clientY);
       moveCardTo(drag.card.id, targetZone, idx);
     }
     if (drag.el.parentElement) drag.el.parentElement.removeChild(drag.el);
@@ -1590,20 +1590,64 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     render();
   }
 
-  /* Compute the insertion index in the zone based on pointer X.
-     We look at the current card / ghost children of the zone and find
-     where the pointer falls relative to their centers. The dragged
-     card's OWN ghost is excluded so it doesn't influence its own slot. */
-  function dropIndexInZone(zone, x) {
+  /* Compute the insertion index in the zone based on pointer X and Y.
+     With flex-wrap the items can occupy multiple visual rows, so an
+     X-only comparison is ambiguous (a pointer at the right edge of row 1
+     and at the right edge of row 2 are both "past everything"). We first
+     find which row the pointer is in (using Y), then do the X comparison
+     only inside that row. */
+  function dropIndexInZone(zone, x, y) {
     const items = [...zone.children].filter(el =>
       (el.classList.contains('card') || el.classList.contains('card-ghost')) &&
       el !== drag.ghost
     );
-    for (let i = 0; i < items.length; i++) {
-      const r = items[i].getBoundingClientRect();
-      if (x < r.left + r.width / 2) return i;
+    if (items.length === 0) return 0;
+    const rects = items.map(el => el.getBoundingClientRect());
+    /* Group items into visual rows. Each row stores its index list and
+       its vertical extent. Two items share a row if their Y-centers are
+       within half a card height of each other. */
+    const rows = [];
+    rects.forEach((r, i) => {
+      const yMid = (r.top + r.bottom) / 2;
+      let row = rows.find(R => yMid >= R.top - 4 && yMid <= R.bottom + 4);
+      if (!row) {
+        row = { top: r.top, bottom: r.bottom, indices: [], rects: [] };
+        rows.push(row);
+      } else {
+        row.top    = Math.min(row.top,    r.top);
+        row.bottom = Math.max(row.bottom, r.bottom);
+      }
+      row.indices.push(i);
+      row.rects.push(r);
+    });
+    /* Above the first row → insert at the very start. */
+    if (y < rows[0].top) return 0;
+    /* Below the last row → insert at the very end. */
+    if (y > rows[rows.length - 1].bottom) return items.length;
+    /* Find the row the pointer is in (or the closest row above). */
+    let target = null;
+    for (const row of rows) {
+      if (y >= row.top && y <= row.bottom) { target = row; break; }
     }
-    return items.length;
+    if (!target) {
+      /* In the small gap between rows — snap to the END of the row above. */
+      for (let r = 0; r < rows.length; r++) {
+        if (y < rows[r].top) {
+          if (r === 0) return 0;
+          const above = rows[r - 1];
+          return above.indices[above.indices.length - 1] + 1;
+        }
+      }
+      return items.length;
+    }
+    /* Inside the target row, X-compare against each item's center. */
+    for (let i = 0; i < target.indices.length; i++) {
+      const r = target.rects[i];
+      if (x < r.left + r.width / 2) return target.indices[i];
+    }
+    /* Past the last card in the row → insert at end of this row
+       (== index of next row's first item, or items.length if last row). */
+    return target.indices[target.indices.length - 1] + 1;
   }
 
   /* Move the ghost (placeholder) into a zone at a given index. */
