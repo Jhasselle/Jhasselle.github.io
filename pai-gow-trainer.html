@@ -639,13 +639,22 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
     return { cat: CAT.HIGH, key: desc.slice(0, 5), label: valToRank(desc[0]) + ' high' };
   }
   function evalTwo(cards) {
+    /* Vegas rule: joker plays as an Ace. Pairs only form with two of the
+       SAME rank — so joker + Ace makes a pair, but joker + anything else
+       is "Ace-X high", not a pair. */
     const hasJoker = cards.some(c => c.joker);
     const real = cards.filter(c => !c.joker);
     if (real.length === 2 && real[0].rank === real[1].rank) {
       return { cat: CAT.PAIR, key: [rankVal(real[0].rank)], label: 'Pair of ' + real[0].rank + 's' };
     }
     if (hasJoker && real.length === 1) {
-      return { cat: CAT.PAIR, key: [14], label: 'Pair of Aces (joker)' };
+      if (real[0].rank === 'A') {
+        return { cat: CAT.PAIR, key: [14], label: 'Pair of Aces (joker)' };
+      }
+      /* Joker as Ace + the other card → A-X high. */
+      const v = rankVal(real[0].rank);
+      return { cat: CAT.HIGH, key: [14, v],
+               label: 'A-' + real[0].rank + ' high (joker)' };
     }
     const vals = real.map(c => rankVal(c.rank)).sort((a, b) => b - a);
     if (hasJoker) vals.unshift(14);
