@@ -880,8 +880,27 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
         }
       }
     } else {
-      for (const fl of allFlushes(cards)) consider(fl.cards, 'Flush');
-      for (const st of allStraights(cards)) consider(st.cards, 'Straight');
+      /* No SF available. Pai gow ranking: flush > straight. By default play
+         the flush; only consider a straight if it yields a PAIR in front
+         (the only categorical front upgrade worth giving up flush rank for).
+         A marginal high-card improvement (e.g. 8-7 vs 8-2) is NOT enough. */
+      const flVariants = allFlushes(cards);
+      const stVariants = allStraights(cards);
+      if (flVariants.length > 0) {
+        for (const fl of flVariants) consider(fl.cards, 'Flush');
+        const flushFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
+        if (!flushFrontIsPair) {
+          for (const st of stVariants) {
+            const rest = cards.filter(c => !st.cards.includes(c));
+            rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+            const rp = findPair(rest);
+            if (rp) consider(st.cards, 'Straight');
+          }
+        }
+      } else {
+        /* No flush available — just iterate straights. */
+        for (const st of stVariants) consider(st.cards, 'Straight');
+      }
     }
     if (bestPlay) {
       return build(bestPlay.back, bestPlay.front, bestPlay.reason);
