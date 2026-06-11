@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette Payouts — Multiplication Practice</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.gear-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18));
+  border: 1px solid rgba(139, 110, 247, 0.55);
+  color: #fff;
+  font: 700 11.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(99,102,241,0.55), 0 0 0 0 rgba(168,85,247,0.45);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.18s ease, box-shadow 0.18s ease;
+  flex: 0 0 auto;
+}
+.gear-btn .gear-icon {
+  display: inline-block;
+  font-size: 15px;
+  transition: transform 0.3s ease;
+}
+.gear-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(99,102,241,0.32), rgba(168,85,247,0.32));
+  border-color: rgba(139, 110, 247, 0.85);
+}
+.gear-btn:hover .gear-icon { transform: rotate(60deg); }
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 540px; margin: 0 auto;
+  padding: 70px 22px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 0; font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 22px;
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 32px 24px 28px;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+  text-align: center;
+}
+
+.bet-label {
+  font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(168, 85, 247, 0.9);
+  margin-bottom: 14px;
+}
+.bet-label .multiplier {
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+.bet-label .multiplier b { color: rgba(255, 255, 255, 0.85); }
+
+.prompt {
+  padding: 2px 0 14px;
+}
+.prompt .label {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); font-weight: 700; margin-bottom: 6px;
+}
+.prompt .expr {
+  font-size: clamp(50px, 11vw, 80px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #c7d2fe 0%, #a78bfa 60%, #f0abfc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  line-height: 1.05;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+}
+
+.answer-slot {
+  margin: 14px auto 18px;
+  min-height: 110px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: clamp(46px, 10vw, 72px);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #34d399;
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 14px 12px;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.answer-slot.empty {
+  color: rgba(255,255,255,0.18);
+  font-size: clamp(38px, 8vw, 56px);
+}
+.answer-slot.revealed {
+  border-style: solid;
+  border-color: rgba(52,211,153,0.45);
+  background: rgba(52,211,153,0.06);
+  animation: pop 0.25s ease;
+}
+@keyframes pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.btn-row { display: flex; justify-content: center; }
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 12px;
+  padding: 14px 28px; font: 700 14px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 200px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,6,10,0.72);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: linear-gradient(180deg, #14161e 0%, #0c0e16 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px 26px 22px;
+  width: 100%; max-width: 440px;
+  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.7);
+  position: relative;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h3 {
+  margin: 0 0 16px;
+  font-size: 18px; font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.modal .close-x {
+  position: absolute; top: 14px; right: 16px;
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.55); font-size: 22px; line-height: 1;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.modal .group { margin-bottom: 20px; }
+.modal .group:last-child { margin-bottom: 4px; }
+.modal .group-title {
+  font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.bet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bet-row:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+.bet-row.selected {
+  background: rgba(139, 110, 247, 0.10);
+  border-color: rgba(139, 110, 247, 0.42);
+}
+.bet-row .name { font-size: 14px; font-weight: 700; color: #f4f4f5; }
+.bet-row .multi {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 13px; font-weight: 700;
+  color: rgba(255,255,255,0.55);
+}
+.bet-row.selected .multi { color: #c4b5fd; }
+.bet-row .check {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  margin-right: 10px;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bet-row.selected .check {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-color: transparent;
+}
+.bet-row.selected .check::before { content: "✓"; }
+.bet-row .name-wrap { display: inline-flex; align-items: center; }
+
+.mode-row { display: flex; gap: 8px; }
+.mode-btn {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font: 600 13px/1.2 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+.mode-btn:hover { background: rgba(255,255,255,0.07); }
+.mode-btn.active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18));
+  border-color: rgba(139, 110, 247, 0.5);
+  color: #f4f4f5;
+}
+.mode-btn .sub {
+  display: block;
+  font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  font-weight: 700;
+  margin-top: 4px;
+}
+.mode-btn.active .sub { color: rgba(196, 181, 253, 0.8); }
+
+@media (max-width: 560px) {
+  .page { padding: 56px 14px 60px; }
+  h1 { font-size: 24px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .gear-btn { padding: 7px 13px 7px 10px; font-size: 11px; }
+  .trainer { padding: 26px 18px 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="roulette.html">Home</a>
+<div class="page">
+  <div class="greet">Roulette · Payouts</div>
+  <div class="title-row">
+    <h1>Multiplication practice</h1>
+    <button class="gear-btn" id="btn-settings" aria-label="Settings"><span class="gear-icon">⚙</span><span>Settings</span></button>
+  </div>
+
+  <div class="trainer">
+    <div class="bet-label" id="bet-label">
+      Straight up <span class="multiplier">pays <b>35</b> to 1</span>
+    </div>
+
+    <div class="prompt">
+      <div class="label">Solve</div>
+      <div class="expr" id="expr">35 × 2</div>
+    </div>
+
+    <div class="answer-slot empty" id="answer-slot">?</div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-show">Show answer</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <button class="close-x" id="settings-close" aria-label="Close">&times;</button>
+    <h3>Trainer settings</h3>
+
+    <div class="group">
+      <div class="group-title">Bet types</div>
+      <div id="bet-rows"></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Order</div>
+      <div class="mode-row">
+        <button class="mode-btn" id="mode-random">
+          Random
+          <span class="sub">picks any bet × N</span>
+        </button>
+        <button class="mode-btn" id="mode-sequence">
+          Sequence
+          <span class="sub">×2, ×3, …, ×20</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Display</div>
+      <div class="mode-row">
+        <button class="mode-btn" id="disp-number">
+          Show number
+          <span class="sub">e.g. 17 × 2</span>
+        </button>
+        <button class="mode-btn" id="disp-name">
+          Show bet name
+          <span class="sub">e.g. Split × 2</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const BETS = [
+    { id: 'straight_up', name: 'Straight up', multi: 35, defaultOn: true  },
+    { id: 'split',       name: 'Split',       multi: 17, defaultOn: true  },
+    { id: 'street',      name: 'Street',      multi: 11, defaultOn: true  },
+    { id: 'corner',      name: 'Corner',      multi: 8,  defaultOn: true  },
+    { id: 'top_line',    name: 'Top line',    multi: 6,  defaultOn: true  },
+    { id: 'line',        name: 'Line',        multi: 5,  defaultOn: true  },
+    { id: 'column',      name: 'Column',      multi: 2,  defaultOn: false },
+    { id: 'sections',    name: 'Sections',    multi: 2,  defaultOn: false },
+    { id: 'outside',     name: 'Outside',     multi: 1,  defaultOn: false },
+  ];
+  const FACTORS = [];
+  for (let n = 2; n <= 20; n++) FACTORS.push(n);
+
+  const STATE = (function() {
+    let s = {
+      selected: BETS.filter(b => b.defaultOn).map(b => b.id),
+      mode: 'random',
+      seqBetIdx: 0,
+      seqFactor: 2,
+      display: 'number',  /* 'number' = "17 × 2";  'name' = "Split × 2" */
+      _v: 2,
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem('roulette-mult-stats') || 'null');
+      if (saved) s = Object.assign(s, saved);
+    } catch(e) {}
+    return s;
+  })();
+  function saveState() {
+    try { localStorage.setItem('roulette-mult-stats', JSON.stringify(STATE)); } catch(e) {}
+  }
+
+  const $expr     = document.getElementById('expr');
+  const $slot     = document.getElementById('answer-slot');
+  const $btn      = document.getElementById('btn-show');
+  const $betLabel = document.getElementById('bet-label');
+
+  let currentBet = null;
+  let currentFactor = null;
+
+  function selectedBets() {
+    const sel = BETS.filter(b => STATE.selected.includes(b.id));
+    return sel.length ? sel : BETS;
+  }
+
+  function pickNext() {
+    const pool = selectedBets();
+    if (STATE.mode === 'sequence') {
+      let bi = STATE.seqBetIdx % pool.length;
+      let f = STATE.seqFactor;
+      if (f < 2 || f > 20) f = 2;
+      currentBet = pool[bi];
+      currentFactor = f;
+      f++;
+      if (f > 20) { f = 2; bi = (bi + 1) % pool.length; }
+      STATE.seqBetIdx = bi;
+      STATE.seqFactor = f;
+      saveState();
+    } else {
+      let bet, factor, tries = 0;
+      do {
+        bet    = pool[Math.floor(Math.random() * pool.length)];
+        factor = FACTORS[Math.floor(Math.random() * FACTORS.length)];
+        tries++;
+      } while (currentBet && bet === currentBet && factor === currentFactor && tries < 10);
+      currentBet = bet;
+      currentFactor = factor;
+    }
+  }
+
+  function renderPrompt() {
+    if (STATE.display === 'name') {
+      /* Bet name in the equation, multiplier hidden until reveal. */
+      $expr.textContent = currentBet.name + ' × ' + currentFactor;
+      $betLabel.innerHTML = '<span class="multiplier">recall the payout</span>';
+    } else {
+      /* Default: show the multiplier number in the equation. */
+      $expr.textContent = currentBet.multi + ' × ' + currentFactor;
+      $betLabel.innerHTML = currentBet.name +
+        ' <span class="multiplier">pays <b>' + currentBet.multi + '</b> to 1</span>';
+    }
+    $slot.textContent = '?';
+    $slot.classList.add('empty');
+    $slot.classList.remove('revealed');
+    $btn.textContent = 'Show answer';
+    $btn.disabled = false;
+  }
+  function newPrompt() {
+    pickNext();
+    renderPrompt();
+  }
+
+  function showAnswer() {
+    $slot.textContent = currentBet.multi * currentFactor;
+    $slot.classList.remove('empty');
+    $slot.classList.add('revealed');
+    $slot.style.animation = 'none';
+    void $slot.offsetWidth;
+    $slot.style.animation = '';
+    $btn.textContent = 'Next';
+    $btn.disabled = false;
+  }
+
+  $btn.onclick = () => {
+    if ($slot.classList.contains('revealed')) newPrompt();
+    else showAnswer();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      e.preventDefault();
+      $btn.click();
+    }
+  });
+
+  const $modal    = document.getElementById('settings-modal');
+  const $betRows  = document.getElementById('bet-rows');
+  const $modeRand = document.getElementById('mode-random');
+  const $modeSeq  = document.getElementById('mode-sequence');
+  const $dispNum  = document.getElementById('disp-number');
+  const $dispName = document.getElementById('disp-name');
+
+  function renderBetRows() {
+    $betRows.innerHTML = '';
+    BETS.forEach(b => {
+      const row = document.createElement('div');
+      row.className = 'bet-row' + (STATE.selected.includes(b.id) ? ' selected' : '');
+      row.innerHTML =
+        '<span class="name-wrap"><span class="check"></span>' +
+        '<span class="name">' + b.name + '</span></span>' +
+        '<span class="multi">×' + b.multi + '</span>';
+      row.onclick = () => {
+        if (STATE.selected.includes(b.id)) {
+          STATE.selected = STATE.selected.filter(id => id !== b.id);
+        } else {
+          STATE.selected = [...STATE.selected, b.id];
+        }
+        saveState();
+        renderBetRows();
+      };
+      $betRows.appendChild(row);
+    });
+  }
+  function renderModeButtons() {
+    $modeRand.classList.toggle('active', STATE.mode === 'random');
+    $modeSeq.classList.toggle('active', STATE.mode === 'sequence');
+    $dispNum.classList.toggle('active', STATE.display !== 'name');
+    $dispName.classList.toggle('active', STATE.display === 'name');
+  }
+  $dispNum.onclick = () => {
+    STATE.display = 'number';
+    saveState();
+    renderModeButtons();
+    renderPrompt();
+  };
+  $dispName.onclick = () => {
+    STATE.display = 'name';
+    saveState();
+    renderModeButtons();
+    renderPrompt();
+  };
+  $modeRand.onclick = () => { STATE.mode = 'random'; saveState(); renderModeButtons(); };
+  $modeSeq.onclick = () => {
+    STATE.mode = 'sequence';
+    STATE.seqBetIdx = 0; STATE.seqFactor = 2;
+    saveState(); renderModeButtons();
+  };
+
+  document.getElementById('btn-settings').onclick = () => {
+    renderBetRows();
+    renderModeButtons();
+    $modal.classList.add('open');
+  };
+  document.getElementById('settings-close').onclick = () => {
+    $modal.classList.remove('open');
+    const pool = selectedBets();
+    if (!currentBet || !pool.find(b => b.id === currentBet.id)) {
+      newPrompt();
+    }
+  };
+  $modal.onclick = (e) => {
+    if (e.target.id === 'settings-modal') {
+      $modal.classList.remove('open');
+      const pool = selectedBets();
+      if (!currentBet || !pool.find(b => b.id === currentBet.id)) {
+        newPrompt();
+      }
+    }
+  };
+
+  newPrompt();
+})();
+</script>
+
+</body>
+</html>

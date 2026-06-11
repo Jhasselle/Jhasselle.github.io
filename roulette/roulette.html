@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette — Table Dealer Trainer</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.page {
+  position: relative; z-index: 1;
+  max-width: 720px; margin: 0 auto;
+  padding: 80px 22px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 6px 0 8px; font-size: 38px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.tiles { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
+.tile {
+  display: block; width: 100%; text-align: left;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 18px 20px;
+  cursor: pointer; color: #f4f4f5;
+  text-decoration: none;
+  position: relative; overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.5);
+}
+.tile::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, #6366f1, #a855f7);
+  transform: scaleY(0); transform-origin: top;
+  transition: transform 0.25s ease;
+}
+.tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 110, 247, 0.45);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+}
+.tile:hover::before { transform: scaleY(1); }
+.tile .title {
+  display: block; font-weight: 700; font-size: 18px;
+  margin-bottom: 4px; letter-spacing: -0.01em;
+}
+.tile .desc {
+  display: block; color: rgba(255,255,255,0.6);
+  font-size: 13px; line-height: 1.5;
+}
+.tile .meta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(99,102,241,0.85); font-weight: 700;
+  margin-top: 8px;
+}
+.tile .meta::before { content: "→"; }
+.tile.disabled { cursor: not-allowed; opacity: 0.55; }
+.tile.disabled:hover {
+  transform: none;
+  border-color: rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+}
+.tile.disabled:hover::before { transform: scaleY(0); }
+.tile .badge-soon {
+  display: inline-block; margin-top: 8px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+@media (max-width: 560px) {
+  .page { padding: 60px 16px 60px; }
+  h1 { font-size: 30px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="../table-dealer-trainer.html">Home</a>
+
+<div class="page">
+  <div class="greet">Table Dealer Trainer · Roulette</div>
+  <h1>Roulette</h1>
+
+  <div class="tiles">
+    <a class="tile" href="roulette-multiplication.html">
+      <span class="title">Payout math</span>
+      <span class="desc">Drill the multiplication for every bet — straight up, split, street, corner and beyond.</span>
+      <span class="meta">Open trainer</span>
+    </a>
+    <div class="tile disabled">
+      <span class="title">Wheel & layout</span>
+      <span class="badge-soon">Coming soon</span>
+    </div>
+    <div class="tile disabled">
+      <span class="title">Payout drills</span>
+      <span class="badge-soon">Coming soon</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

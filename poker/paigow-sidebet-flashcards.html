@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pai Gow Side-Bet Flashcards</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.gear-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18));
+  border: 1px solid rgba(139, 110, 247, 0.55);
+  color: #fff;
+  font: 700 11.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(99,102,241,0.55);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.18s ease;
+  flex: 0 0 auto;
+}
+.gear-btn .gear-icon { display: inline-block; font-size: 15px; transition: transform 0.3s ease; }
+.gear-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(99,102,241,0.32), rgba(168,85,247,0.32));
+  border-color: rgba(139, 110, 247, 0.85);
+}
+.gear-btn:hover .gear-icon { transform: rotate(60deg); }
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 600px; margin: 0 auto;
+  padding: 70px 22px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 0; font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin: 6px 0 22px;
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 30px 24px 26px;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+}
+
+/* Bet-type chip at the top */
+.bet-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: 700 11px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  background: rgba(139, 110, 247, 0.14);
+  border: 1px solid rgba(139, 110, 247, 0.42);
+  color: #c4b5fd;
+  margin: 0 auto 14px;
+}
+.bet-chip .dot {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: currentColor;
+}
+.bet-chip.red    { color: #fda4af; background: rgba(248, 113, 113, 0.10); border-color: rgba(248, 113, 113, 0.42); }
+.bet-chip.blue   { color: #93c5fd; background: rgba(56, 189, 248, 0.10); border-color: rgba(56, 189, 248, 0.42); }
+.bet-chip.gold   { color: #fde047; background: rgba(250, 204, 21, 0.10); border-color: rgba(250, 204, 21, 0.42); }
+.bet-chip.violet { color: #c4b5fd; background: rgba(139, 110, 247, 0.14); border-color: rgba(139, 110, 247, 0.42); }
+.bet-chip-row { text-align: center; }
+
+/* The qualifying hand prompt */
+.prompt {
+  text-align: center;
+  padding: 4px 0 16px;
+}
+.prompt .label {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); font-weight: 700; margin-bottom: 8px;
+}
+.prompt .hand {
+  font-size: clamp(26px, 5.6vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #c7d2fe 0%, #a78bfa 60%, #f0abfc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  line-height: 1.18;
+}
+.prompt .note {
+  margin-top: 8px;
+  font-size: 12px; color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+/* The payout reveal slot */
+.slot {
+  margin: 12px auto 18px;
+  min-height: 96px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: clamp(36px, 8vw, 56px);
+  line-height: 1.05;
+  color: #34d399;
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 14px 12px;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+  text-align: center;
+}
+.slot.empty {
+  color: rgba(255,255,255,0.18);
+  font-size: clamp(30px, 7vw, 46px);
+}
+.slot.revealed {
+  border-style: solid;
+  border-color: rgba(52,211,153,0.45);
+  background: rgba(52,211,153,0.06);
+  animation: pop 0.25s ease;
+}
+.slot .secondary {
+  margin-top: 6px;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: clamp(13px, 2.8vw, 16px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.04em;
+}
+.slot .secondary b { color: #fde047; }
+
+@keyframes pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.btn-row { display: flex; justify-content: center; }
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 12px;
+  padding: 14px 28px; font: 700 14px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 200px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+/* Settings modal */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,6,10,0.72);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: linear-gradient(180deg, #14161e 0%, #0c0e16 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px 26px 22px;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.7);
+  position: relative;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h3 {
+  margin: 0 0 16px; font-size: 18px; font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.modal .close-x {
+  position: absolute; top: 14px; right: 16px;
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.55); font-size: 22px; line-height: 1;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.modal .group { margin-bottom: 20px; }
+.modal .group:last-child { margin-bottom: 4px; }
+.modal .group-title {
+  font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.bet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bet-row:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+.bet-row.selected {
+  background: rgba(139, 110, 247, 0.10);
+  border-color: rgba(139, 110, 247, 0.42);
+}
+.bet-row .name {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.bet-row .name b { font-size: 14px; font-weight: 700; color: #f4f4f5; }
+.bet-row .name span { font-size: 11.5px; color: rgba(255,255,255,0.55); letter-spacing: 0.02em; }
+.bet-row .check {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  margin-right: 10px;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bet-row.selected .check {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-color: transparent;
+}
+.bet-row.selected .check::before { content: "✓"; }
+.bet-row .name-wrap { display: inline-flex; align-items: center; }
+
+/* Paytable list inside settings */
+.paytable-toggle {
+  margin-top: 10px;
+}
+.paytable-toggle summary {
+  cursor: pointer;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); font-weight: 700;
+  padding: 6px 0;
+  list-style: none;
+}
+.paytable-toggle summary::marker { content: ""; }
+.paytable-toggle summary::-webkit-details-marker { display: none; }
+.paytable-toggle summary::before { content: "+ "; color: #a78bfa; }
+.paytable-toggle[open] summary::before { content: "− "; }
+.paytable {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.05);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.6;
+}
+.paytable h4 {
+  margin: 0 0 6px;
+  font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #c4b5fd; font-weight: 700;
+}
+.paytable .row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 0;
+}
+.paytable .row .pay { color: #34d399; font-weight: 700; }
+.paytable .row .envy { color: #fde047; font-weight: 700; }
+.paytable + .paytable { margin-top: 10px; }
+
+@media (max-width: 560px) {
+  .page { padding: 56px 14px 60px; }
+  h1 { font-size: 24px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .trainer { padding: 24px 18px 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="paigow-sidebets.html">Side bets</a>
+
+<div class="page">
+  <div class="greet">Pai Gow Poker · Side bets</div>
+  <div class="title-row">
+    <h1>Side-bet flashcards</h1>
+    <button class="gear-btn" id="btn-settings" aria-label="Settings"><span class="gear-icon">⚙</span><span>Settings</span></button>
+  </div>
+
+  <div class="trainer">
+    <div class="bet-chip-row">
+      <span class="bet-chip" id="bet-chip"><span class="dot"></span><span id="bet-chip-text">Emperor’s Treasure</span></span>
+    </div>
+
+    <div class="prompt">
+      <div class="label">Qualifying hand</div>
+      <div class="hand" id="hand-text">7 Card Straight Flush <span style="color: rgba(255,255,255,0.55); font-weight: 600;">(No Joker)</span></div>
+      <div class="note" id="hand-note"></div>
+    </div>
+
+    <div class="slot empty" id="payout-slot">?</div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-show">Show payout</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <button class="close-x" id="settings-close" aria-label="Close">&times;</button>
+    <h3>Trainer settings</h3>
+
+    <div class="group">
+      <div class="group-title">Side bets</div>
+      <div id="bet-rows"></div>
+    </div>
+
+    <div class="group">
+      <details class="paytable-toggle">
+        <summary>View all paytables</summary>
+        <div id="paytable-list"></div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ===== Paytables ===== */
+  const BETS = [
+    {
+      id: "red",
+      name: "Bonus Jackpot (Red, $5)",
+      shortName: "Red Jackpot",
+      chipClass: "red",
+      hands: [
+        { hand: "7 Card Straight Flush", pay: "100% of jackpot" },
+        { hand: "5 Aces",                pay: "10% of jackpot"  },
+        { hand: "5 Card Royal Flush",    pay: "$2,500" },
+        { hand: "5 Card Straight Flush", pay: "$500"   },
+        { hand: "Four of a Kind",        pay: "$375"   },
+        { hand: "Full House",            pay: "$20"    },
+      ],
+    },
+    {
+      id: "blue",
+      name: "Bonus Jackpot (Blue, $1)",
+      shortName: "Blue Jackpot",
+      chipClass: "blue",
+      hands: [
+        { hand: "7 Card Straight Flush", pay: "100% of jackpot" },
+        { hand: "5 Aces",                pay: "10% of jackpot"  },
+        { hand: "5 Card Royal Flush",    pay: "$500" },
+        { hand: "5 Card Straight Flush", pay: "$100" },
+        { hand: "Four of a Kind",        pay: "$75"  },
+        { hand: "Full House",            pay: "$4"   },
+      ],
+    },
+    {
+      id: "insurance",
+      name: "Pai Gow Insurance",
+      shortName: "Insurance",
+      chipClass: "violet",
+      note: "No pair or better. Default is the player’s hand unless declared otherwise. Not applicable to any progressive.",
+      hands: [
+        { hand: "9-High",     pay: "100 to 1" },
+        { hand: "10-High",    pay: "25 to 1"  },
+        { hand: "Jack-High",  pay: "15 to 1"  },
+        { hand: "Queen-High", pay: "7 to 1"   },
+        { hand: "King-High",  pay: "5 to 1"   },
+        { hand: "Ace-High",   pay: "3 to 1"   },
+      ],
+    },
+    {
+      id: "emperor",
+      name: "Emperor’s Treasure",
+      shortName: "Emperor’s Treasure",
+      chipClass: "gold",
+      note: "Envy bonus only on wagers of $5 or more. Ace/King combo cannot include the joker. Joker substitutes for an Ace, or completes a Straight/Flush.",
+      hands: [
+        { hand: "7 Card Straight Flush", sub: "No Joker",                pay: "5,000 to 1", envy: "$3,000" },
+        { hand: "Royal Flush",            sub: "+ Ace/King Suited",      pay: "2,000 to 1", envy: "$1,000" },
+        { hand: "7 Card Straight Flush", sub: "With Joker",              pay: "1,000 to 1", envy: "$500"   },
+        { hand: "5 Aces",                                                pay: "400 to 1",   envy: "$250"   },
+        { hand: "Royal Flush",                                           pay: "150 to 1",   envy: "$50"    },
+        { hand: "Straight Flush",                                        pay: "50 to 1",    envy: "$20"    },
+        { hand: "Four of a Kind",                                        pay: "25 to 1",    envy: "$5"     },
+        { hand: "Full House",                                            pay: "5 to 1"      },
+        { hand: "Flush",                                                 pay: "4 to 1"      },
+        { hand: "Three of a Kind",                                       pay: "3 to 1"      },
+        { hand: "Straight",                                              pay: "2 to 1"      },
+      ],
+    },
+  ];
+
+  /* ===== State ===== */
+  const STATE = (function() {
+    let s = {
+      selected: BETS.map(b => b.id),  /* all four bets on by default */
+      _v: 1,
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("paigow-sidebets") || "null");
+      if (saved) s = Object.assign(s, saved);
+    } catch(e) {}
+    return s;
+  })();
+  function saveState() {
+    try { localStorage.setItem("paigow-sidebets", JSON.stringify(STATE)); } catch(e) {}
+  }
+  function selectedBets() {
+    const sel = BETS.filter(b => STATE.selected.includes(b.id));
+    return sel.length ? sel : BETS;
+  }
+
+  /* ===== DOM refs ===== */
+  const $chip      = document.getElementById("bet-chip");
+  const $chipText  = document.getElementById("bet-chip-text");
+  const $handText  = document.getElementById("hand-text");
+  const $handNote  = document.getElementById("hand-note");
+  const $slot      = document.getElementById("payout-slot");
+  const $btn       = document.getElementById("btn-show");
+  const $modal     = document.getElementById("settings-modal");
+  const $betRows   = document.getElementById("bet-rows");
+  const $paytable  = document.getElementById("paytable-list");
+
+  let current = null;  /* { bet, hand } */
+  let revealed = false;
+
+  /* ===== Pick a new prompt ===== */
+  function pickNext() {
+    const pool = selectedBets();
+    let attempt = 0;
+    let bet, hand;
+    do {
+      bet  = pool[Math.floor(Math.random() * pool.length)];
+      hand = bet.hands[Math.floor(Math.random() * bet.hands.length)];
+      attempt++;
+    } while (current && bet === current.bet && hand === current.hand && attempt < 8);
+    current = { bet, hand };
+    revealed = false;
+  }
+
+  function renderPrompt() {
+    /* Chip */
+    $chip.className = "bet-chip " + current.bet.chipClass;
+    $chipText.textContent = current.bet.shortName;
+
+    /* Hand */
+    let html = current.hand.hand;
+    if (current.hand.sub) {
+      html += ' <span style="color: rgba(255,255,255,0.55); font-weight: 600; font-size: 0.74em;">(' + current.hand.sub + ')</span>';
+    }
+    $handText.innerHTML = html;
+
+    /* Note about envy / insurance rules, only on the very first time it’s relevant */
+    $handNote.textContent = "";
+    if (current.bet.id === "emperor" && current.hand.envy) {
+      $handNote.innerHTML = "Envy bonus available if wager <b>≥ $5</b>";
+    }
+
+    /* Slot empty */
+    $slot.textContent = "?";
+    $slot.classList.add("empty");
+    $slot.classList.remove("revealed");
+    $btn.textContent = "Show payout";
+  }
+
+  function newPrompt() {
+    pickNext();
+    renderPrompt();
+  }
+
+  function showAnswer() {
+    revealed = true;
+    /* Build the payout display */
+    $slot.innerHTML = "";
+    const main = document.createElement("div");
+    main.textContent = current.hand.pay;
+    $slot.appendChild(main);
+    if (current.hand.envy) {
+      const envy = document.createElement("div");
+      envy.className = "secondary";
+      envy.innerHTML = "Envy <b>" + current.hand.envy + "</b>";
+      $slot.appendChild(envy);
+    }
+    $slot.classList.remove("empty");
+    $slot.classList.add("revealed");
+    $slot.style.animation = "none";
+    void $slot.offsetWidth;
+    $slot.style.animation = "";
+    $btn.textContent = "Next";
+  }
+
+  $btn.onclick = () => {
+    if (revealed) newPrompt();
+    else showAnswer();
+  };
+
+  /* Keyboard */
+  document.addEventListener("keydown", (e) => {
+    if (e.key === " " || e.key === "Enter") {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      $btn.click();
+    }
+  });
+
+  /* ===== Settings modal ===== */
+  function renderBetRows() {
+    $betRows.innerHTML = "";
+    BETS.forEach(b => {
+      const row = document.createElement("div");
+      row.className = "bet-row" + (STATE.selected.includes(b.id) ? " selected" : "");
+      row.innerHTML =
+        '<span class="name-wrap"><span class="check"></span>' +
+        '<span class="name"><b>' + b.name + '</b><span>' + b.hands.length + " qualifying hands</span></span></span>";
+      row.onclick = () => {
+        if (STATE.selected.includes(b.id)) {
+          STATE.selected = STATE.selected.filter(id => id !== b.id);
+        } else {
+          STATE.selected = [...STATE.selected, b.id];
+        }
+        saveState();
+        renderBetRows();
+      };
+      $betRows.appendChild(row);
+    });
+  }
+  function renderPaytableList() {
+    $paytable.innerHTML = "";
+    BETS.forEach(b => {
+      const wrap = document.createElement("div");
+      wrap.className = "paytable";
+      let inner = "<h4>" + b.name + "</h4>";
+      b.hands.forEach(h => {
+        const handLabel = h.hand + (h.sub ? ' <span style="color: rgba(255,255,255,0.45);">(' + h.sub + ")</span>" : "");
+        const payLine = '<span class="pay">' + h.pay + "</span>" +
+          (h.envy ? '  <span class="envy">+ envy ' + h.envy + "</span>" : "");
+        inner += '<div class="row"><span>' + handLabel + "</span><span style=\"text-align:right\">" + payLine + "</span></div>";
+      });
+      if (b.note) {
+        inner += '<div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.5);line-height:1.5">' + b.note + "</div>";
+      }
+      wrap.innerHTML = inner;
+      $paytable.appendChild(wrap);
+    });
+  }
+
+  document.getElementById("btn-settings").onclick = () => {
+    renderBetRows();
+    renderPaytableList();
+    $modal.classList.add("open");
+  };
+  document.getElementById("settings-close").onclick = () => {
+    $modal.classList.remove("open");
+    const pool = selectedBets();
+    if (!current || !pool.find(b => b.id === current.bet.id)) {
+      newPrompt();
+    }
+  };
+  $modal.onclick = (e) => {
+    if (e.target.id === "settings-modal") {
+      $modal.classList.remove("open");
+      const pool = selectedBets();
+      if (!current || !pool.find(b => b.id === current.bet.id)) {
+        newPrompt();
+      }
+    }
+  };
+
+  newPrompt();
+})();
+</script>
+
+</body>
+</html>

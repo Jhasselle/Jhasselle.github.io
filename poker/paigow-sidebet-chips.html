@@ -1,0 +1,1189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pai Gow Side-Bet Chip Payouts</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.gear-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18));
+  border: 1px solid rgba(139, 110, 247, 0.55);
+  color: #fff;
+  font: 700 11.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(99,102,241,0.55);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.18s ease;
+  flex: 0 0 auto;
+}
+.gear-btn .gear-icon { display: inline-block; font-size: 15px; transition: transform 0.3s ease; }
+.gear-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(99,102,241,0.32), rgba(168,85,247,0.32));
+  border-color: rgba(139, 110, 247, 0.85);
+}
+.gear-btn:hover .gear-icon { transform: rotate(60deg); }
+
+.help-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.7);
+  font: 700 11.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex: 0 0 auto;
+}
+.help-btn:hover { background: rgba(20,22,32,0.92); border-color: rgba(255,255,255,0.22); color: #fff; }
+.help-btn.active {
+  background: linear-gradient(135deg, rgba(250,204,21,0.18), rgba(252,165,165,0.10));
+  border-color: rgba(250,204,21,0.5);
+  color: #fde047;
+}
+.help-btn .ind {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+}
+.help-btn.active .ind { background: #fde047; box-shadow: 0 0 8px rgba(250,204,21,0.7); }
+
+.title-row .actions { display: inline-flex; gap: 8px; }
+
+/* Ratio next to qualifying hand (help mode) */
+.prompt .hand .ratio {
+  display: inline-block;
+  background: none;
+  -webkit-text-fill-color: #fde047;
+  color: #fde047;
+  font-size: 0.66em;
+  font-weight: 700;
+  margin-left: 6px;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+/* Wrong-answer feedback area */
+.feedback {
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(248,113,113,0.06);
+  border: 1px solid rgba(248,113,113,0.35);
+  font: 600 12.5px/1.5 "Inter", system-ui, sans-serif;
+  color: #fecaca;
+  text-align: left;
+}
+.feedback .row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; width: 100%; }
+.feedback .row .lbl {
+  color: rgba(254,202,202,0.7);
+  font-weight: 600;
+}
+.feedback .row .val {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 800;
+}
+.feedback .row .val.bad  { color: #f87171; }
+.feedback .row .val.good { color: #34d399; }
+.feedback .formula {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(248,113,113,0.18);
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: rgba(254,202,202,0.92);
+  text-align: center;
+}
+.feedback .formula b { color: #fde047; font-weight: 800; }
+
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 600px; margin: 0 auto;
+  padding: 70px 22px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 0; font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin: 6px 0 22px;
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 26px 22px 22px;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+}
+
+/* Bet-type chip at the top */
+.bet-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font: 800 14px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  background: rgba(139, 110, 247, 0.14);
+  border: 1px solid rgba(139, 110, 247, 0.42);
+  color: #c4b5fd;
+  margin: 0 auto 14px;
+}
+.bet-chip .dot { width: 10px; height: 10px; border-radius: 999px; background: currentColor; }
+.bet-chip.red    { color: #fda4af; background: rgba(248, 113, 113, 0.10); border-color: rgba(248, 113, 113, 0.42); }
+.bet-chip.blue   { color: #93c5fd; background: rgba(56, 189, 248, 0.10); border-color: rgba(56, 189, 248, 0.42); }
+.bet-chip.gold   { color: #fde047; background: rgba(250, 204, 21, 0.10); border-color: rgba(250, 204, 21, 0.42); }
+.bet-chip.violet { color: #c4b5fd; background: rgba(139, 110, 247, 0.14); border-color: rgba(139, 110, 247, 0.42); }
+.bet-chip-row { text-align: center; }
+
+.prompt {
+  text-align: center;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 14px;
+}
+.prompt .label {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); font-weight: 700;
+}
+.prompt .hand {
+  margin-top: 6px;
+  font-size: clamp(22px, 4.5vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #c7d2fe 0%, #a78bfa 60%, #f0abfc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  line-height: 1.18;
+}
+.prompt .hand .sub-text {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 600;
+  color: rgba(255,255,255,0.55);
+  background: none;
+  -webkit-text-fill-color: rgba(255,255,255,0.55);
+  margin-left: 4px;
+}
+.prompt .wager {
+  margin-top: 10px;
+  font: 800 clamp(18px, 4vw, 22px)/1.2 "JetBrains Mono", "Courier New", monospace;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 0.02em;
+}
+.prompt .wager .lbl {
+  font: 700 10px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-right: 8px;
+}
+.prompt .wager .amt {
+  color: #fde047;
+}
+.wager-stack {
+  margin-top: 10px;
+  display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+  min-height: 38px;
+}
+.wager-stack .chip {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 800 11px/1 "JetBrains Mono", "Courier New", monospace;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+}
+
+/* Build slot */
+.build-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+}
+.build-row.correct {
+  border-color: rgba(52,211,153,0.55);
+  background: rgba(52,211,153,0.08);
+  box-shadow: 0 0 0 1px rgba(52,211,153,0.3), 0 0 28px rgba(52,211,153,0.18);
+  border-style: solid;
+}
+.build-row.wrong {
+  border-color: rgba(248,113,113,0.55);
+  background: rgba(248,113,113,0.08);
+  border-style: solid;
+  animation: shake 0.32s;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+.build-row .lbl {
+  font: 700 10.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.build-row .amount {
+  font: 800 clamp(28px, 6vw, 38px)/1 "JetBrains Mono", "Courier New", monospace;
+  color: #34d399;
+}
+.build-row.correct .amount { color: #34d399; }
+.build-row.wrong .amount { color: #f87171; }
+.build-clear {
+  font: 700 11px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.build-clear:hover {
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  border-color: rgba(255,255,255,0.28);
+}
+
+/* Chip stack visualization — the chips the user has added */
+.stack {
+  min-height: 64px;
+  margin: 8px 0 16px;
+  padding: 8px 4px;
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end;
+}
+.stack .placeholder {
+  color: rgba(255,255,255,0.25);
+  font: 600 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  padding: 20px 8px;
+}
+.stack .chip {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 800 11px/1 "JetBrains Mono", "Courier New", monospace;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+  transition: transform 0.12s;
+}
+.stack .chip:hover { transform: translateY(-2px); }
+.stack .chip .v { position: relative; z-index: 2; }
+
+/* Chip palette — the buttons to add chips */
+.chip-palette {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.chip-btn {
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center;
+}
+.chip-btn .chip {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 800 13px/1 "JetBrains Mono", "Courier New", monospace;
+  position: relative;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.45);
+  transition: transform 0.12s;
+}
+.chip-btn:hover .chip { transform: translateY(-2px); }
+.chip-btn:active .chip { transform: translateY(0); }
+.chip-btn .label {
+  font: 700 10px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  margin-top: 6px;
+}
+
+/* Chip color treatments — standard casino colors */
+.chip.c1    { background: radial-gradient(circle at 30% 30%, #f9fafb, #d1d5db); color: #1f2937; border: 2px solid #1f2937; }
+.chip.c5    { background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c); color: #fff7ed; border: 2px solid #7f1d1d; }
+.chip.c25   { background: radial-gradient(circle at 30% 30%, #34d399, #047857); color: #ecfdf5; border: 2px solid #065f46; }
+.chip.c100  { background: radial-gradient(circle at 30% 30%, #4b5563, #111827); color: #f3f4f6; border: 2px solid #030712; }
+.chip.c500  { background: radial-gradient(circle at 30% 30%, #c084fc, #6b21a8); color: #fdf4ff; border: 2px solid #581c87; }
+.chip.c1000 { background: radial-gradient(circle at 30% 30%, #fb923c, #c2410c); color: #fff7ed; border: 2px solid #7c2d12; }
+
+/* Bottom row of action buttons */
+.btn-row {
+  display: flex; flex-direction: column; gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 10px;
+  padding: 12px 22px; font: 700 13px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 132px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+.btn.ghost {
+  background: transparent; border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.85);
+}
+.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.28); background-image: none; }
+.btn.success { background: linear-gradient(135deg, #10b981, #047857); }
+.btn.success:hover { background: linear-gradient(135deg, #34d399, #059669); }
+
+/* Settings modal */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,6,10,0.72);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: linear-gradient(180deg, #14161e 0%, #0c0e16 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px 26px 22px;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.7);
+  position: relative;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h3 {
+  margin: 0 0 16px; font-size: 18px; font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.modal .close-x {
+  position: absolute; top: 14px; right: 16px;
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.55); font-size: 22px; line-height: 1;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.modal .group { margin-bottom: 20px; }
+.modal .group:last-child { margin-bottom: 4px; }
+.modal .group-title {
+  font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.bet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bet-row:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+.bet-row.selected {
+  background: rgba(139, 110, 247, 0.10);
+  border-color: rgba(139, 110, 247, 0.42);
+}
+.bet-row .name b { font-size: 14px; font-weight: 700; color: #f4f4f5; }
+.bet-row .name span { display: block; font-size: 11.5px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+.bet-row .check {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  margin-right: 10px;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bet-row.selected .check {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-color: transparent;
+}
+.bet-row.selected .check::before { content: "✓"; }
+.bet-row .name-wrap { display: inline-flex; align-items: center; }
+
+.advanced-toggle summary {
+  cursor: pointer;
+  font: 700 10.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  padding: 4px 0;
+  list-style: none;
+}
+.advanced-toggle summary::marker { content: ""; }
+.advanced-toggle summary::-webkit-details-marker { display: none; }
+.advanced-toggle summary::before { content: "+ "; color: #a78bfa; }
+.advanced-toggle[open] summary::before { content: "− "; }
+.hand-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  opacity: 0.55;
+}
+.hand-row.selected { opacity: 1; background: rgba(139, 110, 247, 0.08); border-color: rgba(139, 110, 247, 0.28); }
+.hand-row:hover { background: rgba(255,255,255,0.05); }
+.hand-row .name {
+  font: 600 12.5px/1.2 "Inter", system-ui, sans-serif;
+  color: #f4f4f5;
+}
+.hand-row .name span { display: block; color: rgba(255,255,255,0.5); font-size: 10.5px; margin-top: 2px; font-weight: 500; }
+.hand-row .pay {
+  font: 700 11.5px/1.2 "JetBrains Mono", "Courier New", monospace;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.02em;
+  text-align: right;
+  flex: 0 0 auto;
+}
+.hand-row .check {
+  width: 16px; height: 16px;
+  border-radius: 3px;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #fff;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hand-row.selected .check {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-color: transparent;
+}
+.hand-row.selected .check::before { content: "✓"; }
+.hand-row .name-wrap { display: inline-flex; align-items: center; gap: 9px; }
+.hand-bet-title {
+  font: 700 10.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: #c4b5fd;
+  margin: 12px 0 6px;
+}
+.hand-bet-title:first-child { margin-top: 0; }
+
+.range-block {
+  margin-top: 10px;
+}
+.range-line {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.range-line label {
+  font: 600 12px/1.2 "Inter", system-ui, sans-serif;
+  color: rgba(255,255,255,0.7);
+}
+.range-line b { color: #fde047; font-weight: 800; }
+.range-line input[type="range"] { flex: 1; min-width: 140px; }
+
+@media (max-width: 560px) {
+  .page { padding: 56px 14px 60px; }
+  h1 { font-size: 24px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .trainer { padding: 22px 16px 18px; }
+  .chip-palette { grid-template-columns: repeat(3, 1fr); }
+  .chip-btn .chip { width: 52px; height: 52px; font-size: 12px; }
+  .stack .chip { width: 32px; height: 32px; font-size: 10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="paigow-sidebets.html">Side bets</a>
+
+<div class="page">
+  <div class="greet">Pai Gow Poker · Chip payouts</div>
+  <div class="title-row">
+    <h1>Chip payouts</h1>
+    <div class="actions">
+      <button class="help-btn" id="btn-help" aria-label="Toggle help mode"><span class="ind"></span><span>Help</span></button>
+      <button class="gear-btn" id="btn-settings" aria-label="Settings"><span class="gear-icon">⚙</span><span>Settings</span></button>
+    </div>
+  </div>
+
+  <div class="trainer">
+    <div class="bet-chip-row">
+      <span class="bet-chip" id="bet-chip"><span class="dot"></span><span id="bet-chip-text">Side bet</span></span>
+    </div>
+
+    <div class="prompt">
+      <div class="label">Qualifying hand</div>
+      <div class="hand" id="hand-text">Loading…</div>
+      <div class="wager" id="wager"><span class="lbl">Wager</span><span class="amt" id="wager-amt">$0</span></div>
+      <div class="wager-stack" id="wager-stack"></div>
+    </div>
+
+    <div class="build-row" id="build-row">
+      <div>
+        <div class="lbl">Your payout</div>
+        <div class="amount" id="build-amount">$0</div>
+      </div>
+      <button class="build-clear" id="btn-clear">Clear</button>
+    </div>
+
+    <div id="feedback" style="display:none"></div>
+    <div class="stack" id="stack"><div class="placeholder">Tap chips below to build the payout</div></div>
+
+    <div class="chip-palette" id="chip-palette"></div>
+
+    <div class="btn-row">
+      <button class="btn success" id="btn-pay">Pay</button>
+      <button class="btn ghost" id="btn-next" style="display:none">Next</button>
+    </div>
+  </div>
+
+  <details class="paytable-ref">
+    <summary>View payout tables</summary>
+    <div class="pt-body" id="pt-body"></div>
+  </details>
+</div>
+
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <button class="close-x" id="settings-close" aria-label="Close">&times;</button>
+    <h3>Trainer settings</h3>
+
+    <div class="group">
+      <div class="group-title">Side bets</div>
+      <div id="bet-rows"></div>
+    </div>
+
+    <div class="group">
+      <details class="advanced-toggle">
+        <summary>Specific hands within each bet</summary>
+        <div id="hand-rows" style="margin-top:10px"></div>
+      </details>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Wager range (Insurance &amp; Emperor’s Treasure)</div>
+      <div class="range-block">
+        <div class="range-line">
+          <label>Max <b id="max-bet-val">$25</b></label>
+          <input type="range" id="max-bet" min="5" max="100" step="5" value="25">
+        </div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5;">
+          Valid bets: $1–$4, then $5 increments ($5, $10, $15…). No $2.50 pink chips.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ===== Chip denominations (standard casino, no pink $2.50) ===== */
+  const CHIPS = [
+    { v: 1,    cls: "c1",    label: "$1"     },
+    { v: 5,    cls: "c5",    label: "$5"     },
+    { v: 25,   cls: "c25",   label: "$25"    },
+    { v: 100,  cls: "c100",  label: "$100"   },
+    { v: 500,  cls: "c500",  label: "$500"   },
+    { v: 1000, cls: "c1000", label: "$1,000" },
+  ];
+
+  /* ===== Paytables. Each "hand" entry has a payout type:
+       fixed   — flat dollar amount regardless of bet (Red/Blue progressive jackpots)
+       multi   — multiplier × bet
+       envy    — flat envy dollar amount, no bet involved
+     The user said to SKIP the "100% / 10% of jackpot" rows in chip mode. */
+  const BETS = [
+    {
+      id: "red", name: "Bonus Jackpot (Red, $5)", short: "Red Jackpot",
+      cls: "red", fixedBet: 5,
+      hands: [
+        { hand: "5 Card Royal Flush",    pay: 2500 },
+        { hand: "5 Card Straight Flush", pay: 500  },
+        { hand: "Four of a Kind",        pay: 375  },
+        { hand: "Full House",            pay: 20   },
+      ],
+    },
+    {
+      id: "blue", name: "Bonus Jackpot (Blue, $1)", short: "Blue Jackpot",
+      cls: "blue", fixedBet: 1,
+      hands: [
+        { hand: "5 Card Royal Flush",    pay: 500 },
+        { hand: "5 Card Straight Flush", pay: 100 },
+        { hand: "Four of a Kind",        pay: 75  },
+        { hand: "Full House",            pay: 4   },
+      ],
+    },
+    {
+      id: "insurance", name: "Pai Gow Insurance", short: "Insurance",
+      cls: "violet", variableBet: true,
+      note: "No pair or better. Default is the player’s hand unless declared otherwise. Not applicable to any progressive.",
+      hands: [
+        { hand: "9-High",     mult: 100 },
+        { hand: "10-High",    mult: 25  },
+        { hand: "Jack-High",  mult: 15  },
+        { hand: "Queen-High", mult: 7   },
+        { hand: "King-High",  mult: 5   },
+        { hand: "Ace-High",   mult: 3   },
+      ],
+    },
+    {
+      id: "emperor", name: "Emperor’s Treasure", short: "Emperor’s Treasure",
+      cls: "gold", variableBet: true,
+      note: "Envy bonus applies only on wagers of $5+. Envy pays on other players’ qualifying hands (not your own). Joker substitutes for an Ace, or completes a Straight/Flush. Ace/King combo cannot include the joker.",
+      hands: [
+        { hand: "7 Card Straight Flush", sub: "No Joker",            mult: 5000, envy: 3000, defaultOff: true },
+        { hand: "Royal Flush",            sub: "+ Ace/King Suited",  mult: 2000, envy: 1000, defaultOff: true },
+        { hand: "7 Card Straight Flush", sub: "With Joker",          mult: 1000, envy: 500,  defaultOff: true },
+        { hand: "5 Aces",                                            mult: 400,  envy: 250  },
+        { hand: "Royal Flush",                                       mult: 150,  envy: 50   },
+        { hand: "Straight Flush",                                    mult: 50,   envy: 20   },
+        { hand: "Four of a Kind",                                    mult: 25,   envy: 5    },
+        { hand: "Full House",                                        mult: 5    },
+        { hand: "Flush",                                             mult: 4    },
+        { hand: "Three of a Kind",                                   mult: 3    },
+        { hand: "Straight",                                          mult: 2    },
+      ],
+    },
+  ];
+
+  /* ===== Valid bet amounts per casino rule:
+       $1, $2, $3, $4 in $1 increments
+       $5 and up in $5 increments
+     Max is configurable. */
+  function validBets(max) {
+    const arr = [];
+    for (let i = 1; i <= Math.min(4, max); i++) arr.push(i);
+    for (let i = 5; i <= max; i += 5) arr.push(i);
+    return arr;
+  }
+
+  /* ===== State ===== */
+  /* Build the default-excluded hands list from the defaultOff flags. */
+  function defaultExcludedHands() {
+    const out = [];
+    BETS.forEach(b => {
+      b.hands.forEach((h, i) => {
+        if (h.defaultOff) out.push(b.id + ":" + i);
+      });
+    });
+    return out;
+  }
+  const STATE = (function() {
+    let s = {
+      selected: BETS.map(b => b.id),
+      excludedHands: defaultExcludedHands(),
+      maxBet: 25,
+      help: false,
+      _v: 2,
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("paigow-sidebet-chips") || "null");
+      if (saved) s = Object.assign(s, saved);
+    } catch(e) {}
+    return s;
+  })();
+  function saveState() {
+    try { localStorage.setItem("paigow-sidebet-chips", JSON.stringify(STATE)); } catch(e) {}
+  }
+  function selectedBets() {
+    const sel = BETS.filter(b => STATE.selected.includes(b.id));
+    return sel.length ? sel : BETS;
+  }
+
+  /* ===== Current prompt ===== */
+  let current = null;   /* { bet, hand, wager (or null for envy), isEnvy, payout } */
+  let stack = [];       /* chip values added by user */
+  let solved = false;
+
+  /* Weighted bet picker: lean toward smaller bets for realism. */
+  function pickBet(max) {
+    const list = validBets(max);
+    const r = Math.pow(Math.random(), 1.8);  /* exponent > 1 biases toward 0 */
+    return list[Math.floor(r * list.length)];
+  }
+
+  function isHandExcluded(bet, handIdx) {
+    return STATE.excludedHands.includes(bet.id + ":" + handIdx);
+  }
+  function availableHands(bet) {
+    return bet.hands.map((h, i) => ({ h, i })).filter(o => !isHandExcluded(bet, o.i));
+  }
+  function pickNext() {
+    /* Filter bets to those with any available hands. */
+    const pool = selectedBets().filter(b => availableHands(b).length > 0);
+    if (!pool.length) {
+      /* All hands excluded — fall back to anything. */
+      current = null; return;
+    }
+    let bet, hand, handIdx, isEnvy, wager, payout;
+    let attempt = 0;
+    while (attempt++ < 20) {
+      bet = pool[Math.floor(Math.random() * pool.length)];
+      const av = availableHands(bet);
+      const pick = av[Math.floor(Math.random() * av.length)];
+      hand = pick.h;
+      handIdx = pick.i;
+
+      /* Decide if this is an envy round (Emperor’s Treasure only). */
+      isEnvy = (bet.id === "emperor" && hand.envy && Math.random() < 0.35);
+
+      if (isEnvy) {
+        wager = null;
+        payout = hand.envy;
+      } else if (bet.fixedBet != null) {
+        wager = bet.fixedBet;
+        payout = hand.pay;
+      } else {
+        wager = pickBet(STATE.maxBet);
+        payout = wager * hand.mult;
+      }
+
+      /* Avoid trivially-repeating the same prompt. */
+      if (current && bet === current.bet && hand === current.hand &&
+          isEnvy === current.isEnvy && wager === current.wager) continue;
+      break;
+    }
+    current = { bet, hand, isEnvy, wager, payout };
+    stack = [];
+    solved = false;
+  }
+
+  /* ===== DOM refs ===== */
+  const $chip      = document.getElementById("bet-chip");
+  const $chipText  = document.getElementById("bet-chip-text");
+  const $handText  = document.getElementById("hand-text");
+  const $wager     = document.getElementById("wager");
+  const $wagerAmt  = document.getElementById("wager-amt");
+  const $stack     = document.getElementById("stack");
+  const $palette   = document.getElementById("chip-palette");
+  const $buildRow  = document.getElementById("build-row");
+  const $buildAmt  = document.getElementById("build-amount");
+  const $btnClear  = document.getElementById("btn-clear");
+  const $btnPay    = document.getElementById("btn-pay");
+  const $btnNext   = document.getElementById("btn-next");
+
+  function fmt(n) {
+    if (n == null) return "—";
+    return "$" + n.toLocaleString();
+  }
+  function stackTotal() { return stack.reduce((a, b) => a + b, 0); }
+
+  function chipBreakdown(amount) {
+    const out = [];
+    let remaining = amount;
+    for (let i = CHIPS.length - 1; i >= 0; i--) {
+      while (remaining >= CHIPS[i].v) {
+        out.push(CHIPS[i].v);
+        remaining -= CHIPS[i].v;
+      }
+    }
+    return out;
+  }
+  function renderPalette() {
+    $palette.innerHTML = "";
+    CHIPS.slice().reverse().forEach(c => {
+      const btn = document.createElement("button");
+      btn.className = "chip-btn";
+      btn.innerHTML =
+        '<span class="chip ' + c.cls + '"><span class="v">' + c.label.replace("$","").replace(",","") + '</span></span>' +
+        '<span class="label">' + c.label + '</span>';
+      btn.onclick = () => {
+        if (solved) return;
+        stack.push(c.v);
+        renderStack();
+        $buildRow.classList.remove("wrong");
+      };
+      $palette.appendChild(btn);
+    });
+  }
+
+  function renderStack() {
+    $stack.innerHTML = "";
+    if (!stack.length) {
+      const ph = document.createElement("div");
+      ph.className = "placeholder";
+      ph.textContent = "Tap chips below to build the payout";
+      $stack.appendChild(ph);
+    } else {
+      stack.slice().sort((a,b) => b - a).forEach(v => {
+        const c = CHIPS.find(x => x.v === v);
+        const el = document.createElement("span");
+        el.className = "chip " + c.cls;
+        el.innerHTML = '<span class="v">' + c.label.replace("$","").replace(",","") + '</span>';
+        el.onclick = () => {
+          if (solved) return;
+          /* Click stack chip to remove the matching value (one occurrence). */
+          const idx = stack.indexOf(v);
+          if (idx >= 0) stack.splice(idx, 1);
+          renderStack();
+          $buildRow.classList.remove("wrong");
+        };
+        $stack.appendChild(el);
+      });
+    }
+    $buildAmt.textContent = fmt(stackTotal());
+  }
+
+  function renderPrompt() {
+    /* Bet chip */
+    $chip.className = "bet-chip " + current.bet.cls;
+    $chipText.textContent = (current.isEnvy ? "Envy · " : "") + current.bet.short;
+
+    /* Hand text — append ratio when help mode is on (and a ratio applies) */
+    let html = current.hand.hand;
+    if (current.hand.sub) {
+      html += ' <span class="sub-text">(' + current.hand.sub + ')</span>';
+    }
+    if (STATE.help) {
+      let ratioStr = null;
+      if (current.isEnvy) {
+        ratioStr = "envy " + fmt(current.hand.envy);
+      } else if (current.bet.fixedBet != null) {
+        ratioStr = "pays " + fmt(current.hand.pay);
+      } else if (current.hand.mult != null) {
+        ratioStr = current.hand.mult.toLocaleString() + " to 1";
+      }
+      if (ratioStr) html += ' <span class="ratio">' + ratioStr + '</span>';
+    }
+    $handText.innerHTML = html;
+
+    /* Wager line — hide entirely on envy rounds (just show the hand) */
+    const $wagerStack = document.getElementById("wager-stack");
+    if (current.isEnvy) {
+      $wager.style.display = "none";
+      $wagerStack.style.display = "none";
+      $wagerStack.innerHTML = "";
+    } else {
+      $wagerStack.style.display = "";
+      if (STATE.help) {
+        $wager.style.display = "";
+        $wager.innerHTML = '<span class="lbl">Wager</span><span class="amt">' + fmt(current.wager) + '</span>';
+      } else {
+        $wager.style.display = "none";
+      }
+      /* Visualise the wager as chips (greedy high-to-low). */
+      const wagerChips = chipBreakdown(current.wager);
+      $wagerStack.innerHTML = "";
+      wagerChips.forEach(v => {
+        const c = CHIPS.find(x => x.v === v);
+        const el = document.createElement("span");
+        el.className = "chip " + c.cls;
+        el.innerHTML = '<span class="v">' + c.label.replace("$","").replace(",","") + '</span>';
+        $wagerStack.appendChild(el);
+      });
+    }
+
+    /* Reset build area */
+    stack = [];
+    solved = false;
+    $buildRow.classList.remove("correct", "wrong");
+    $btnPay.style.display = "";
+    $btnNext.style.display = "none";
+    hideFeedback();
+    renderStack();
+  }
+
+  function newPrompt() {
+    pickNext();
+    renderPrompt();
+  }
+
+  function payoutFormulaText() {
+    /* Returns a string explaining how the correct payout was derived. */
+    if (current.isEnvy) {
+      return "Flat envy payout for " + current.hand.hand +
+        (current.hand.sub ? " (" + current.hand.sub + ")" : "") +
+        ": <b>" + fmt(current.payout) + "</b>";
+    }
+    if (current.bet.fixedBet != null) {
+      return current.bet.short + " " + fmt(current.bet.fixedBet) +
+        " wager \u2192 fixed payout <b>" + fmt(current.payout) + "</b>";
+    }
+    /* Variable bet: bet \u00d7 multiplier */
+    return fmt(current.wager) + " \u00d7 " + current.hand.mult.toLocaleString() + " to 1 = <b>" + fmt(current.payout) + "</b>";
+  }
+  function showFeedback() {
+    const $fb = document.getElementById("feedback");
+    const your = stackTotal();
+    let html = "";
+    html += '<div class="row"><span class="lbl">Your payout:</span><span class="val bad">' + fmt(your) + '</span></div>';
+    html += '<div class="row"><span class="lbl">Correct payout:</span><span class="val good">' + fmt(current.payout) + '</span></div>';
+    html += '<div class="formula">' + payoutFormulaText() + '</div>';
+    $fb.innerHTML = html;
+    $fb.style.display = "";
+  }
+  function hideFeedback() {
+    const $fb = document.getElementById("feedback");
+    $fb.style.display = "none";
+    $fb.innerHTML = "";
+  }
+  function payIt() {
+    if (solved) return;
+    if (stackTotal() === current.payout) {
+      solved = true;
+      $buildRow.classList.add("correct");
+      hideFeedback();
+      $btnPay.style.display = "none";
+      $btnNext.style.display = "";
+    } else {
+      /* Wrong: show explanation + ratio. Pay button becomes Next — one
+         button only, never two. The user can read the feedback and advance. */
+      $buildRow.classList.remove("wrong");
+      void $buildRow.offsetWidth;
+      $buildRow.classList.add("wrong");
+      showFeedback();
+      solved = true;  /* lock chips so they don't keep editing on the same prompt */
+      $btnPay.style.display = "none";
+      $btnNext.style.display = "";
+    }
+  }
+
+  function clearStack() {
+    if (solved) return;
+    stack = [];
+    renderStack();
+    $buildRow.classList.remove("wrong");
+  }
+
+  $btnPay.onclick    = payIt;
+  $btnNext.onclick   = newPrompt;
+  $btnClear.onclick  = clearStack;
+
+  /* Keyboard: Enter = Pay it; Space = Next (when revealed) */
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (solved) newPrompt(); else payIt();
+    } else if (e.key === " ") {
+      e.preventDefault();
+      if (solved) newPrompt();
+    }
+  });
+
+  /* ===== Settings modal ===== */
+  const $modal   = document.getElementById("settings-modal");
+  const $betRows = document.getElementById("bet-rows");
+  const $maxBet  = document.getElementById("max-bet");
+  const $maxBetVal = document.getElementById("max-bet-val");
+
+  function renderHandRows() {
+    const $handRows = document.getElementById("hand-rows");
+    $handRows.innerHTML = "";
+    BETS.forEach(b => {
+      const title = document.createElement("div");
+      title.className = "hand-bet-title";
+      title.textContent = b.short;
+      $handRows.appendChild(title);
+      b.hands.forEach((h, i) => {
+        const key = b.id + ":" + i;
+        const isSelected = !STATE.excludedHands.includes(key);
+        const row = document.createElement("div");
+        row.className = "hand-row" + (isSelected ? " selected" : "");
+        let payDisplay;
+        if (b.fixedBet != null) payDisplay = "$" + h.pay.toLocaleString();
+        else payDisplay = h.mult.toLocaleString() + " to 1" + (h.envy ? " · envy $" + h.envy.toLocaleString() : "");
+        const sub = h.sub ? '<span>' + h.sub + '</span>' : "";
+        row.innerHTML =
+          '<span class="name-wrap"><span class="check"></span>' +
+          '<span class="name">' + h.hand + sub + '</span></span>' +
+          '<span class="pay">' + payDisplay + '</span>';
+        row.onclick = () => {
+          if (STATE.excludedHands.includes(key)) {
+            STATE.excludedHands = STATE.excludedHands.filter(k => k !== key);
+          } else {
+            STATE.excludedHands = [...STATE.excludedHands, key];
+          }
+          saveState();
+          renderHandRows();
+        };
+        $handRows.appendChild(row);
+      });
+    });
+  }
+  function renderBetRows() {
+    $betRows.innerHTML = "";
+    BETS.forEach(b => {
+      const row = document.createElement("div");
+      row.className = "bet-row" + (STATE.selected.includes(b.id) ? " selected" : "");
+      row.innerHTML =
+        '<span class="name-wrap"><span class="check"></span>' +
+        '<span class="name"><b>' + b.name + '</b><span>' + b.hands.length + ' hands' +
+          (b.variableBet ? "" : (b.fixedBet != null ? ' · wager fixed at $' + b.fixedBet : '')) +
+        '</span></span></span>';
+      row.onclick = () => {
+        if (STATE.selected.includes(b.id)) {
+          STATE.selected = STATE.selected.filter(id => id !== b.id);
+        } else {
+          STATE.selected = [...STATE.selected, b.id];
+        }
+        saveState();
+        renderBetRows();
+      };
+      $betRows.appendChild(row);
+    });
+  }
+  function renderMaxBet() {
+    $maxBet.value = STATE.maxBet;
+    $maxBetVal.textContent = fmt(STATE.maxBet);
+  }
+  $maxBet.oninput = (e) => {
+    STATE.maxBet = +e.target.value;
+    $maxBetVal.textContent = fmt(STATE.maxBet);
+    saveState();
+  };
+  document.getElementById("btn-settings").onclick = () => {
+    renderBetRows();
+    renderHandRows();
+    renderMaxBet();
+    $modal.classList.add("open");
+  };
+  document.getElementById("settings-close").onclick = () => {
+    $modal.classList.remove("open");
+    const pool = selectedBets();
+    const currentHandIdx = current ? current.bet.hands.indexOf(current.hand) : -1;
+    const currentExcluded = current && STATE.excludedHands.includes(current.bet.id + ":" + currentHandIdx);
+    if (!current || !pool.find(b => b.id === current.bet.id) || currentExcluded) {
+      newPrompt();
+    }
+  };
+  $modal.onclick = (e) => {
+    if (e.target.id === "settings-modal") {
+      $modal.classList.remove("open");
+      const pool = selectedBets();
+      if (!current || !pool.find(b => b.id === current.bet.id)) {
+        newPrompt();
+      }
+    }
+  };
+
+  /* Help toggle */
+  const $btnHelp = document.getElementById("btn-help");
+  function renderHelp() {
+    $btnHelp.classList.toggle("active", !!STATE.help);
+  }
+  $btnHelp.onclick = () => {
+    STATE.help = !STATE.help;
+    saveState();
+    renderHelp();
+    /* Re-render the prompt so the ratio/wager show/hide updates immediately. */
+    if (current) renderPrompt();
+  };
+
+  /* Build the bottom paytable reference list */
+  function renderPaytableRef() {
+    const $body = document.getElementById("pt-body");
+    if (!$body) return;
+    $body.innerHTML = "";
+    BETS.forEach(b => {
+      const wrap = document.createElement("div");
+      wrap.className = "pt " + b.cls;
+      let inner = "<h4>" + b.name + "</h4>";
+      b.hands.forEach(h => {
+        const handLabel = h.hand + (h.sub ? ' <span class="sub">(' + h.sub + ")</span>" : "");
+        let payText, envyText = "";
+        if (b.fixedBet != null) {
+          payText = fmt(h.pay);
+        } else {
+          payText = h.mult.toLocaleString() + " to 1";
+        }
+        if (h.envy != null) {
+          envyText = '<span class="envy">+ envy ' + fmt(h.envy) + "</span>";
+        }
+        inner += '<div class="pt-row"><span>' + handLabel + "</span>" +
+                 '<span class="pay">' + payText + envyText + "</span></div>";
+      });
+      if (b.note) {
+        inner += '<div class="note">' + b.note + "</div>";
+      }
+      wrap.innerHTML = inner;
+      $body.appendChild(wrap);
+    });
+  }
+
+  /* Boot */
+  renderPalette();
+  renderHelp();
+  renderPaytableRef();
+  newPrompt();
+})();
+</script>
+
+</body>
+</html>

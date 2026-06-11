@@ -1,0 +1,2115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cheque &amp; Money Exchange</title>
+<style>
+  :root {
+    --felt: #5b21b6;
+    --felt-dark: #4c1d95;
+    --felt-edge: #3b0764;
+    --text: #f8fafc;
+    --muted: #cbd5e1;
+    --good: #22c55e;
+    --bad: #ef4444;
+    --warn: #fbbf24;
+    --circle-stroke: #ffffff;
+    --panel: #1e293b;
+    --panel2: #273449;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: #0f172a;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .page {
+    width: 100%;
+    margin: 0;
+    padding: 16px 12px 60px;
+    position: relative;          /* anchor the help button to the page header */
+  }
+  .back-link {
+    display: inline-block;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+  .back-link:hover { background: #273449; color: #fff; }
+  h1 { margin: 8px 0 2px; font-size: 1.5rem; }
+  .sub { color: var(--muted); margin-bottom: 14px; font-size: 0.9rem; }
+
+  /* ---------- The felt table ---------- */
+  .table {
+    position: relative;
+    background:
+      radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 75%, var(--felt-edge) 100%);
+    border: 6px solid #1f1024;
+    border-radius: 24px;
+    padding: 22px 22px 18px;
+    box-shadow:
+      inset 0 0 60px rgba(0,0,0,0.45),
+      0 8px 30px rgba(0,0,0,0.6);
+  }
+
+  /* ---------- Value-range settings (collapsible) ---------- */
+  .value-settings {
+    margin: 0 auto 12px;
+    max-width: 580px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .value-settings > summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.65);
+    user-select: none;
+    list-style: none;
+  }
+  .value-settings > summary::before {
+    content: '▸ ';
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  .value-settings[open] > summary::before { content: '▾ '; }
+  .vs-body {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .vs-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 1fr;
+    align-items: center;
+    gap: 10px;
+  }
+  .vs-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fde047;
+  }
+  .vs-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .vs-pair label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .vs-pair input[type="range"] { accent-color: #fbbf24; }
+  .vs-val { color: #fde047; font-weight: 700; font-variant-numeric: tabular-nums; }
+  /* Single-row toggle (e.g. big-bills-only). */
+  .vs-row-toggle {
+    grid-template-columns: 110px 1fr;
+  }
+  .vs-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    user-select: none;
+  }
+  .vs-toggle input[type="checkbox"] { accent-color: #fbbf24; width: 16px; height: 16px; }
+  @media (max-width: 560px) {
+    .vs-row { grid-template-columns: 1fr; }
+    .vs-row-toggle { grid-template-columns: 1fr; }
+    .vs-label { font-size: 0.78rem; }
+  }
+
+  /* ---------- Practice-type toggles (Coloring up / Cheque change / Changing) ----------
+     Pills sitting above the scenario banner. Each toggle controls whether that
+     scenario type appears in the random rotation; at least one must stay on. */
+  .practice-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .practice-toggle {
+    font: inherit;
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid rgba(255,255,255,0.22);
+    background: rgba(0,0,0,0.18);
+    color: rgba(255,255,255,0.55);
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .practice-toggle:hover { background: rgba(0,0,0,0.30); }
+  .practice-toggle.on {
+    background: rgba(254,243,199,0.92);
+    border-color: rgba(254,243,199,0.92);
+    color: #422006;
+  }
+  .practice-toggle.on:hover { background: #fef3c7; }
+  @media (max-width: 560px) {
+    .practice-toggle { padding: 5px 10px; font-size: 0.7rem; letter-spacing: 0.3px; }
+  }
+
+  /* ---------- Scenario banner ---------- */
+  .scenario-banner {
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #fef3c7;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    margin: 4px 0 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+  }
+  .scenario-banner .req {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: none;
+    color: rgba(255,255,255,0.78);
+    margin-top: 4px;
+  }
+  .scenario-banner .req b { color: #fde047; }
+
+  /* ---------- The two exchange zones ---------- */
+  .exchange-zones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    min-height: 320px;
+    margin-bottom: 14px;
+  }
+  .zone {
+    position: relative;
+    background: rgba(0,0,0,0.18);
+    border: 2px dashed rgba(255,255,255,0.20);
+    border-radius: 10px;
+    padding: 28px 12px 12px;
+    min-height: 320px;
+    overflow: hidden;
+  }
+  .zone-label {
+    position: absolute;
+    top: 6px;
+    left: 12px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.55);
+  }
+  .zone-total {
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fde047;
+    font-variant-numeric: tabular-nums;
+  }
+  .left-zone  { border-color: rgba(252,165,165,0.32); }   /* incoming */
+  .right-zone { border-color: rgba(134,239,172,0.32); cursor: pointer; }
+  .right-zone:hover:not(.locked) { background: rgba(134,239,172,0.06); }
+  .right-zone.locked { cursor: default; }
+
+  /* ---------- Chip row layout inside a zone ----------
+     Rows render top-to-bottom in ascending denomination, so the smallest
+     chips ($1, $2.50) sit at the top and the largest ($500, $1000) sit at
+     the bottom — consistent with how a dealer's tray reads. Alternating
+     rows are staggered horizontally so a long 20-stack row doesn't
+     visually blur into the one above/below it. */
+  .chip-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;             /* roomier spacing between denomination rows */
+    align-items: flex-start;
+    width: 100%;
+  }
+  .chip-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    width: 100%;
+    min-height: 24px;
+  }
+  /* Stagger every other row to break up tall back-to-back 20-chip columns. */
+  .chip-row:nth-child(even) {
+    margin-left: 28px;
+  }
+  /* ---------- A single standing stack (matches the dealer's rack chips) ---------- */
+  .chip-stack {
+    position: relative;
+    width: 56px;
+    height: 78px;
+    flex: 0 0 auto;
+  }
+  .chip-stack .chip-piece {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 18px;
+    border-radius: 50%;
+  }
+
+  /* ---------- A toppled stack ---------- */
+  .chip-stack.toppled {
+    width: auto;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+  }
+  .chip-stack.toppled .chip-piece {
+    position: relative;
+    width: 18px;
+    height: 32px;
+    margin-right: -12px;
+  }
+  .chip-stack.toppled .chip-piece:last-child { margin-right: 0; }
+
+  /* ---------- Chip cylinder rendering ---------- */
+  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
+  .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); }
+  .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
+  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
+  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
+  .cp-purple { --chip-base: #8b5cf6; --chip-stripe: rgba(255,255,255,0.92); }
+  .cp-orange { --chip-base: #f97316; --chip-stripe: rgba(255,255,255,0.95); }
+
+  .chip-piece.cp-white, .chip-piece.cp-pink, .chip-piece.cp-red,
+  .chip-piece.cp-green, .chip-piece.cp-black, .chip-piece.cp-purple,
+  .chip-piece.cp-orange {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  /* Standing cylinder rim */
+  .chip-stack:not(.toppled) .chip-piece::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 18%;
+    bottom: 0;
+    background-color: var(--chip-base);
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: var(--stripe-offset, 0) 0;
+    border-left: 1px solid rgba(0,0,0,0.65);
+    border-right: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1.5px solid rgba(0,0,0,0.85);
+    border-radius: 0 0 50% 50% / 0 0 55% 55%;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  /* Standing cylinder face */
+  .chip-stack:not(.toppled) .chip-piece::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
+  /* Toppled chip — same cylinder rendering rotated 90° so the chip lies
+     on its side. */
+  .chip-stack.toppled .chip-piece::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 18%;
+    right: 0;
+    background-color: var(--chip-base);
+    background-image:
+      repeating-linear-gradient(0deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: 0 var(--stripe-offset, 0);
+    border-top: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1px solid rgba(0,0,0,0.65);
+    border-right: 1.5px solid rgba(0,0,0,0.85);
+    border-radius: 0 50% 50% 0 / 0 55% 55% 0;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  .chip-stack.toppled .chip-piece::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 0;
+    width: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
+
+  /* ---------- Cash bills (for the "changing" scenario) ----------
+     Stylized vertical US-bill prop graphics — clearly not photoreal but
+     recognizable. Color-coded per denomination to match modern US currency
+     (lavender for $5, peach for $10, green for $20, pink for $50, blue
+     for $100). Denomination is shown in both corners and center. */
+  .bills-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  /* Row of columns within the incoming zone (max 5 columns shown). */
+  .cash-grid {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+  }
+  .cash-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+  }
+  .cash-column-label {
+    font-size: 0.62rem;
+    color: rgba(255,255,255,0.62);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bill-stack-v {
+    position: relative;
+    width: 36px;
+  }
+  /* ---------- Cash slide in/out animations ---------- */
+  @keyframes cash-slide-in {
+    from { transform: translateX(60px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes cash-slide-out {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(-90px); opacity: 0; }
+  }
+  .cash-grid.slide-in  { animation: cash-slide-in 380ms ease-out both; }
+  .cash-grid.slide-out { animation: cash-slide-out 320ms ease-in both; }
+  .bill-stack-v .bill-v {
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+  /* A single vertical bill — simple green prop graphic. Denomination shown
+     only at the top and bottom; nothing in the middle. */
+  .bill-v {
+    position: relative;
+    width: 42px;
+    height: 70px;
+    border-radius: 4px;
+    background: linear-gradient(140deg, #c8e1ce 0%, #97c0a3 50%, #c8e1ce 100%);
+    border: 1.5px solid #1a3a25;
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.45),
+      inset 0 0 0 1px rgba(255,255,255,0.20);
+    color: #14301c;
+    font-family: Georgia, "Times New Roman", serif;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  /* Thin inner border for a slight bank-note feel. */
+  .bill-v::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    opacity: 0.42;
+    pointer-events: none;
+  }
+  /* Denomination text at top and bottom only. */
+  .bill-v .bill-num {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-weight: 900;
+    font-size: 0.78rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+    z-index: 2;
+  }
+  .bill-v .bill-num.top    { top: 7px; }
+  .bill-v .bill-num.bottom { bottom: 7px; }
+
+  /* Counted-cash piles: small label boxes accumulating along the right
+     side of the outgoing zone after each batch is counted. */
+  .counted-piles {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+  .counted-pile {
+    background: rgba(0,0,0,0.32);
+    border: 1px solid rgba(252,211,77,0.5);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    color: #fde047;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Overflow cash (bills not yet brought to the table) — single pile in
+     the bottom-RIGHT corner of the incoming zone with a $-amount label. */
+  .overflow-cash {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .overflow-pile {
+    position: relative;
+    width: 36px;
+    height: 50px;
+  }
+  .overflow-pile .bill-v {
+    position: absolute;
+    width: 30px;
+    height: 46px;
+  }
+  .overflow-pile .bill-v::before { display: none; }
+  .overflow-pile .bill-v .bill-num { font-size: 0.6rem; }
+  .overflow-pile .bill-v .bill-num.top    { top: 5px; }
+  .overflow-pile .bill-v .bill-num.bottom { bottom: 5px; }
+  .overflow-label {
+    color: #fca5a5;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  /* Reserve space at the bottom of the incoming zone so the active cash
+     columns don't reach down into the overflow pile. */
+  .left-zone .bills-row { padding-bottom: 64px; }
+
+  /* ---------- Exchange controls ---------- */
+  .exchange-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .exchange-controls button {
+    font: inherit;
+    cursor: pointer;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+  }
+  .exchange-controls button:hover { background: #334155; }
+  .exchange-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Help toggle — colored when ON (yellow), red outline when OFF. */
+  .help-toggle.on {
+    background: #fbbf24 !important;
+    color: #0b1220 !important;
+    border-color: #fbbf24 !important;
+  }
+  .help-toggle.on:hover { background: #fcd34d !important; }
+  .help-toggle.off {
+    background: transparent !important;
+    color: #fecaca !important;
+    border: 2px solid #dc2626 !important;
+  }
+  /* When help is off, hide every numeric hint about totals. */
+  body.help-off .zone-total,
+  body.help-off .cash-column-label,
+  body.help-off .counted-pile,
+  body.help-off .overflow-label,
+  body.help-off .req-amt {
+    display: none !important;
+  }
+  .floor-ok-btn {
+    background: #fbbf24 !important;
+    color: #0b1220 !important;
+    border-color: #fbbf24 !important;
+  }
+  .floor-ok-btn:hover { background: #fcd34d !important; }
+  .done-btn.ready {
+    background: #22c55e !important;
+    border-color: #22c55e !important;
+    color: #052e16 !important;
+  }
+  .done-btn.ready:hover { background: #4ade80 !important; }
+
+  /* ---------- Status row ---------- */
+  .status {
+    text-align: center;
+    margin: 10px 0 14px;
+    color: #f1f5f9;
+    font-size: 0.95rem;
+    min-height: 24px;
+  }
+  .status.flash-good { color: #86efac; }
+  .status.flash-bad  { color: #fca5a5; }
+
+  /* Help toggle: pinned to top-right corner of the table. */
+  .cme-help {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 5;
+    font: inherit;
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+  }
+  @media (max-width: 560px) {
+    .cme-help { top: 8px; right: 8px; padding: 5px 10px; font-size: 0.78rem; }
+  }
+
+  /* ---------- Chip tray (bottom) + action buttons stacked on the right ---------- */
+  /* Sticky to the bottom of the viewport. When the outgoing chip pile
+     grows and pushes the rest of the layout down, the tray stays pinned
+     under the dealer's thumb so STACK buttons don't slide out from
+     under tapping fingers. A subtle felt-colored backdrop keeps the
+     scrolling chips above from bleeding visually into the tray. */
+  .chip-tray-wrap {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 6px;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    padding: 10px 6px 8px;
+    margin-left: -22px;
+    margin-right: -22px;
+    background: linear-gradient(180deg,
+      rgba(46, 16, 101, 0)   0%,
+      rgba(46, 16, 101, 0.92) 22%,
+      rgba(46, 16, 101, 0.98) 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .tray-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-self: stretch;
+    justify-content: center;
+    min-width: 110px;
+  }
+  .tray-actions button {
+    font: inherit;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .tray-actions button:hover { background: #334155; }
+  .tray-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tray-actions .floor-ok-btn {
+    background: #fbbf24 !important;
+    color: #0b1220 !important;
+    border-color: #fbbf24 !important;
+  }
+  .tray-actions .floor-ok-btn:hover { background: #fcd34d !important; }
+  .tray-actions .done-btn.ready {
+    background: #22c55e !important;
+    border-color: #22c55e !important;
+    color: #052e16 !important;
+  }
+  .tray-actions .done-btn.ready:hover { background: #4ade80 !important; }
+  @media (max-width: 560px) {
+    .chip-tray-wrap {
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;       /* center the rack horizontally on mobile */
+    }
+    .chip-tray { align-self: center; }   /* belt-and-suspenders */
+    .tray-actions {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-width: 0;
+    }
+    .tray-actions button { padding: 6px 10px; font-size: 0.82rem; }
+  }
+
+  /* "Stack" button below each chip column in the dealer's tray. */
+  .chip-tray-stack-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 3px 0;
+    cursor: pointer;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 4px;
+    color: rgba(255,255,255,0.85);
+    font: inherit;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .chip-tray-stack-btn:hover { background: rgba(255,255,255,0.22); }
+  .chip-tray {
+    background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
+    border: 3px solid #000;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    gap: 6px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5);
+  }
+  .chip-tray-col {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .chip-tray-stack {
+    position: relative;
+    width: 56px;
+    height: 130px;
+    cursor: pointer;
+  }
+  .chip-tray-stack:hover { filter: brightness(1.15); }
+  .chip-tray-stack .chip-edge {
+    position: absolute;
+    left: 0; right: 0;
+    height: 18px;
+  }
+  .chip-tray-stack .chip-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .chip-tray-stack .chip-edge.cp-white, .chip-tray-stack .chip-edge.cp-pink,
+  .chip-tray-stack .chip-edge.cp-red, .chip-tray-stack .chip-edge.cp-green,
+  .chip-tray-stack .chip-edge.cp-black, .chip-tray-stack .chip-edge.cp-purple,
+  .chip-tray-stack .chip-edge.cp-orange {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .chip-tray-stack .chip-edge::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 18%;
+    bottom: 0;
+    background-color: var(--chip-base);
+    background-image:
+      repeating-linear-gradient(90deg,
+        transparent 0, transparent 8px,
+        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+    background-position: var(--stripe-offset, 0) 0;
+    border-left: 1px solid rgba(0,0,0,0.65);
+    border-right: 1px solid rgba(0,0,0,0.65);
+    border-bottom: 1.5px solid rgba(0,0,0,0.85);
+    border-radius: 0 0 50% 50% / 0 0 55% 55%;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  .chip-tray-stack .chip-edge::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 62%;
+    border-radius: 50%;
+    background-color: var(--chip-base);
+    background-image:
+      radial-gradient(ellipse at 50% 50%,
+        rgba(255,255,255,0.94) 0%,
+        rgba(255,255,255,0.94) 28%,
+        transparent 32%);
+    background-repeat: no-repeat;
+    border: 1px solid rgba(0,0,0,0.65);
+    z-index: 2;
+    box-sizing: border-box;
+  }
+
+  /* ---------- Announcement modal ---------- */
+  .announce {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.55);
+    z-index: 100;
+    padding: 16px;
+  }
+  .announce.open { display: flex; }
+  .announce-card {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid #475569;
+    border-radius: 14px;
+    padding: 24px 28px;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  }
+  .announce-card h2 { margin: 0 0 8px; color: #86efac; letter-spacing: 2px; font-size: 1.1rem; text-transform: uppercase; }
+  .announce-card .big { font-size: 1.6rem; font-weight: 800; margin: 12px 0; color: #fde047; }
+  .announce-card .sub { font-size: 0.85rem; color: var(--muted); }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 560px) {
+    .page { padding: 10px 4px 40px; }
+    .table { padding: 12px 6px 12px; border-width: 3px; border-radius: 16px; }
+    .scenario-banner { font-size: 1.1rem; letter-spacing: 1.5px; }
+    .scenario-banner .req { font-size: 0.78rem; }
+    .exchange-zones { grid-template-columns: 1fr; gap: 10px; min-height: 0; }
+    .zone { min-height: 180px; padding: 26px 8px 10px; }
+    /* Smaller, uniform chips so 5 stacks (plus the staggered row offset)
+       fit inside the narrow mobile incoming zone without overflowing the
+       right edge. Every chip stack still uses the exact same dimensions —
+       no row gets shrunk individually. */
+    .chip-grid { gap: 16px; }
+    .chip-row { gap: 6px; }
+    .chip-row:nth-child(even) { margin-left: 18px; }
+    .chip-stack { width: 36px; height: 54px; }
+    .chip-stack:not(.toppled) .chip-piece { height: 12px; }
+    .chip-stack.toppled { height: 28px; }
+    .chip-stack.toppled .chip-piece { width: 12px; height: 22px; margin-right: -8px; }
+    .chip-tray-stack { width: 32px; height: 100px; }
+    .chip-tray-stack .chip-edge { height: 13px; }
+    .chip-tray-stack .chip-label { font-size: 0.55rem; letter-spacing: 0; }
+    .chip-tray { padding: 4px 3px; gap: 2px; }
+    .bill-stack { width: 56px; height: 34px; }
+    .bill-piece { height: 26px; font-size: 0.75rem; }
+  }
+
+
+/* ============================================================
+   TABLE DEALER TRAINER — themed chrome overlay.
+   Adds the indigo/violet/cyan radial wash to the page background
+   plus animated gradient strips at the top and bottom of the
+   viewport. The simulator's own surfaces (felt, players, cards,
+   chip tray) are unchanged.
+   ============================================================ */
+body {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c !important;
+  background-attachment: fixed !important;
+}
+body::before, body::after {
+  content: "";
+  position: fixed; left: 0; right: 0;
+  height: 6px; z-index: 9998;
+  pointer-events: none;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: tdt-strip-slide 12s linear infinite;
+}
+body::before { top: 0; }
+body::after  { bottom: 0; animation-direction: reverse; }
+@keyframes tdt-strip-slide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back-link" href="blackjack-trainer.html">&larr; Main menu</a>
+  <button class="help-toggle on cme-help" id="help-toggle" onclick="Game.toggleHelp()">Help: ON</button>
+  <h1>Cheque &amp; Money Exchange</h1>
+  <div class="sub">Practice color-ups, cheque changes, and money changes</div>
+
+  <div class="table">
+    <div class="practice-toggles" id="practice-toggles">
+      <button class="practice-toggle on" data-type="color"  onclick="Game.toggleType('color')">Coloring up</button>
+      <button class="practice-toggle on" data-type="change" onclick="Game.toggleType('change')">Cheque change</button>
+      <button class="practice-toggle on" data-type="cash"   onclick="Game.toggleType('cash')">Changing</button>
+    </div>
+
+    <details class="value-settings">
+      <summary>Value range</summary>
+      <div class="vs-body">
+        <div class="vs-row">
+          <span class="vs-label">Coloring up</span>
+          <div class="vs-pair">
+            <label>Min <span class="vs-val" id="color-min-val">$50</span></label>
+            <input type="range" id="color-min" min="25" max="25000" step="25" value="50" oninput="Game.onRange('colorMin', this.value)">
+          </div>
+          <div class="vs-pair">
+            <label>Max <span class="vs-val" id="color-max-val">$2,000</span></label>
+            <input type="range" id="color-max" min="25" max="25000" step="25" value="2000" oninput="Game.onRange('colorMax', this.value)">
+          </div>
+        </div>
+        <div class="vs-row">
+          <span class="vs-label">Changing</span>
+          <div class="vs-pair">
+            <label>Min <span class="vs-val" id="cash-min-val">$20</span></label>
+            <input type="range" id="cash-min" min="20" max="25000" step="20" value="20" oninput="Game.onRange('cashMin', this.value)">
+          </div>
+          <div class="vs-pair">
+            <label>Max <span class="vs-val" id="cash-max-val">$500</span></label>
+            <input type="range" id="cash-max" min="20" max="25000" step="20" value="500" oninput="Game.onRange('cashMax', this.value)">
+          </div>
+        </div>
+        <div class="vs-row vs-row-toggle">
+          <span class="vs-label">Bills</span>
+          <label class="vs-toggle">
+            <input type="checkbox" id="big-bills-only" onchange="Game.toggleBigBillsOnly(this.checked)">
+            <span>$100s &amp; $20s only (no $50/$10/$5/$1)</span>
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <div class="scenario-banner" id="scenario-banner">
+      <span id="scenario-title">Color coming in</span>
+      <span class="req" id="scenario-req">&nbsp;</span>
+    </div>
+
+    <div class="exchange-zones">
+      <div class="zone left-zone" id="incoming-zone">
+        <div class="zone-label">INCOMING</div>
+        <div class="zone-total" id="incoming-total"></div>
+        <div class="chip-grid" id="incoming-grid"></div>
+        <div class="bills-row" id="incoming-bills" style="display:none"></div>
+        <div class="overflow-cash" id="incoming-overflow" style="display:none"></div>
+      </div>
+      <div class="zone right-zone" id="outgoing-zone" onclick="Game.outgoingClick(event)">
+        <div class="zone-label">OUTGOING</div>
+        <div class="zone-total" id="outgoing-total">$0</div>
+        <div class="chip-grid" id="outgoing-grid"></div>
+        <div class="counted-piles" id="outgoing-counted" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Pay the player out — then hit <b>Done</b>.</div>
+
+    <div class="chip-tray-wrap">
+      <div class="chip-tray" id="chip-tray"></div>
+      <div class="tray-actions">
+        <button class="floor-ok-btn" id="floor-ok-btn" onclick="Game.floorOK()">Floor: OK</button>
+        <button class="done-btn"     id="done-btn"     onclick="Game.done()">Done</button>
+        <button class="clear-btn"    id="clear-btn"    onclick="Game.clearOutgoing()">Clear outgoing</button>
+        <button class="skip-btn"     id="skip-btn"     onclick="Game.nextScenario()">Skip</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="announce" id="announce-modal" onclick="Game.closeAnnounce(event)">
+  <div class="announce-card">
+    <h2 id="announce-title">Coloring up</h2>
+    <div class="big" id="announce-amount">$0</div>
+    <div class="sub" id="announce-detail"></div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   CHEQUE & MONEY EXCHANGE
+   Single-player drill: scenarios appear (color coming in / cheque
+   change / changing) and the dealer must build the correct
+   outgoing chip stack from the chip tray.
+   ================================================================ */
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------- Chip denomination model ---------- */
+/* Each chip has a value, color class, label, and stack size for the row
+   layout: 4 for $5/$25/$500, 5 for everything else. */
+const DENOMS = [
+  { value: 1000, color: 'orange', label: '$1000', stackSize: 5 },
+  { value:  500, color: 'purple', label: '$500',  stackSize: 4 },
+  { value:  100, color: 'black',  label: '$100',  stackSize: 5 },
+  { value:   25, color: 'green',  label: '$25',   stackSize: 4 },
+  { value:    5, color: 'red',    label: '$5',    stackSize: 5 },
+  { value:  2.5, color: 'pink',   label: '$2.50', stackSize: 4 },
+  { value:    1, color: 'white',  label: '$1',    stackSize: 5 },
+];
+
+const ROW_MAX = 20;
+const BILLS = [100, 50, 20, 10, 5];
+
+/* ---------- Game state ---------- */
+let scenario = null;
+let outgoing = [];
+let floorApproved = false;
+let scenarioCount = 0;
+
+/* User-set value ranges (controlled by the sliders). Defaults reflect a
+   typical low-to-mid-stakes table. */
+const RANGE = {
+  colorMin: 50,
+  colorMax: 2000,
+  cashMin:  20,
+  cashMax:  500,
+};
+
+/* Help toggle: when ON, numeric totals + counted/remaining hints are shown.
+   When OFF, the dealer counts on their own without any number readouts. */
+let helpEnabled = true;
+
+/* Big-bills-only option: when true, the "changing" cash scenarios only
+   generate $100 and $20 bills (no $50/$10/$5/$1). */
+let bigBillsOnly = false;
+
+/* ---------- Persistence ---------- */
+const STORAGE_KEY = 'cheque-exchange-settings-v1';
+
+function saveSettings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ enabledTypes, RANGE, helpEnabled, bigBillsOnly }));
+  } catch (e) { /* private mode / storage disabled — ignore */ }
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data && data.enabledTypes) {
+      for (const k of ['color', 'change', 'cash']) {
+        if (typeof data.enabledTypes[k] === 'boolean') enabledTypes[k] = data.enabledTypes[k];
+      }
+    }
+    if (data && data.RANGE) {
+      for (const k of ['colorMin', 'colorMax', 'cashMin', 'cashMax']) {
+        if (typeof data.RANGE[k] === 'number') RANGE[k] = data.RANGE[k];
+      }
+    }
+    /* Migration: an earlier build briefly stored color sliders as stack counts
+       (1–12). If we see a stored value below $25 (the slider's real minimum),
+       reset coloring-up to its dollar-based defaults. */
+    if (RANGE.colorMin < 25) RANGE.colorMin = 50;
+    if (RANGE.colorMax < 25) RANGE.colorMax = 2000;
+    if (data && typeof data.helpEnabled === 'boolean') helpEnabled = data.helpEnabled;
+    if (data && typeof data.bigBillsOnly === 'boolean') bigBillsOnly = data.bigBillsOnly;
+  } catch (e) { /* ignore */ }
+}
+
+/* After loading from storage, push values back onto the UI controls. */
+function syncControlsFromState() {
+  for (const k of Object.keys(enabledTypes)) {
+    const btn = document.querySelector(`.practice-toggle[data-type="${k}"]`);
+    if (btn) btn.classList.toggle('on', enabledTypes[k]);
+  }
+  const sliderMap = {
+    'color-min': RANGE.colorMin, 'color-max': RANGE.colorMax,
+    'cash-min':  RANGE.cashMin,  'cash-max':  RANGE.cashMax,
+  };
+  for (const [id, v] of Object.entries(sliderMap)) {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+    const out = document.getElementById(id + '-val');
+    if (out) out.textContent = formatMoney(v);
+  }
+  /* Help toggle: drives a body-level class + the button label/style. */
+  document.body.classList.toggle('help-off', !helpEnabled);
+  const helpBtn = document.getElementById('help-toggle');
+  if (helpBtn) {
+    helpBtn.textContent = 'Help: ' + (helpEnabled ? 'ON' : 'OFF');
+    helpBtn.classList.toggle('on', helpEnabled);
+    helpBtn.classList.toggle('off', !helpEnabled);
+  }
+  const bigBillsBox = document.getElementById('big-bills-only');
+  if (bigBillsBox) bigBillsBox.checked = bigBillsOnly;
+}
+
+/* ---------- Utilities ---------- */
+function randInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function sumChips(chips) {
+  let s = 0;
+  for (const v of chips) s += v;
+  return Math.round(s * 100) / 100;
+}
+function formatMoney(n) {
+  if (Number.isInteger(n)) return '$' + n.toLocaleString();
+  return '$' + n.toFixed(2);
+}
+function applyStripeOffset(el) {
+  const offsetPx = (Math.random() * 11).toFixed(2);
+  el.style.setProperty('--stripe-offset', offsetPx + 'px');
+}
+
+/* Group chip values into [{ denom, count }] descending by value. */
+function groupByDenom(chips) {
+  const counts = new Map();
+  for (const v of chips) counts.set(v, (counts.get(v) || 0) + 1);
+  const result = [];
+  for (const d of DENOMS) {
+    const c = counts.get(d.value) || 0;
+    if (c > 0) result.push({ denom: d, count: c });
+  }
+  return result;
+}
+
+/* Split N chips of a denomination into rows of stacks following the rules:
+   - up to ROW_MAX chips per row
+   - stacks of `stackSize` (partial last stack OK)
+   - last stack of each row is toppled
+   - if the row ends in a partial stack, the preceding stack is also toppled */
+function layoutDenom(count, stackSize) {
+  /* ≤20 of a denomination: traditional layout — stacks of stackSize, all
+     fitting in one row.
+     >20 of a denomination: build "logical stacks" — full 20-columns plus
+     one final partial if there's a remainder. Rows fit up to 5 logical
+     stacks. The 5th stack of any full 5-stack row gets BROKEN into
+     stackSize-sized smaller stacks (e.g. a $1,000 20-stack breaks into 4
+     stacks of 5), and a final partial logical stack also breaks down. */
+  if (count <= 0) return [];
+
+  if (count <= 20) {
+    const stacks = [];
+    let r = count;
+    while (r > 0) {
+      const sz = Math.min(r, stackSize);
+      stacks.push({ size: sz, toppled: false });
+      r -= sz;
+    }
+    return [stacks];
+  }
+
+  /* 20-stack mode. */
+  const fullCount = Math.floor(count / 20);
+  const partial   = count % 20;
+  const logicals = [];
+  for (let i = 0; i < fullCount; i++) logicals.push({ size: 20, isFull: true });
+  if (partial > 0)                    logicals.push({ size: partial, isFull: false });
+
+  /* Generalized rule: in every row, the LAST stack is shown broken down
+     into stackSize-sized smaller piles — regardless of whether the row
+     has 5 stacks or fewer. So a 4-stack row of $100 blacks renders as
+     3 full 20-stacks + 4 smaller stacks of 5. A 1-stack row renders as
+     4 smaller stacks of 5 (no full upright). The remainder (a sub-20
+     partial) also stays broken. */
+  const rows = [];
+  for (let i = 0; i < logicals.length; i += 5) {
+    const rowLogicals = logicals.slice(i, i + 5);
+    const stacks = [];
+    for (let j = 0; j < rowLogicals.length; j++) {
+      const ls = rowLogicals[j];
+      const isLast = j === rowLogicals.length - 1;
+      /* Break this stack into stackSize-sized chunks when:
+         - it's the LAST stack of the row (always shown broken), OR
+         - it's a partial (under 20) — partials are always broken. */
+      const shouldBreak = isLast || !ls.isFull;
+      if (shouldBreak) {
+        let r = ls.size;
+        while (r > 0) {
+          const sz = Math.min(r, stackSize);
+          stacks.push({ size: sz, toppled: false });
+          r -= sz;
+        }
+      } else {
+        stacks.push({ size: ls.size, toppled: false });
+      }
+    }
+    rows.push(stacks);
+  }
+  return rows;
+}
+
+function renderChipGrid(parent, chips) {
+  parent.innerHTML = '';
+  const groups = groupByDenom(chips);
+  /* Render lowest-denom first; flex-direction:column-reverse puts the
+     highest-denom row at the visual bottom. */
+  const ordered = [...groups].sort((a, b) => a.denom.value - b.denom.value);
+  for (const g of ordered) {
+    const rows = layoutDenom(g.count, g.denom.stackSize);
+    for (const stacks of rows) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'chip-row';
+      /* No denomination label — color identifies the chip. */
+      for (const stack of stacks) {
+        rowEl.appendChild(makeStackEl(g.denom, stack.size, stack.toppled));
+      }
+      parent.appendChild(rowEl);
+    }
+  }
+}
+
+function makeStackEl(denom, size, toppled) {
+  const stack = document.createElement('div');
+  stack.className = 'chip-stack' + (toppled ? ' toppled' : '');
+  const STEP = 5;
+  if (!toppled) {
+    /* Reserve enough vertical space inside the stack box for every chip
+       piece. Without this, the chip-pieces (absolutely positioned with
+       `bottom: i*STEP`) overflow the chip-stack's CSS height and visually
+       poke up into the row above, hiding chips in the row that's behind. */
+    const isMobile = window.matchMedia('(max-width: 560px)').matches;
+    const CHIP_H = isMobile ? 12 : 18;     // matches CSS .chip-piece height per breakpoint
+    stack.style.height = ((size - 1) * STEP + CHIP_H) + 'px';
+  }
+  for (let i = 0; i < size; i++) {
+    const chip = document.createElement('div');
+    chip.className = 'chip-piece cp-' + denom.color;
+    if (!toppled) {
+      chip.style.bottom = (i * STEP) + 'px';
+      chip.style.zIndex = String(i);
+    }
+    applyStripeOffset(chip);
+    stack.appendChild(chip);
+  }
+  return stack;
+}
+
+function renderChipTray() {
+  const tray = $('chip-tray');
+  tray.innerHTML = '';
+  for (const d of DENOMS) {
+    /* Wrapper column holding the chip stack + the "Stack" button below. */
+    const wrap = document.createElement('div');
+    wrap.className = 'chip-tray-col';
+
+    const col = document.createElement('div');
+    col.className = 'chip-tray-stack';
+    col.dataset.value = d.value;
+    col.onclick = () => Game.pickChip(d.value);
+    const COUNT = 20;
+    const STEP = 5;
+    const LABEL_PAD = 20;
+    for (let i = 0; i < COUNT; i++) {
+      const chip = document.createElement('div');
+      chip.className = 'chip-edge cp-' + d.color;
+      chip.style.bottom = (LABEL_PAD + i * STEP) + 'px';
+      chip.style.zIndex = String(i);
+      applyStripeOffset(chip);
+      col.appendChild(chip);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'chip-label';
+    lbl.textContent = d.label;
+    col.appendChild(lbl);
+    wrap.appendChild(col);
+
+    /* "Stack" button — adds 20 chips of this denomination to outgoing. */
+    const btn = document.createElement('button');
+    btn.className = 'chip-tray-stack-btn';
+    btn.type = 'button';
+    btn.textContent = 'Stack';
+    btn.onclick = (ev) => { ev.stopPropagation(); Game.addStackOf(d.value); };
+    wrap.appendChild(btn);
+
+    tray.appendChild(wrap);
+  }
+}
+
+/* Build a single vertical bill DOM node — simple green prop, denomination
+   shown only at the top and bottom (nothing in the middle). */
+function makeBillV(denom) {
+  const bill = document.createElement('div');
+  bill.className = 'bill-v';
+  bill.innerHTML =
+    `<span class="bill-num top">$${denom}</span>` +
+    `<span class="bill-num bottom">$${denom}</span>`;
+  return bill;
+}
+
+/* Render one batch (≤ 5 stacks) as columns of vertical bills, left to right.
+   Generous offset so most of each bill is visible — minimal overlap. */
+/* Trigger the slide-out animation on the currently-visible cash batch, then
+   invoke `done()`. If the .cash-grid element isn't present (defensive guard),
+   the callback fires immediately. */
+function slideCurrentBatchOut(done) {
+  const billsHost = document.getElementById('incoming-bills');
+  const grid = billsHost && billsHost.querySelector('.cash-grid');
+  if (!grid) { done(); return; }
+  grid.classList.remove('slide-in');
+  /* Force a reflow so the browser re-evaluates the animation. */
+  void grid.offsetWidth;
+  grid.classList.add('slide-out');
+  setTimeout(done, 320);
+}
+
+function renderCashBatch(parent, batch) {
+  parent.innerHTML = '';
+  const grid = document.createElement('div');
+  /* Always animate fresh bills in from the right. The slide-out animation
+     is applied separately by Game.done before re-render. */
+  grid.className = 'cash-grid slide-in';
+  const OFFSET = 24;   // px each successive bill rises — minimal overlap
+  const BILL_H = 70;
+  for (const stack of batch) {
+    const col = document.createElement('div');
+    col.className = 'cash-column';
+    const label = document.createElement('div');
+    label.className = 'cash-column-label';
+    label.textContent = stack.count + '×$' + stack.denom;
+    col.appendChild(label);
+    const stackEl = document.createElement('div');
+    stackEl.className = 'bill-stack-v';
+    stackEl.style.height = (BILL_H + (stack.count - 1) * OFFSET) + 'px';
+    for (let i = 0; i < stack.count; i++) {
+      const bill = makeBillV(stack.denom);
+      bill.style.bottom = (i * OFFSET) + 'px';
+      bill.style.zIndex = String(i);
+      stackEl.appendChild(bill);
+    }
+    col.appendChild(stackEl);
+    grid.appendChild(col);
+  }
+  parent.appendChild(grid);
+}
+
+/* Render the overflow pile — a single small pile of bills in the
+   incoming zone's bottom-right corner, with a "remaining" label. */
+function renderOverflow(container, remainingBatches) {
+  if (!remainingBatches || remainingBatches.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = '';
+  container.innerHTML = '';
+  /* Sum remaining cash for the label. */
+  let total = 0;
+  for (const batch of remainingBatches) {
+    for (const stack of batch) {
+      total += stack.denom * stack.count;
+    }
+  }
+  /* Render a compact "pile" of overlapping bills as a visual marker. Uses
+     the denomination of the very next bill that will come onto the table
+     (i.e. the first stack of the first remaining batch), so the dealer
+     can see at a glance what's queued up. */
+  const nextDenom = (remainingBatches[0] && remainingBatches[0][0])
+    ? remainingBatches[0][0].denom
+    : 100;
+  const pile = document.createElement('div');
+  pile.className = 'overflow-pile';
+  const pileSize = 4;
+  for (let i = 0; i < pileSize; i++) {
+    const bill = makeBillV(nextDenom);
+    bill.style.bottom = (i * 2) + 'px';
+    bill.style.left   = (i * 1.5) + 'px';
+    bill.style.zIndex = String(i);
+    pile.appendChild(bill);
+  }
+  container.appendChild(pile);
+  if (helpEnabled) {
+    const lbl = document.createElement('span');
+    lbl.className = 'overflow-label';
+    lbl.textContent = formatMoney(total) + ' left';
+    container.appendChild(lbl);
+  }
+}
+
+/* Render counted-pile labels along the outgoing zone's right side. */
+function renderCountedPiles(container, piles) {
+  if (!piles || piles.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = '';
+  container.innerHTML = '';
+  for (const p of piles) {
+    const el = document.createElement('div');
+    el.className = 'counted-pile';
+    el.textContent = formatMoney(p.value);
+    container.appendChild(el);
+  }
+}
+
+/* ---------- Scenario generators ---------- */
+function genColorComingIn() {
+  /* Coloring-up — the dealer takes the player's pile of smallish chips and
+     pays them back in fewer/larger chips. So the incoming pile should be
+     mostly $100 blacks (the workhorse the dealer is removing from circulation),
+     with a sprinkle of small chips for realism. Strategy:
+
+       Step 1 — Seed the pile with a random handful of small chips
+                ($1 white / $2.50 pink / $5 red / $25 green). These give
+                the scenario texture and a non-round residue.
+       Step 2 — Fill the bulk with $100 blacks. Only escalate to $500
+                purples (and then $1000 oranges) when the target is so
+                large that blacks alone would blow the 240-chip cap.
+       Step 3 — Plug the exact residue with $25 / $5 / $2.50 / $1 chips
+                so the pile sums to the target exactly.
+
+     The whole pile stays under 240 chips (12 stacks of 20).  */
+  const lo = Math.min(RANGE.colorMin, RANGE.colorMax);
+  const hi = Math.max(RANGE.colorMin, RANGE.colorMax);
+  const steps = Math.max(1, Math.floor((hi - lo) / 5));
+  const target = lo + Math.floor(Math.random() * (steps + 1)) * 5;
+  const MAX_CHIPS = 240;
+  const RESIDUE_BUFFER = 6;   // chip slots reserved for the step-3 residue
+
+  for (let attempt = 0; attempt < 400; attempt++) {
+    /* ----- Step 1: small seed chips (kept tight so the bulk is blacks) ----- */
+    const n1Opts  = [0, 0, 0, 5, 10];                  // $1 white, cap 10 chips ($10)
+    const n25Opts = [0, 0, 0, 2, 4, 6, 8];             // $2.50 pink, cap 8 chips ($20)
+    let n1   = n1Opts [Math.floor(Math.random() * n1Opts.length)];
+    let n2_5 = n25Opts[Math.floor(Math.random() * n25Opts.length)];
+    if (n1 > target) n1 = 0;
+    if (n1 + 2.5 * n2_5 > target) n2_5 = 0;
+
+    /* Reds: random 0–20 — natural chip the player would have a few of. */
+    let n5 = Math.floor(Math.random() * 21);
+    while (n1 + 2.5 * n2_5 + 5 * n5 > target && n5 > 0) n5--;
+
+    /* Greens: random 0–15 — same idea. */
+    let n25 = Math.floor(Math.random() * 16);
+    while (n1 + 2.5*n2_5 + 5*n5 + 25*n25 > target && n25 > 0) n25--;
+
+    const smallVal   = n1 + 2.5*n2_5 + 5*n5 + 25*n25;
+    const smallChips = n1 + n2_5 + n5 + n25;
+    let remaining    = Math.round((target - smallVal) * 100) / 100;
+    if (remaining < 0) continue;
+
+    /* ----- Step 2: bulk fill, blacks-preferred ----- */
+    let n100 = 0, n500 = 0, n1000 = 0;
+    const bulkBudget = MAX_CHIPS - smallChips - RESIDUE_BUFFER;
+    if (bulkBudget < 0) continue;
+
+    const blacksFromValue = Math.floor(remaining / 100);
+
+    if (blacksFromValue <= bulkBudget) {
+      /* Easy case — the entire bulk fits in $100 blacks. For larger totals
+         ($1k+), optionally sprinkle in a few $500 purples for realism —
+         real players coloring up a sizable buy-in usually have at least
+         some purples mixed into their pile. Blacks still dominate. */
+      if (remaining >= 1000) {
+        const maxPurple = Math.min(15, Math.floor(remaining / 1000));
+        const r = Math.random();
+        if      (r < 0.40) n500 = 0;                                       // 40%: blacks-only
+        else if (r < 0.80) n500 = randInt(1, Math.min(3, maxPurple));      // 40%: 1–3 purples
+        else               n500 = randInt(1, maxPurple);                   // 20%: random up to cap
+      }
+      /* Important: `remaining` represents the total bulk-to-allocate and
+         must not be mutated here — `bulkVal` (computed below) already
+         includes n500 * 500, so subtracting it from `remaining` would
+         double-count and the residue check would reject the attempt. */
+      n100 = Math.floor((remaining - n500 * 500) / 100);
+    } else {
+      /* Black chips alone would overflow the 240-chip cap. Use the
+         minimum number of $500 purples needed so the remaining blacks
+         fit in budget. If even max-purples won't fit, fall back to
+         $1000 oranges for the last bit. */
+      const deficitVsBlacks = remaining - 100 * bulkBudget;     // dollars blacks can't cover
+      n500 = Math.ceil(deficitVsBlacks / 500);
+      let valAfter500    = remaining - n500 * 500;
+      let budgetAfter500 = bulkBudget - n500;
+      let blacksNow      = Math.floor(valAfter500 / 100);
+      if (blacksNow <= budgetAfter500 && budgetAfter500 >= 0) {
+        n100 = blacksNow;
+      } else {
+        const deficit2 = valAfter500 - 100 * Math.max(0, budgetAfter500);
+        n1000 = Math.ceil(deficit2 / 1000);
+        const valAfter1000    = valAfter500 - n1000 * 1000;
+        const budgetAfter1000 = budgetAfter500 - n1000;
+        if (valAfter1000 < 0 || budgetAfter1000 < 0) continue;
+        n100 = Math.floor(valAfter1000 / 100);
+        if (n100 > budgetAfter1000) continue;
+      }
+    }
+
+    const bulkVal = n100 * 100 + n500 * 500 + n1000 * 1000;
+    let residue   = Math.round((remaining - bulkVal) * 100) / 100;
+    if (residue < 0) continue;
+
+    /* ----- Step 3: small chips to land exactly on target ----- */
+    const n25_extra = Math.floor(residue / 25);
+    n25 += n25_extra;
+    residue = Math.round((residue - n25_extra * 25) * 100) / 100;
+
+    const n5_extra = Math.floor(residue / 5);
+    n5 += n5_extra;
+    residue = Math.round((residue - n5_extra * 5) * 100) / 100;
+
+    if (residue >= 2.5 - 1e-9) {
+      n2_5 += 1;
+      residue = Math.round((residue - 2.5) * 100) / 100;
+    }
+    const n1_extra = Math.round(residue);
+    n1 += n1_extra;
+
+    const totalChips = n1 + n2_5 + n5 + n25 + n100 + n500 + n1000;
+    const totalVal   = Math.round(
+      (n1 + 2.5*n2_5 + 5*n5 + 25*n25 + 100*n100 + 500*n500 + 1000*n1000) * 100
+    ) / 100;
+
+    if (Math.abs(totalVal - target) < 0.01 && totalChips > 0 && totalChips <= MAX_CHIPS) {
+      const counts = { 1: n1, 2.5: n2_5, 5: n5, 25: n25, 100: n100, 500: n500, 1000: n1000 };
+      const incoming = [];
+      for (const v of [1000, 500, 100, 25, 5, 2.5, 1]) {
+        for (let k = 0; k < counts[v]; k++) incoming.push(v);
+      }
+      return { type: 'color', incoming, value: sumChips(incoming) };
+    }
+  }
+
+  /* Fallback — blacks-first greedy. Only triggers if the randomized walk
+     fails to converge, which should be very rare. Still avoids dumping the
+     bulk into oranges/purples. */
+  const counts = { 1: 0, 2.5: 0, 5: 0, 25: 0, 100: 0, 500: 0, 1000: 0 };
+  let rem = target;
+  /* Use just enough $1000/$500 to make $100 blacks fit in budget. */
+  const reserveSmall = 30;  // chip slots reserved for $25/$5/etc residue
+  let maxBlacks = MAX_CHIPS - reserveSmall;
+  if (rem / 100 > maxBlacks) {
+    const deficit = rem - 100 * maxBlacks;
+    counts[500] = Math.min(Math.ceil(deficit / 500), 20);
+    rem -= counts[500] * 500;
+    if (rem / 100 > maxBlacks - counts[500]) {
+      const d2 = rem - 100 * (maxBlacks - counts[500]);
+      counts[1000] = Math.ceil(d2 / 1000);
+      rem -= counts[1000] * 1000;
+    }
+  }
+  for (const v of [100, 25, 5, 1]) {
+    while (rem >= v - 1e-9 && (counts[1]+counts[2.5]+counts[5]+counts[25]+counts[100]+counts[500]+counts[1000]) < MAX_CHIPS) {
+      counts[v]++;
+      rem = Math.round((rem - v) * 100) / 100;
+    }
+  }
+  const incoming = [];
+  for (const v of [1000, 500, 100, 25, 5, 2.5, 1]) {
+    for (let k = 0; k < counts[v]; k++) incoming.push(v);
+  }
+  return { type: 'color', incoming, value: sumChips(incoming) };
+}
+
+function genChequeChange() {
+  /* Player hands the dealer a random count of chips of ONE denomination
+     and wants smaller chips back. Weighted to favor the common cases —
+     a single quarter or hundred is more typical than a stack of purples. */
+  const options = [
+    { value:   25, maxCount: 5, weight: 4 },   // greens: stack-of-five very common
+    { value:  100, maxCount: 4, weight: 4 },   // blacks: 1–4 common
+    { value:  500, maxCount: 2, weight: 2 },   // purples: rarer, usually 1
+    { value: 1000, maxCount: 1, weight: 1 },   // oranges: top-end break
+  ];
+  const totalW = options.reduce((s, o) => s + o.weight, 0);
+  let roll = Math.random() * totalW;
+  let opt = options[0];
+  for (const o of options) {
+    if (roll < o.weight) { opt = o; break; }
+    roll -= o.weight;
+  }
+  const count = randInt(1, opt.maxCount);
+  const incoming = Array(count).fill(opt.value);
+  return { type: 'change', incoming, value: opt.value * count };
+}
+
+/* Stack-size rule per the user's spec: $5 and $50 bills in stacks of 4,
+   everything else ($10, $20, $100) in stacks of 5. */
+function billStackSize(denom) {
+  return (denom === 5 || denom === 50) ? 4 : 5;
+}
+
+/* A "batch" is the cash on the table at one time: up to 5 columns (5 stacks)
+   of bills. Anything beyond 5 columns is overflow that waits in the outgoing
+   bottom-left until earlier batches are counted off. */
+const COLUMNS_PER_BATCH = 5;
+
+/* Random bill breakdown. Non-$100 denominations ($5/$10/$20/$50) can each
+   appear up to 25 times; $100s have no cap. This produces more varied
+   scenarios than pure greedy (which would always max out $100s first).
+   When the "big bills only" option is enabled, the breakdown is restricted
+   to $100s and $20s exclusively. */
+function randomBillBreakdown(total) {
+  /* In big-bills-only mode, the only non-$100 denomination is $20.
+     A clean $20 multiple of `total` is guaranteed because the cash slider
+     steps in $20 increments. */
+  if (bigBillsOnly) {
+    const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
+    /* Pick a random number of $20s, leaving the residue (in $100 multiples)
+       for hundreds. The $100 part must be a multiple of $100, which means
+       $20s must come in multiples of 5 (= $100) … unless we just pick a
+       count that leaves a multiple-of-100 residue. We pick $20s up to a
+       random cap, then bump it down until the residue is a $100 multiple. */
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const max20 = Math.min(25, Math.floor(total / 20));
+      let n20 = Math.floor(Math.random() * (max20 + 1));
+      let residue = total - n20 * 20;
+      /* Shave $20 chips off until residue is a clean $100 multiple. */
+      while (residue % 100 !== 0 && n20 > 0) { n20--; residue += 20; }
+      if (residue % 100 === 0 && residue >= 0) {
+        counts[20]  = n20;
+        counts[100] = residue / 100;
+        return counts;
+      }
+    }
+    /* Greedy fallback for big-bills mode. */
+    counts[100] = Math.floor(total / 100);
+    counts[20]  = (total - counts[100] * 100) / 20;
+    return counts;
+  }
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
+    let remaining = total;
+    /* Pick non-$100 counts in a shuffled order so no denomination is
+       systematically biased to use up more of the total first. */
+    const order = [50, 20, 10, 5];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    for (const d of order) {
+      if (remaining <= 0) break;
+      const maxN = Math.min(25, Math.floor(remaining / d));
+      const n = Math.floor(Math.random() * (maxN + 1));
+      counts[d] = n;
+      remaining -= n * d;
+    }
+    /* Whatever's left must be coverable in $100 bills. */
+    if (remaining >= 0 && remaining % 100 === 0) {
+      counts[100] = remaining / 100;
+      return counts;
+    }
+  }
+  /* Fall back to greedy if the random walk failed to land on a clean total. */
+  const counts = { 5: 0, 10: 0, 20: 0, 50: 0, 100: 0 };
+  let remaining = total;
+  for (const d of [100, 50, 20, 10, 5]) {
+    const n = Math.floor(remaining / d);
+    counts[d] = n;
+    remaining -= n * d;
+  }
+  return counts;
+}
+
+function buildCashStructure(total) {
+  const billCounts = randomBillBreakdown(total);
+  /* Stacks: split each denom's bills into stack-size groups, sorted highest
+     denom first (left to right). */
+  const stacks = [];
+  const denomsDesc = Object.keys(billCounts).map(Number).sort((a, b) => b - a);
+  for (const d of denomsDesc) {
+    let n = billCounts[d];
+    const sz = billStackSize(d);
+    while (n > 0) {
+      const c = Math.min(n, sz);
+      stacks.push({ denom: d, count: c });
+      n -= c;
+    }
+  }
+  /* Group stacks into batches of COLUMNS_PER_BATCH columns each. */
+  const batches = [];
+  for (let i = 0; i < stacks.length; i += COLUMNS_PER_BATCH) {
+    batches.push(stacks.slice(i, i + COLUMNS_PER_BATCH));
+  }
+  return batches;
+}
+
+function batchValue(batch) {
+  return batch.reduce((s, st) => s + st.denom * st.count, 0);
+}
+
+function genCashChanging() {
+  /* Player buys in with cash. Amount drawn from the user-set range,
+     snapped to $20 (smallest practical bill increment). */
+  const lo = Math.min(RANGE.cashMin, RANGE.cashMax);
+  const hi = Math.max(RANGE.cashMin, RANGE.cashMax);
+  const steps = Math.max(1, Math.floor((hi - lo) / 20));
+  const total = lo + Math.floor(Math.random() * (steps + 1)) * 20;
+  const cashBatches = buildCashStructure(total);
+  return {
+    type: 'cash',
+    isCash: true,
+    value: total,
+    cashBatches,
+    cashBatchIdx: 0,
+    countedPiles: [],   // { value } for each completed batch
+  };
+}
+
+const SCENARIO_GEN_BY_TYPE = {
+  color:  genColorComingIn,
+  change: genChequeChange,
+  cash:   genCashChanging,
+};
+/* Which scenario types are enabled for practice. The user picks via the
+   three pill toggles above the scenario banner — at least one stays on. */
+let enabledTypes = { color: true, change: true, cash: true };
+
+/* ---------- Game module ---------- */
+const Game = {};
+
+Game.start = function() {
+  loadSettings();
+  syncControlsFromState();
+  renderChipTray();
+  this.nextScenario();
+};
+
+Game.onRange = function(key, value) {
+  const v = parseInt(value, 10);
+  if (!Number.isFinite(v) || !RANGE.hasOwnProperty(key)) return;
+  RANGE[key] = v;
+  /* Keep min ≤ max for each pair — if the user crosses them, nudge the
+     other side so the range is always valid. */
+  if (key === 'colorMin' && RANGE.colorMin > RANGE.colorMax) {
+    RANGE.colorMax = RANGE.colorMin;
+    const o = document.getElementById('color-max');     if (o) o.value = RANGE.colorMax;
+  }
+  if (key === 'colorMax' && RANGE.colorMax < RANGE.colorMin) {
+    RANGE.colorMin = RANGE.colorMax;
+    const o = document.getElementById('color-min');     if (o) o.value = RANGE.colorMin;
+  }
+  if (key === 'cashMin' && RANGE.cashMin > RANGE.cashMax) {
+    RANGE.cashMax = RANGE.cashMin;
+    const o = document.getElementById('cash-max');      if (o) o.value = RANGE.cashMax;
+  }
+  if (key === 'cashMax' && RANGE.cashMax < RANGE.cashMin) {
+    RANGE.cashMin = RANGE.cashMax;
+    const o = document.getElementById('cash-min');      if (o) o.value = RANGE.cashMin;
+  }
+  /* Refresh the readouts. */
+  const ids = ['color-min-val','color-max-val','cash-min-val','cash-max-val'];
+  const vals = [RANGE.colorMin, RANGE.colorMax, RANGE.cashMin, RANGE.cashMax];
+  for (let i = 0; i < ids.length; i++) {
+    const el = document.getElementById(ids[i]);
+    if (el) el.textContent = formatMoney(vals[i]);
+  }
+  saveSettings();
+};
+
+Game.toggleHelp = function() {
+  helpEnabled = !helpEnabled;
+  document.body.classList.toggle('help-off', !helpEnabled);
+  const helpBtn = document.getElementById('help-toggle');
+  if (helpBtn) {
+    helpBtn.textContent = 'Help: ' + (helpEnabled ? 'ON' : 'OFF');
+    helpBtn.classList.toggle('on', helpEnabled);
+    helpBtn.classList.toggle('off', !helpEnabled);
+  }
+  saveSettings();
+  /* Refresh the visible numbers (status line, done-button label). */
+  this.renderOutgoing();
+};
+
+Game.toggleBigBillsOnly = function(checked) {
+  bigBillsOnly = !!checked;
+  saveSettings();
+  /* If the user flips this mid-scenario, regenerate the current cash
+     scenario so the new constraint takes effect. */
+  if (scenario && scenario.type === 'cash') this.nextScenario();
+};
+
+Game.toggleType = function(type) {
+  if (!enabledTypes.hasOwnProperty(type)) return;
+  /* Prevent turning off the last enabled type. */
+  const wouldBeOff = enabledTypes[type];
+  if (wouldBeOff) {
+    const otherCount = Object.keys(enabledTypes)
+      .filter(k => k !== type && enabledTypes[k]).length;
+    if (otherCount === 0) return;   /* keep at least one on */
+  }
+  enabledTypes[type] = !enabledTypes[type];
+  const btn = document.querySelector(`.practice-toggle[data-type="${type}"]`);
+  if (btn) btn.classList.toggle('on', enabledTypes[type]);
+  saveSettings();
+  /* If the currently-displayed scenario is no longer allowed, move on. */
+  if (scenario && !enabledTypes[scenario.type]) this.nextScenario();
+};
+
+Game.nextScenario = function() {
+  scenarioCount++;
+  const allowed = Object.keys(enabledTypes).filter(k => enabledTypes[k]);
+  const gen = SCENARIO_GEN_BY_TYPE[pick(allowed)];
+  scenario = gen();
+  outgoing = [];
+  floorApproved = false;
+  this.renderScenario();
+  this.renderOutgoing();
+  this.updateStatus();
+};
+
+Game.renderScenario = function() {
+  const titleEl = $('scenario-title');
+  const reqEl = $('scenario-req');
+  const incomingGrid = $('incoming-grid');
+  const incomingBills = $('incoming-bills');
+  const incomingTotal = $('incoming-total');
+  incomingGrid.innerHTML = '';
+  incomingBills.innerHTML = '';
+  incomingBills.style.display = 'none';
+  incomingGrid.style.display = '';
+
+  /* Reset cash-mode containers in outgoing zone so non-cash scenarios
+     don't carry stale piles/overflow. */
+  const overflowEl = document.getElementById('incoming-overflow');
+  const countedEl  = document.getElementById('outgoing-counted');
+  if (overflowEl) { overflowEl.style.display = 'none'; overflowEl.innerHTML = ''; }
+  if (countedEl)  { countedEl.style.display = 'none'; countedEl.innerHTML = ''; }
+
+  if (scenario.type === 'color') {
+    titleEl.textContent = 'Color coming in';
+    reqEl.innerHTML = `Player brings <b class="req-amt">${formatMoney(scenario.value)}</b> in chips.`;
+    renderChipGrid(incomingGrid, scenario.incoming);
+  } else if (scenario.type === 'change') {
+    titleEl.textContent = 'Cheque change';
+    reqEl.innerHTML = `Player wants change for <b class="req-amt">${formatMoney(scenario.value)}</b>.`;
+    renderChipGrid(incomingGrid, scenario.incoming);
+  } else if (scenario.type === 'cash') {
+    titleEl.textContent = 'Changing';
+    reqEl.innerHTML = `Player buys in with <b class="req-amt">${formatMoney(scenario.value)}</b> cash.`;
+    incomingGrid.style.display = 'none';
+    incomingBills.style.display = '';
+    /* Current batch in INCOMING; remaining batches as overflow pile in
+       OUTGOING bottom-left; already-counted piles labeled on the right. */
+    const batches = scenario.cashBatches;
+    const idx = scenario.cashBatchIdx;
+    renderCashBatch(incomingBills, batches[idx]);
+    renderOverflow(overflowEl, batches.slice(idx + 1));
+    renderCountedPiles(countedEl, scenario.countedPiles);
+  }
+  incomingTotal.textContent = formatMoney(scenario.value);
+
+  /* Floor: OK is no longer required for any scenario — the dealer can start
+     paying out chips immediately. The button stays in the DOM (hidden) so
+     legacy code paths that reference it don't break. */
+  const okBtn = $('floor-ok-btn');
+  if (okBtn) okBtn.style.display = 'none';
+  floorApproved = true;
+  $('outgoing-zone').classList.remove('locked');
+};
+
+Game.floorOK = function() {
+  if (scenario.type !== 'color') return;
+  floorApproved = true;
+  const okBtn = $('floor-ok-btn');
+  okBtn.disabled = true;
+  okBtn.textContent = 'OK ✓';
+  $('outgoing-zone').classList.remove('locked');
+  this.updateStatus();
+};
+
+Game.pickChip = function(value) {
+  if (!floorApproved) return;
+  outgoing.push(value);
+  this.renderOutgoing();
+};
+
+/* "Stack" button under each chip-tray column — adds 20 chips of that
+   denomination to the outgoing zone in one click. */
+Game.addStackOf = function(value) {
+  if (!floorApproved) return;
+  for (let i = 0; i < 20; i++) outgoing.push(value);
+  this.renderOutgoing();
+};
+
+Game.outgoingClick = function(ev) {
+  if (!floorApproved) return;
+  const target = ev.target.closest('.chip-piece');
+  if (!target) return;
+  const cls = Array.from(target.classList).find(c => c.startsWith('cp-'));
+  if (!cls) return;
+  const color = cls.slice(3);
+  const denom = DENOMS.find(d => d.color === color);
+  if (!denom) return;
+  for (let i = outgoing.length - 1; i >= 0; i--) {
+    if (outgoing[i] === denom.value) {
+      outgoing.splice(i, 1);
+      break;
+    }
+  }
+  this.renderOutgoing();
+};
+
+Game.clearOutgoing = function() {
+  outgoing = [];
+  this.renderOutgoing();
+};
+
+Game.renderOutgoing = function() {
+  renderChipGrid($('outgoing-grid'), outgoing);
+  const total = sumChips(outgoing);
+  $('outgoing-total').textContent = formatMoney(total);
+  const doneBtn = $('done-btn');
+
+  /* Done-button text + ready state depend on scenario type. For cash, the
+     button label is "Changing $X, and counting" on intermediate batches and
+     "Changing $X" on the final batch — and ready-state only requires chip
+     match on the final batch. */
+  /* Ready (green) state rules:
+       - Help ON  → ready ONLY when the outgoing chips exactly match. The
+                    button stays grey as a visual cue while building.
+       - Help OFF → ready ALWAYS. No visual hint about correctness — the
+                    dealer has to know without help. (Game.done still
+                    enforces the actual match on click.) */
+  const isCorrect = scenario &&
+    Math.abs(total - scenario.value) < 0.001 && outgoing.length > 0;
+  if (scenario && scenario.type === 'cash') {
+    const idx = scenario.cashBatchIdx;
+    const batches = scenario.cashBatches;
+    const thisBatch = batchValue(batches[idx]);
+    const cumulative = scenario.countedPiles.reduce((s, p) => s + p.value, 0) + thisBatch;
+    const isLast = idx === batches.length - 1;
+    if (isLast) {
+      doneBtn.textContent = helpEnabled ? `Changing ${formatMoney(scenario.value)}` : 'Changing';
+      doneBtn.classList.toggle('ready', helpEnabled ? !!isCorrect : true);
+    } else {
+      doneBtn.textContent = helpEnabled
+        ? `Changing ${formatMoney(cumulative)}, and counting`
+        : 'Changing, and counting';
+      doneBtn.classList.add('ready');   // always actionable on intermediate batches
+    }
+  } else {
+    doneBtn.textContent = 'Done';
+    doneBtn.classList.toggle('ready', helpEnabled ? !!isCorrect : true);
+  }
+
+  this.updateStatus();
+};
+
+Game.done = function() {
+  if (!floorApproved) {
+    flashStatus("Wait — get the floor's OK first.", 'bad');
+    return;
+  }
+
+  /* CASH scenario has its own multi-batch flow. Intermediate batches just
+     advance ("Changing $X, and counting"); the final batch validates the
+     outgoing chips and announces the final total. */
+  if (scenario.type === 'cash') {
+    if (Game._cashAnimating) return;   // ignore rapid re-clicks during animation
+    const batches = scenario.cashBatches;
+    const idx = scenario.cashBatchIdx;
+    const thisBatchValue = batchValue(batches[idx]);
+    const cumulative = scenario.countedPiles.reduce((s, p) => s + p.value, 0) + thisBatchValue;
+    const isLast = idx === batches.length - 1;
+
+    if (!isLast) {
+      /* Intermediate batch — slide the counted cash off the table first,
+         then advance to the next batch (which renders with slide-in). */
+      Game._cashAnimating = true;
+      slideCurrentBatchOut(() => {
+        scenario.countedPiles.push({ value: thisBatchValue });
+        scenario.cashBatchIdx++;
+        flashStatus(`Changing ${formatMoney(cumulative)}, and counting…`, 'good');
+        Game.renderScenario();
+        Game.updateStatus();
+        Game._cashAnimating = false;
+      });
+      return;
+    }
+    /* Final batch — chips must equal the total cash. */
+    const total = sumChips(outgoing);
+    if (Math.abs(total - scenario.value) > 0.001) {
+      flashStatus(`Outgoing is ${formatMoney(total)} but should be ${formatMoney(scenario.value)}.`, 'bad');
+      return;
+    }
+    /* Slide the final batch off the table, then announce. */
+    Game._cashAnimating = true;
+    slideCurrentBatchOut(() => {
+      $('announce-title').textContent = 'Changing';
+      $('announce-amount').textContent = formatMoney(scenario.value);
+      $('announce-detail').textContent = 'Returned ' + describeOutgoing(outgoing);
+      $('announce-modal').classList.add('open');
+      setTimeout(() => {
+        $('announce-modal').classList.remove('open');
+        Game._cashAnimating = false;
+        Game.nextScenario();
+      }, 1800);
+    });
+    return;
+  }
+
+  const total = sumChips(outgoing);
+  if (Math.abs(total - scenario.value) > 0.001) {
+    flashStatus(`Outgoing is ${formatMoney(total)} but should be ${formatMoney(scenario.value)}.`, 'bad');
+    return;
+  }
+  let title = '';
+  let detail = '';
+  if (scenario.type === 'color') {
+    title = 'Coloring up';
+    const highChips = outgoing.filter(v => v >= 100);
+    if (highChips.length > 0) {
+      const grouped = groupByDenom(highChips);
+      detail = grouped.map(g => `${g.count} ${plural(g.denom.color)}`).join(', ');
+    } else {
+      detail = '(no $100+ chips going out)';
+    }
+  } else if (scenario.type === 'change') {
+    title = 'Cheque change';
+    detail = 'Returned ' + describeOutgoing(outgoing);
+  }
+  $('announce-title').textContent = title;
+  $('announce-amount').textContent = formatMoney(scenario.value);
+  $('announce-detail').textContent = detail;
+  $('announce-modal').classList.add('open');
+  setTimeout(() => { $('announce-modal').classList.remove('open'); Game.nextScenario(); }, 1800);
+};
+
+function plural(color) {
+  /* Casino slang names for high-value chips. */
+  if (color === 'black') return 'blacks';
+  if (color === 'purple') return 'purples';
+  if (color === 'green') return 'greens';
+  return color + 's';
+}
+
+function describeOutgoing(chips) {
+  const grouped = groupByDenom(chips);
+  return grouped.map(g => `${g.count}×${g.denom.label}`).join(' + ');
+}
+
+Game.closeAnnounce = function(ev) {
+  if (ev.target.id === 'announce-modal') $('announce-modal').classList.remove('open');
+};
+
+Game.updateStatus = function() {
+  const el = $('status');
+  el.className = 'status';
+  if (!scenario) return;
+  /* Cash scenario: status reflects the current batch in the multi-batch
+     counting flow. With help off, all numeric hints are removed and only
+     generic prompts remain. */
+  if (scenario.type === 'cash') {
+    const idx = scenario.cashBatchIdx;
+    const batches = scenario.cashBatches;
+    const thisBatch = batchValue(batches[idx]);
+    const cumulative = scenario.countedPiles.reduce((s, p) => s + p.value, 0) + thisBatch;
+    const isLast = idx === batches.length - 1;
+    if (!isLast) {
+      if (helpEnabled) {
+        el.innerHTML =
+          `Count the table (${formatMoney(thisBatch)}). Call ` +
+          `<b>"Changing ${formatMoney(cumulative)}, and counting"</b> ` +
+          `then continue with the next batch.`;
+      } else {
+        el.innerHTML = `Count the table. Call <b>"Changing &lt;total&gt;, and counting"</b> then continue with the next batch.`;
+      }
+      return;
+    }
+    /* Final batch — must build the chips. */
+    const total = sumChips(outgoing);
+    if (!helpEnabled) {
+      el.innerHTML = outgoing.length === 0
+        ? 'Final batch. Build the chip equivalent, then call <b>"Changing &lt;total&gt;"</b>.'
+        : 'Build the chip equivalent, then call <b>"Changing &lt;total&gt;"</b>.';
+      return;
+    }
+    if (outgoing.length === 0) {
+      el.innerHTML = `Final batch. Build <b>${formatMoney(scenario.value)}</b> in chips, then call <b>"Changing ${formatMoney(scenario.value)}"</b>.`;
+    } else if (Math.abs(total - scenario.value) < 0.001) {
+      el.innerHTML = `Chips match — call <b>"Changing ${formatMoney(scenario.value)}"</b>.`;
+      el.classList.add('flash-good');
+    } else {
+      const diff = scenario.value - total;
+      el.innerHTML = `Outgoing: ${formatMoney(total)} (${diff > 0 ? 'need ' + formatMoney(diff) + ' more' : formatMoney(-diff) + ' too much'}).`;
+    }
+    return;
+  }
+
+  const total = sumChips(outgoing);
+  if (!helpEnabled) {
+    el.innerHTML = outgoing.length === 0
+      ? 'Build the matching chip stack from the tray.'
+      : 'Click <b>Done</b> when the chip stack matches.';
+    return;
+  }
+  if (outgoing.length === 0) {
+    el.innerHTML = `Build <b>${formatMoney(scenario.value)}</b> from the chip tray.`;
+  } else if (Math.abs(total - scenario.value) < 0.001) {
+    el.innerHTML = 'Outgoing matches — click <b>Done</b>.';
+    el.classList.add('flash-good');
+  } else {
+    const diff = scenario.value - total;
+    el.innerHTML = `Outgoing: ${formatMoney(total)} (${diff > 0 ? 'need ' + formatMoney(diff) + ' more' : formatMoney(-diff) + ' too much'}).`;
+  }
+};
+
+function flashStatus(text, kind) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.className = 'status';
+  if (kind) el.classList.add('flash-' + kind);
+  el.innerHTML = text;
+  setTimeout(() => { if (Game && Game.updateStatus) Game.updateStatus(); }, 1500);
+}
+
+Game.start();
+</script>
+</body>
+</html>
