@@ -27,7 +27,10 @@
   #scoreRow{display:flex;gap:10px;font-size:11.5px;color:var(--dim);margin-top:5px;flex-wrap:wrap;}
   #scoreRow b{color:var(--text);}
   #scoreRow .good{color:var(--good);} #scoreRow .bad{color:var(--bad);}
-  #instr{margin-top:6px;font-size:13.5px;font-weight:600;color:var(--gold);line-height:1.35;}
+  #instr{margin-top:6px;font-size:13.5px;font-weight:600;color:var(--gold);line-height:1.35;
+    padding:3px 8px;margin-left:-8px;border-radius:8px;}
+  @keyframes instrpulse{0%,100%{background:rgba(212,175,55,0);}50%{background:rgba(212,175,55,.24);}}
+  #instr.attn{animation:instrpulse 1.5s ease-in-out infinite;}
   #instrSub{font-size:11.5px;font-weight:400;color:var(--dim);}
   /* big winning-number badge, fills the empty right side under the difficulty selector */
   #winBadge{display:none;position:absolute;right:10px;top:calc(44px + env(safe-area-inset-top));
@@ -92,6 +95,7 @@
     border-radius:7px;min-width:38px;padding:8px 4px;font-size:13px;font-weight:600;}
   .dRow button:active{background:#33445f;}
   .dRow button.rst{margin-right:10px;color:var(--dim);}
+  .rowDiv{height:1px;background:var(--border);opacity:.55;margin:8px 2px;}
   .dRow input{width:52px;text-align:center;font-weight:700;font-size:14px;background:#0e1420;
     color:var(--text);border:1px solid var(--border);border-radius:7px;padding:7px 2px;}
   #sheetBtns{display:flex;gap:8px;margin-top:12px;}
@@ -641,7 +645,10 @@ let roundStats={correct:0,errors:0,paid:0};
 let dollyAttempted=false;
 let payState=null;
 
-function setInstr(t,s){$('instrText').textContent=t;$('instrSub').textContent=s||'';}
+function setInstr(t,s){
+  $('instrText').textContent=t;$('instrSub').textContent=s||'';
+  $('instr').classList.remove('attn'); // re-added only where attention is needed
+}
 /* only the layer relevant to the current phase receives taps —
    otherwise chips sitting on a number would block the dolly tap */
 function syncTaps(){
@@ -730,6 +737,7 @@ function afterLanding(){
   wb.style.color=c==='red'?'#ff6b6b':c==='green'?'#4cd97f':'#e8e6e0';
   state='MARK';syncTaps();
   setInstr('Place the dolly — tap the winning number.','The ball landed on '+numLabel(winNum)+'.');
+  $('instr').classList.add('attn'); // pulse so a newbie knows it's their move
 }
 const losersLeft=()=>bets.filter(b=>!b.won&&!b.swept).length;
 const winnersLeft=()=>bets.filter(b=>b.won&&!b.paid).length;
@@ -892,9 +900,10 @@ function openSheet(g){
   if(!isCheq){
     const p=players[g.player];
     html+=dRow('chips',`<span class="dot" style="background:${p.color.css}"></span>${p.color.name} chips`,[1,5,20,100]);
+    html+='<div class="rowDiv"></div>'; // subtle chips/cheques divider
   }
   for(const c of CHEQUES)
-    html+=dRow('q'+c.val,`<span class="dot cheq" style="background:${c.css}"></span>${c.name}`,[1,20,100]);
+    html+=dRow('q'+c.val,`<span class="dot cheq" style="background:${c.css}"></span>${c.name}`,[1,5,20,100]);
   $('denoms').innerHTML=html;
   $('denoms').querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click',()=>{
