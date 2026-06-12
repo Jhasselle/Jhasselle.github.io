@@ -205,7 +205,6 @@ const money=v=>'$'+v.toLocaleString();
 
 /* cheques: cage money */
 const CHEQUES=[
-  {val:1,  name:'$1 white',   css:'#f0ede4', text:'#222'},
   {val:5,  name:'$5 red',     css:'#c0392b', text:'#fff'},
   {val:25, name:'$25 green',  css:'#1e8a4c', text:'#fff'},
   {val:100,name:'$100 black', css:'#1b1b1f', text:'#fff'},
@@ -223,16 +222,16 @@ const CHIP_COLORS=[
 ];
 
 const DIFFS=[
-  { name:'Beginner', players:1, chipVals:[1], betCount:[3,4], maxStack:1,
+  { name:'Beginner', players:1, chipVals:[5], betCount:[3,4], maxStack:1,
     chequeOutsideProb:0, chequeDenoms:[], maxCheques:0,
     weights:{straight:5,split:4,street:2,corner:3,sixline:1,basket:0,dozen:1,column:1,even:2} },
-  { name:'Stacks', players:1, chipVals:[1], betCount:[5,7], maxStack:8,
+  { name:'Stacks', players:1, chipVals:[5], betCount:[5,7], maxStack:8,
     chequeOutsideProb:0.4, chequeDenoms:[5], maxCheques:4,
     weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0,dozen:2,column:2,even:3} },
-  { name:'Two Players', players:2, chipVals:[1,5], betCount:[8,12], maxStack:12,
+  { name:'Two Players', players:2, chipVals:[5,25], betCount:[8,12], maxStack:12,
     chequeOutsideProb:0.5, chequeDenoms:[5,25], maxCheques:4,
     weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0.5,dozen:2,column:2,even:3} },
-  { name:'Full Table', players:5, chipVals:[1,1,5,5,25], betCount:[16,24], maxStack:20,
+  { name:'Full Table', players:5, chipVals:[5,5,25,25,100], betCount:[16,24], maxStack:20,
     chequeOutsideProb:0.5, chequeDenoms:[5,25], maxCheques:6,
     weights:{straight:6,split:5,street:3,corner:4,sixline:2,basket:0.7,dozen:3,column:3,even:4} },
 ];
@@ -330,11 +329,11 @@ function chequeCounts(value){
   for(const c of [...CHEQUES].sort((a,b)=>b.val-a.val)){
     out[c.val]=Math.floor(rem/c.val); rem-=out[c.val]*c.val;
   }
-  return out; // {500:n,100:n,25:n,5:n,1:n}
+  return out; // {500:n,100:n,25:n,5:n}
 }
 function chequeText(value){
   const c=chequeCounts(value), parts=[];
-  for(const d of [500,100,25,5,1]) if(c[d]) parts.push(`${c[d]} × $${d}`);
+  for(const d of [500,100,25,5]) if(c[d]) parts.push(`${c[d]} × $${d}`);
   return parts.join(' + ');
 }
 
@@ -842,7 +841,7 @@ function renderBetInfo(){
   }
 }
 function openSheet(g){
-  payState={group:g,chips:0,cheq:{1:0,5:0,25:0,100:0,500:0},
+  payState={group:g,chips:0,cheq:{5:0,25:0,100:0,500:0},
             expanded:false}; // always minimized by default — tap to expand
   const isCheq=g.cheque;
   renderBetInfo();
