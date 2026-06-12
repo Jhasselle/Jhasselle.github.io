@@ -1,0 +1,1929 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pai Gow Dealer Simulator</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background: #0a0710;
+  -webkit-user-select: none; user-select: none;
+}
+.page { max-width: 1180px; margin: 0 auto; padding: 14px 14px 30px; }
+
+/* ===== Top bar ===== */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.topbar h1 {
+  margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #f4f4f5, #c4b5fd);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.topbar .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.tb-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.13);
+  color: rgba(255,255,255,0.85);
+  font: 700 11.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+}
+.tb-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.26); color: #fff; }
+.tb-btn.primary {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  border-color: transparent; color: #fff;
+}
+.tb-btn.primary:hover { background: linear-gradient(135deg, #7c7ff5, #4f46e5); transform: translateY(-1px); }
+.tb-btn.primary.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.55); }
+  50%     { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+}
+.tb-btn.help.active {
+  background: rgba(250,204,21,0.14); border-color: rgba(250,204,21,0.5); color: #fde047;
+}
+.stats {
+  display: flex; gap: 14px; align-items: center;
+  font: 700 11px/1 "JetBrains Mono", "Courier New", monospace;
+  color: rgba(255,255,255,0.6);
+}
+.stats b { color: #f4f4f5; font-size: 13px; }
+.stats .good b { color: #34d399; }
+
+/* ===== Felt table ===== */
+.table {
+  position: relative;
+  border-radius: 26px;
+  padding: 18px 18px 14px;
+  background:
+    radial-gradient(1100px 500px at 50% -10%, rgba(192,132,252,0.18), transparent 60%),
+    radial-gradient(900px 600px at 50% 115%, rgba(0,0,0,0.5), transparent 60%),
+    linear-gradient(180deg, #5b21a8 0%, #4a1690 55%, #3b0f74 100%);
+  border: 10px solid #1b1024;
+  outline: 2px solid rgba(250,204,21,0.25);
+  box-shadow: 0 30px 80px -30px rgba(0,0,0,0.9), inset 0 0 80px rgba(0,0,0,0.35);
+}
+.felt-banner {
+  text-align: center;
+  font: 800 clamp(10px, 1.6vw, 13px)/1.45 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  margin: 0 0 4px;
+}
+.felt-banner .sub {
+  display: block; font-size: 0.82em; font-weight: 700;
+  color: rgba(255,255,255,0.55); letter-spacing: 0.09em;
+}
+.monarch {
+  text-align: center;
+  font: 900 15px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: 0.34em; text-transform: uppercase;
+  color: rgba(250,204,21,0.75);
+  margin: 2px 0 12px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+/* ===== Player spots ===== */
+.players-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin-bottom: 14px;
+}
+.spot {
+  border-radius: 16px;
+  padding: 10px 10px 12px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, opacity 0.2s;
+}
+.spot.active {
+  background: rgba(250,204,21,0.06);
+  border-color: rgba(250,204,21,0.65);
+  box-shadow: 0 0 0 1px rgba(250,204,21,0.35), 0 0 30px rgba(250,204,21,0.12);
+}
+.spot.done { opacity: 0.62; }
+.spot-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0 2px 8px;
+}
+.spot-head .nm {
+  font: 800 11px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.75);
+}
+.spot.active .spot-head .nm { color: #fde047; }
+.spot-head .tag {
+  font: 800 9.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px;
+}
+.spot-head .tag.settle { background: rgba(250,204,21,0.16); color: #fde047; border: 1px solid rgba(250,204,21,0.45); }
+.spot-head .tag.done   { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.4); }
+.spot-head .tag.wait   { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1); }
+
+.hands { display: flex; flex-direction: column; gap: 6px; }
+.handrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.handrow .hlbl {
+  flex: 0 0 14px;
+  font: 800 10px/1 "Inter", system-ui, sans-serif;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+}
+.rank-note {
+  font: 600 10.5px/1.3 "Inter", system-ui, sans-serif;
+  color: #fde047; opacity: 0.92;
+  margin: 2px 0 0 20px;
+  display: none;
+}
+.help-on .rank-note { display: block; }
+
+/* ===== Cards ===== */
+.pcard {
+  width: 44px; height: 62px;
+  background: #f7f7f3;
+  border: 1px solid #b9b9b9;
+  border-radius: 5px;
+  position: relative; flex: 0 0 auto;
+  box-shadow: 0 3px 7px rgba(0,0,0,0.5);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+.pcard.red   { color: #b91c1c; }
+.pcard.black { color: #111827; }
+.pcard .tl { position: absolute; top: 3px; left: 4px; font-weight: 800; font-size: 11px; line-height: 1; text-align: center; }
+.pcard .tl small { display: block; font-size: 9px; margin-top: 1px; }
+.pcard .ct { position: absolute; bottom: 4px; right: 5px; font-size: 16px; line-height: 1; }
+.pcard.joker { background: linear-gradient(135deg, #fef08a, #fde047); color: #7c2d12; border-color: #ca8a04; }
+.pcard.joker .ct { font-size: 11px; font-weight: 800; }
+.dealer-area .pcard { width: 52px; height: 74px; }
+.dealer-area .pcard .tl { font-size: 13px; }
+.dealer-area .pcard .tl small { font-size: 10px; }
+.dealer-area .pcard .ct { font-size: 19px; }
+
+/* ===== Bets ===== */
+.bets { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.bet {
+  position: relative;
+  min-width: 86px;
+  border-radius: 12px;
+  padding: 7px 8px 8px;
+  background: rgba(0,0,0,0.22);
+  border: 1.5px dashed rgba(255,255,255,0.22);
+  cursor: default;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.12s;
+}
+.spot.active .bet.unresolved { cursor: pointer; }
+.spot.active .bet.unresolved:hover { background: rgba(255,255,255,0.07); transform: translateY(-1px); }
+.bet.selected {
+  border-style: solid; border-color: #fde047;
+  background: rgba(250,204,21,0.1);
+  box-shadow: 0 0 0 1px rgba(250,204,21,0.4), 0 0 18px rgba(250,204,21,0.22);
+}
+.bet.flash-wrong { animation: betShake 0.32s; border-color: #f87171 !important; box-shadow: 0 0 0 2px rgba(248,113,113,0.5); }
+@keyframes betShake {
+  0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); } 75% { transform: translateX(-3px); }
+}
+.bet.resolved { border-style: solid; border-color: rgba(255,255,255,0.14); opacity: 0.95; }
+.bet.resolved.was-clean { border-color: rgba(52,211,153,0.5); }
+.bet.resolved.was-error { border-color: rgba(248,113,113,0.5); }
+.bet .bname {
+  font: 800 8.5px/1.2 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 5px;
+}
+.bet .bname .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.bet.b-main .bname .dot { background: #f4f4f5; }
+.bet.b-red .bname .dot { background: #ef4444; }
+.bet.b-blue .bname .dot { background: #38bdf8; }
+.bet.b-ins .bname .dot { background: #c4b5fd; }
+.bet.b-emp .bname .dot { background: #fde047; }
+.bet .dlr-lammer {
+  font: 800 7.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  background: #f4f4f5; color: #1f2937;
+  border-radius: 999px; padding: 3px 6px;
+  border: 1px solid #9ca3af;
+}
+.bet .bchips { display: flex; flex-wrap: wrap; gap: 2px; min-height: 22px; align-items: center; }
+.bet .bamt {
+  font: 800 11px/1 "JetBrains Mono", "Courier New", monospace;
+  color: rgba(255,255,255,0.85); margin-top: 4px;
+}
+.bet .result-tag {
+  position: absolute; top: -8px; right: -5px;
+  font: 800 8.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 7px; border-radius: 999px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+}
+.result-tag.t-take { background: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
+.result-tag.t-pay  { background: #064e3b; color: #a7f3d0; border: 1px solid #34d399; }
+.result-tag.t-push { background: #374151; color: #e5e7eb; border: 1px solid #9ca3af; }
+.bet .hint {
+  display: none;
+  font: 700 9px/1.3 "Inter", system-ui, sans-serif;
+  color: #fde047; margin-top: 4px; letter-spacing: 0.03em;
+}
+.help-on .bet.unresolved .hint { display: block; }
+.minichip {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 800 7px/1 "JetBrains Mono", monospace;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45);
+  flex: 0 0 auto;
+}
+.bet .paystack { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; }
+
+/* ===== Dealer area ===== */
+.dealer-wrap {
+  display: flex; align-items: stretch; justify-content: center; gap: 16px;
+  margin-bottom: 12px; flex-wrap: wrap;
+}
+.dealer-area {
+  border-radius: 16px;
+  padding: 10px 16px 12px;
+  background: rgba(0,0,0,0.24);
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.dealer-area .dlabel {
+  font: 800 10.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.24em; text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+}
+.dealer-area .handrow { justify-content: center; }
+.dealer-area .rank-note { margin-left: 0; text-align: center; }
+.dealer-flag {
+  display: none;
+  font: 800 10px/1.3 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: #fda4af; background: rgba(248,113,113,0.12);
+  border: 1px solid rgba(248,113,113,0.4);
+  padding: 5px 10px; border-radius: 999px;
+  margin-top: 2px;
+}
+.help-on .dealer-flag.show { display: inline-block; }
+
+/* ===== Message / action bar ===== */
+.msgbar {
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.32);
+  border: 1px solid rgba(255,255,255,0.12);
+  margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  min-height: 58px;
+}
+.msgbar .msg { font: 600 13px/1.45 "Inter", system-ui, sans-serif; color: rgba(255,255,255,0.85); }
+.msgbar .msg b { color: #fde047; }
+.msgbar.good { border-color: rgba(52,211,153,0.5); background: rgba(52,211,153,0.07); }
+.msgbar.bad  { border-color: rgba(248,113,113,0.55); background: rgba(248,113,113,0.07); }
+.msgbar.bad .msg { color: #fecaca; }
+.msgbar.bad .msg b { color: #fde047; }
+.msgbar.good .msg { color: #a7f3d0; }
+.action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.act-btn {
+  border: 0; border-radius: 10px;
+  padding: 11px 18px;
+  font: 800 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.15s, box-shadow 0.15s;
+}
+.act-btn:hover { transform: translateY(-1px); }
+.act-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.act-btn.take { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; }
+.act-btn.push { background: linear-gradient(135deg, #6b7280, #4b5563); color: #fff; }
+.act-btn.pay  { background: linear-gradient(135deg, #10b981, #047857); color: #fff; }
+.act-btn.confirm { background: linear-gradient(135deg, #10b981, #047857); color: #fff; }
+.act-btn.clear { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.8); }
+
+/* ===== Chip tray ===== */
+.tray {
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #15101c, #0d0a13);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: inset 0 2px 14px rgba(0,0,0,0.55);
+}
+.tray-inner { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.pay-build {
+  flex: 1 1 260px;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(255,255,255,0.16);
+  padding: 8px 12px;
+  min-height: 64px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.pay-build.active { border-color: rgba(52,211,153,0.55); background: rgba(52,211,153,0.05); }
+.pay-build .pb-amt {
+  font: 800 22px/1 "JetBrains Mono", "Courier New", monospace;
+  color: #34d399; min-width: 86px;
+}
+.pay-build .pb-lbl {
+  font: 700 9px/1.3 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+}
+.pay-build .pb-stack { display: flex; flex-wrap: wrap; gap: 3px; }
+.pay-build .pb-stack .chip { cursor: pointer; }
+.chip {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 800 10px/1 "JetBrains Mono", "Courier New", monospace;
+  position: relative;
+  box-shadow: 0 4px 9px rgba(0,0,0,0.5);
+  flex: 0 0 auto;
+}
+.chip-palette { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; }
+.chip-btn { background: transparent; border: 0; padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+.chip-btn .chip { width: 50px; height: 50px; font-size: 12px; transition: transform 0.12s; }
+.chip-btn:hover .chip { transform: translateY(-3px); }
+.chip-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.chip-btn:disabled .chip { transform: none; }
+.chip-btn .clabel {
+  font: 700 9px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-top: 5px;
+}
+.chip.c1    { background: radial-gradient(circle at 30% 30%, #f9fafb, #d1d5db); color: #1f2937; border: 2px solid #1f2937; }
+.chip.c5    { background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c); color: #fff7ed; border: 2px solid #7f1d1d; }
+.chip.c25   { background: radial-gradient(circle at 30% 30%, #34d399, #047857); color: #ecfdf5; border: 2px solid #065f46; }
+.chip.c100  { background: radial-gradient(circle at 30% 30%, #4b5563, #111827); color: #f3f4f6; border: 2px solid #030712; }
+.chip.c500  { background: radial-gradient(circle at 30% 30%, #c084fc, #6b21a8); color: #fdf4ff; border: 2px solid #581c87; }
+.chip.c1000 { background: radial-gradient(circle at 30% 30%, #fb923c, #c2410c); color: #fff7ed; border: 2px solid #7c2d12; }
+.minichip.c1    { background: radial-gradient(circle at 30% 30%, #f9fafb, #d1d5db); color: #1f2937; border: 1.5px solid #1f2937; }
+.minichip.c5    { background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c); color: #fff7ed; border: 1.5px solid #7f1d1d; }
+.minichip.c25   { background: radial-gradient(circle at 30% 30%, #34d399, #047857); color: #ecfdf5; border: 1.5px solid #065f46; }
+.minichip.c100  { background: radial-gradient(circle at 30% 30%, #4b5563, #111827); color: #f3f4f6; border: 1.5px solid #030712; }
+.minichip.c500  { background: radial-gradient(circle at 30% 30%, #c084fc, #6b21a8); color: #fdf4ff; border: 1.5px solid #581c87; }
+.minichip.c1000 { background: radial-gradient(circle at 30% 30%, #fb923c, #c2410c); color: #fff7ed; border: 1.5px solid #7c2d12; }
+
+/* ===== Settings modal ===== */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,6,10,0.72);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: linear-gradient(180deg, #14161e 0%, #0c0e16 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px 26px 22px;
+  width: 100%; max-width: 440px;
+  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.7);
+  position: relative;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h3 { margin: 0 0 16px; font-size: 18px; font-weight: 700; }
+.modal .close-x {
+  position: absolute; top: 14px; right: 16px;
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.55); font-size: 22px; line-height: 1;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.modal .close-x:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.modal .group { margin-bottom: 20px; }
+.modal .group-title {
+  font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); font-weight: 700; margin-bottom: 10px;
+}
+.range-line { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+.range-line label { font: 600 12.5px/1.2 "Inter", system-ui, sans-serif; color: rgba(255,255,255,0.7); flex: 0 0 auto; }
+.range-line b { color: #fde047; }
+.range-line input[type="range"] { flex: 1; min-width: 120px; }
+.mode-picker {
+  display: flex; gap: 6px; padding: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+}
+.mode-picker button {
+  flex: 1; background: transparent; border: 0;
+  color: rgba(255,255,255,0.65);
+  padding: 8px 10px; border-radius: 7px;
+  font: 600 12.5px/1 "Inter", system-ui, sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-picker button.active { background: linear-gradient(135deg, #6366f1, #4338ca); color: #fff; }
+.modal .desc { font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5; margin-top: 6px; }
+
+@media (max-width: 900px) {
+  .players-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>Pai Gow Dealer Simulator</h1>
+    <div class="stats">
+      <span class="good">Clean <b id="st-correct">0</b>/<b id="st-total">0</b></span>
+      <span>Streak <b id="st-streak">0</b></span>
+      <span>Best <b id="st-best">0</b></span>
+    </div>
+    <div class="actions">
+      <button class="tb-btn help" id="btn-help">Help</button>
+      <button class="tb-btn" id="btn-settings">⚙ Settings</button>
+      <button class="tb-btn primary" id="btn-new">New Round</button>
+    </div>
+  </div>
+
+  <div class="table" id="table-root">
+    <div class="monarch">Monarch</div>
+    <div class="felt-banner">
+      All Hands Push On Dealer's Ace High Pai Gow
+      <span class="sub">Player may wager on either the player's hand or dealer's hand for Pai Gow Insurance</span>
+    </div>
+
+    <div class="dealer-wrap">
+      <div class="dealer-area" id="dealer-area">
+        <div class="dlabel">Dealer</div>
+        <div class="handrow" id="dealer-front"></div>
+        <div class="handrow" id="dealer-back"></div>
+        <div class="rank-note" id="dealer-note"></div>
+        <span class="dealer-flag" id="dealer-flag">Ace-High Pai Gow — all main bets push</span>
+      </div>
+    </div>
+
+    <div class="players-row" id="players-row"></div>
+
+    <div class="msgbar" id="msgbar">
+      <div class="msg" id="msg">Press <b>New Round</b> to deal.</div>
+      <div class="action-btns" id="action-btns"></div>
+    </div>
+
+    <div class="tray">
+      <div class="tray-inner">
+        <div class="pay-build" id="pay-build">
+          <div>
+            <div class="pb-lbl">Paying</div>
+            <div class="pb-amt" id="pb-amt">$0</div>
+          </div>
+          <div class="pb-stack" id="pb-stack"></div>
+        </div>
+        <div class="chip-palette" id="chip-palette"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settings-modal">
+  <div class="modal">
+    <button class="close-x" id="settings-close" aria-label="Close">&times;</button>
+    <h3>Simulator settings</h3>
+    <div class="group">
+      <div class="group-title">Main bet (table min $25)</div>
+      <div class="range-line">
+        <label>Max main bet <b id="max-main-val">$100</b></label>
+        <input type="range" id="max-main" min="25" max="500" step="25" value="100">
+      </div>
+    </div>
+    <div class="group">
+      <div class="group-title">Side bets (Insurance &amp; Emperor's Treasure)</div>
+      <div class="range-line">
+        <label>Max side bet <b id="max-side-val">$25</b></label>
+        <input type="range" id="max-side" min="5" max="100" step="5" value="25">
+      </div>
+      <div class="desc">Valid wagers: $1–$4, then $5 increments. Red Jackpot is fixed at $5, Blue at $1.</div>
+    </div>
+    <div class="group">
+      <div class="group-title">Boost bonus hands</div>
+      <div class="mode-picker" id="boost-picker">
+        <button data-v="0">Off</button>
+        <button data-v="1">Some</button>
+        <button data-v="2">Lots</button>
+      </div>
+      <div class="desc">Rigs the deal so players hit straights, flushes, quads, royals, etc. more often — more side-bet payout practice.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+"use strict";
+/* ============================================================
+   ENGINE — cards, evaluators, house way (ported from
+   house-way-trainer.html), NPC optimal play, bets & payouts
+   ============================================================ */
+const RANKS  = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const SUITS  = ['♠','♥','♦','♣'];
+const SUIT_COLOR = { '♠':'black', '♣':'black', '♥':'red', '♦':'red' };
+function rankVal(r) {
+  if (r === 'A') return 14;
+  if (r === 'K') return 13;
+  if (r === 'Q') return 12;
+  if (r === 'J') return 11;
+  if (r === '10') return 10;
+  return parseInt(r, 10);
+}
+function valToRank(v) {
+  if (v === 14) return 'A'; if (v === 13) return 'K';
+  if (v === 12) return 'Q'; if (v === 11) return 'J';
+  return String(v);
+}
+let cardIdSeq = 0;
+function makeCard(rank, suit, joker = false) {
+  return { id: ++cardIdSeq, rank, suit, joker };
+}
+function buildDeck() {
+  const d = [];
+  for (const s of SUITS) for (const r of RANKS) d.push(makeCard(r, s, false));
+  d.push(makeCard('Joker', '', true));
+  return d;
+}
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const CAT = {
+  HIGH:1, PAIR:2, TWO_PAIR:3, THREE:4, STRAIGHT:5, FLUSH:6,
+  FULL_HOUSE:7, QUADS:8, STRAIGHT_FL:9, ROYAL_FL:10, FIVE_ACES:11,
+};
+function evalFive(cards) {
+  const hasJoker = cards.some(c => c.joker);
+  const real = cards.filter(c => !c.joker);
+  if (hasJoker && real.filter(c => c.rank === 'A').length === 4)
+    return { cat: CAT.FIVE_ACES, key: [], label: 'Five Aces' };
+  const rc = {};
+  for (const c of real) rc[c.rank] = (rc[c.rank] || 0) + 1;
+  if (hasJoker) rc['A'] = (rc['A'] || 0) + 1;
+  const counts = Object.values(rc).sort((a, b) => b - a);
+  const ranksByCount = Object.entries(rc)
+    .sort((a, b) => b[1] - a[1] || rankVal(b[0]) - rankVal(a[0]));
+  const suitCount = {};
+  for (const c of real) suitCount[c.suit] = (suitCount[c.suit] || 0) + 1;
+  const flushSuit = Object.entries(suitCount).find(([, n]) => n + (hasJoker ? 1 : 0) >= 5);
+  const flush = !!flushSuit;
+  const vals = real.map(c => rankVal(c.rank));
+  function isStraightVals(arr, hasJ) {
+    const u = [...new Set(arr)].sort((a, b) => a - b);
+    const all = new Set(u);
+    if (u.includes(14)) all.add(1);
+    for (let lo = 1; lo <= 10; lo++) {
+      const need = [lo, lo + 1, lo + 2, lo + 3, lo + 4];
+      let miss = 0;
+      for (const n of need) if (!all.has(n)) miss++;
+      if (miss === 0) return { hi: lo + 4 };
+      if (miss === 1 && hasJ) return { hi: lo + 4 };
+    }
+    return null;
+  }
+  const straight = isStraightVals(vals, hasJoker);
+  let sf = null;
+  if (flush && straight) {
+    const fCards = real.filter(c => c.suit === flushSuit[0]);
+    sf = isStraightVals(fCards.map(c => rankVal(c.rank)), hasJoker);
+  }
+  if (sf) {
+    if (sf.hi === 14) return { cat: CAT.ROYAL_FL, key: [14], label: 'Royal Flush' };
+    return { cat: CAT.STRAIGHT_FL, key: [sf.hi], label: 'Straight Flush' };
+  }
+  if (counts[0] === 4) {
+    const top = ranksByCount[0][0];
+    return { cat: CAT.QUADS, key: [rankVal(top)], label: 'Four ' + top + 's' };
+  }
+  if (counts[0] === 3 && counts[1] === 2) {
+    return { cat: CAT.FULL_HOUSE, key: [rankVal(ranksByCount[0][0])], label: 'Full House' };
+  }
+  if (flush) {
+    const fvals = real.filter(c => c.suit === flushSuit[0]).map(c => rankVal(c.rank)).sort((a,b)=>b-a);
+    if (hasJoker) fvals.unshift(14);
+    return { cat: CAT.FLUSH, key: fvals.slice(0,5), label: 'Flush' };
+  }
+  if (straight) return { cat: CAT.STRAIGHT, key: [straight.hi], label: 'Straight' };
+  if (counts[0] === 3) {
+    const t = ranksByCount[0][0];
+    return { cat: CAT.THREE, key: [rankVal(t)], label: 'Three ' + t + 's' };
+  }
+  if (counts[0] === 2 && counts[1] === 2) {
+    const hi = ranksByCount[0][0], lo = ranksByCount[1][0];
+    const kick = ranksByCount.filter(e => e[1] === 1).map(e => rankVal(e[0])).sort((a,b)=>b-a);
+    return { cat: CAT.TWO_PAIR, key: [rankVal(hi), rankVal(lo), ...kick], label: 'Two Pair (' + hi + 's & ' + lo + 's)' };
+  }
+  if (counts[0] === 2) {
+    const p = ranksByCount[0][0];
+    const kick = ranksByCount.filter(e => e[1] === 1).map(e => rankVal(e[0])).sort((a,b)=>b-a);
+    return { cat: CAT.PAIR, key: [rankVal(p), ...kick], label: 'Pair of ' + p + 's' };
+  }
+  const desc = real.map(c => rankVal(c.rank)).sort((a, b) => b - a);
+  if (hasJoker) desc.unshift(14);
+  return { cat: CAT.HIGH, key: desc.slice(0, 5), label: valToRank(desc[0]) + ' high' };
+}
+function evalTwo(cards) {
+  const hasJoker = cards.some(c => c.joker);
+  const real = cards.filter(c => !c.joker);
+  if (real.length === 2 && real[0].rank === real[1].rank) {
+    return { cat: CAT.PAIR, key: [rankVal(real[0].rank)], label: 'Pair of ' + real[0].rank + 's' };
+  }
+  if (hasJoker && real.length === 1) {
+    if (real[0].rank === 'A') {
+      return { cat: CAT.PAIR, key: [14], label: 'Pair of Aces (joker)' };
+    }
+    const v = rankVal(real[0].rank);
+    return { cat: CAT.HIGH, key: [14, v], label: 'A-' + real[0].rank + ' high' };
+  }
+  const vals = real.map(c => rankVal(c.rank)).sort((a, b) => b - a);
+  if (hasJoker) vals.unshift(14);
+  return { cat: CAT.HIGH, key: vals, label: vals.map(v => valToRank(v)).join('-') + ' high' };
+}
+function compare(a, b) {
+  if (a.cat !== b.cat) return a.cat - b.cat;
+  for (let i = 0; i < Math.max(a.key.length, b.key.length); i++) {
+    const x = a.key[i] || 0, y = b.key[i] || 0;
+    if (x !== y) return x - y;
+  }
+  return 0;
+}
+
+/* ===== House way (verbatim port) ===== */
+function houseWay(cards) {
+  const sorted = [...cards].sort((a, b) => {
+    const av = a.joker ? 15 : rankVal(a.rank);
+    const bv = b.joker ? 15 : rankVal(b.rank);
+    return bv - av;
+  });
+  const real = sorted.filter(c => !c.joker);
+  const joker = sorted.find(c => c.joker) || null;
+  const realAces = real.filter(c => c.rank === 'A');
+  function build(back, front, reason) { return { back, front, reason }; }
+  if (joker && realAces.length === 4) {
+    const aaaa = realAces;
+    const others = sorted.filter(c => c.rank !== 'A' && !c.joker);
+    const byRankReal = {};
+    for (const c of real) (byRankReal[c.rank] = byRankReal[c.rank] || []).push(c);
+    const realPairs = Object.values(byRankReal)
+      .filter(g => g.length === 2)
+      .sort((a, b) => rankVal(b[0].rank) - rankVal(a[0].rank));
+    const kingsOrBetter = realPairs.find(p => rankVal(p[0].rank) >= 13);
+    if (kingsOrBetter) {
+      return build([...aaaa, joker], kingsOrBetter,
+        'Five Aces with a pair of Kings: keep AAAAA in back, KK in front.');
+    }
+    return build(
+      [aaaa[0], aaaa[1], aaaa[2], ...others.slice(0, 2)],
+      [aaaa[3], joker],
+      'Five Aces: split — AAA in back, AA in front.');
+  }
+  const byRank = {};
+  for (const c of real) (byRank[c.rank] = byRank[c.rank] || []).push(c);
+  if (joker) (byRank['A'] = byRank['A'] || []).push(joker);
+  const groups = Object.values(byRank).sort((a, b) =>
+    b.length - a.length || rankVal(b[0].rank) - rankVal(a[0].rank));
+  const pairs = groups.filter(g => g.length === 2);
+  const trips = groups.filter(g => g.length === 3);
+  const quads = groups.filter(g => g.length === 4);
+  if (quads.length === 1) {
+    const q = quads[0];
+    const qv = rankVal(q[0].rank);
+    const others = sorted.filter(c => !q.includes(c));
+    if (qv <= 5) {
+      return build([...q, others[others.length - 1]], others.slice(0, 2),
+        'Low four-of-a-kind (2-5): keep together in back; two highest others in front.');
+    }
+    return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]],
+      'Four ' + q[0].rank + 's (6+): split — pair in front, pair + 3 high in back.');
+  }
+  if (trips.length === 1 && pairs.length >= 1) {
+    const t = trips[0];
+    const tIsAces = t[0].rank === 'A';
+    if (tIsAces && pairs.length >= 2) {
+      const p1 = pairs[0], p2 = pairs[1];
+      return build([t[0], ...p1, ...p2], [t[1], t[2]],
+        'Trip aces + two pair: AA to front, 1 ace + both pairs to back.');
+    }
+    if (pairs.length === 1) {
+      const p = pairs[0];
+      const tv = rankVal(t[0].rank);
+      const pv = rankVal(p[0].rank);
+      const lowOnly = (tv === 2 || tv === 3) && (pv === 2 || pv === 3) && tv !== pv;
+      const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
+      const ace = others.find(c => c.rank === 'A' || c.joker);
+      if (lowOnly && ace) {
+        const otherNonAce = others.find(c => c !== ace);
+        return build([...t, ...p], [ace, otherNonAce],
+          'Full house of 2s and 3s with an ace: keep together; ace + remaining to front.');
+      }
+    }
+    const p = pairs[0];
+    const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
+    return build([...t, ...others.slice(0, 2)], p,
+      pairs.length >= 2
+        ? 'Trips + two pair: highest pair to front; lower pair joins trips in back.'
+        : 'Full house: trips in back, pair in front.');
+  }
+  if (trips.length === 2) {
+    const hi = trips[0], lo = trips[1];
+    const other = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+    return build([...lo, hi[0], other[0]], [hi[1], hi[2]],
+      'Two trips: lower trip back, higher trip becomes front pair.');
+  }
+  const highPairs = pairs.filter(p => rankVal(p[0].rank) >= 6);
+  const hasAcePair = pairs.some(p => p[0].rank === 'A');
+  const sfPre = bestStraightFlush(cards);
+  const flPre = bestFlush(cards);
+  const stPre = bestStraight(cards);
+  const hasRoyal = sfPre && sfPre.hi === 14;
+  if (!hasRoyal && (sfPre || flPre || stPre) && highPairs.length >= 2) {
+    const [hi, lo] = highPairs;
+    const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+    return build([...hi, ...others.slice(0, 3)], lo,
+      'Two pair (both 6+) with straight/flush available: break it, play two pair.');
+  }
+  if (!sfPre && (flPre || stPre) && pairs.length >= 2 && hasAcePair) {
+    const hi = pairs.find(p => p[0].rank === 'A');
+    const lo = pairs.find(p => p !== hi);
+    const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+    return build([...hi, ...others.slice(0, 3)], lo,
+      'Two pair incl. aces with straight/flush available: break it, play two pair.');
+  }
+  function frontScore(twoCards) {
+    const e = evalTwo(twoCards);
+    return e.cat * 1000 + (e.key[0] || 0) * 20 + (e.key[1] || 0);
+  }
+  let bestPlay = null;
+  function consider(fiveCards, label) {
+    if (!fiveCards) return;
+    const rest = cards.filter(c => !fiveCards.includes(c));
+    rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+    const rp = findPair(rest);
+    const front = rp || rest.slice(0, 2);
+    const score = frontScore(front);
+    if (!bestPlay || score > bestPlay.score) {
+      bestPlay = {
+        back: fiveCards, front, score,
+        reason: rp ? (label + ' in back, pair in front.')
+                   : (label + ' in back, two highest others in front.')
+      };
+    }
+  }
+  const sfVariants = allStraightFlushes(cards);
+  if (sfVariants.length > 0) {
+    const noJokerSFs = sfVariants.filter(v => !v.cards.some(c => c.joker));
+    const pool = noJokerSFs.length > 0 ? noJokerSFs : sfVariants;
+    const maxHi = Math.max(...pool.map(v => v.hi));
+    const topSFs = pool.filter(v => v.hi === maxHi);
+    const isRoyal = maxHi === 14;
+    for (const sf of topSFs) {
+      consider(sf.cards, isRoyal ? 'Royal flush' : 'Straight flush');
+    }
+    const sfFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
+    if (!sfFrontIsPair && noJokerSFs.length > 0) {
+      const jokerSFs = sfVariants.filter(v => v.cards.some(c => c.joker));
+      for (const sf of jokerSFs) {
+        const rest = cards.filter(c => !sf.cards.includes(c));
+        rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+        const rp = findPair(rest);
+        if (rp) consider(sf.cards, sf.hi === 14 ? 'Royal flush' : 'Straight flush');
+      }
+    }
+    const sfFrontStillNotPair = bestPlay && evalTwo(bestPlay.front).cat < CAT.PAIR;
+    if (sfFrontStillNotPair && !isRoyal) {
+      function tryBreakAlt(altCards, label) {
+        const rest = cards.filter(c => !altCards.includes(c));
+        rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+        const rp = findPair(rest);
+        if (!rp) return;
+        consider(altCards, label);
+      }
+      for (const fl of allFlushes(cards)) tryBreakAlt(fl.cards, 'Flush (broke SF — pair to front)');
+      for (const st of allStraights(cards)) tryBreakAlt(st.cards, 'Straight (broke SF — pair to front)');
+    }
+  } else {
+    const flVariants = allFlushes(cards);
+    const stVariants = allStraights(cards);
+    if (flVariants.length > 0) {
+      for (const fl of flVariants) consider(fl.cards, 'Flush');
+      const flushFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
+      if (!flushFrontIsPair) {
+        for (const st of stVariants) {
+          const rest = cards.filter(c => !st.cards.includes(c));
+          rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
+          const rp = findPair(rest);
+          if (rp) consider(st.cards, 'Straight');
+        }
+      }
+    } else {
+      for (const st of stVariants) consider(st.cards, 'Straight');
+    }
+  }
+  if (bestPlay) return build(bestPlay.back, bestPlay.front, bestPlay.reason);
+  if (trips.length === 1) {
+    const t = trips[0];
+    const others = sorted.filter(c => !t.includes(c));
+    if (t[0].rank === 'A') return build([t[0], t[1], ...others.slice(1, 4)], [t[2], others[0]],
+      'Three aces: AA in back, A + highest kicker in front.');
+    return build([...t, others[2], others[3]], [others[0], others[1]],
+      'Three of a kind: trips in back, two highest others in front.');
+  }
+  if (pairs.length === 3) {
+    const [hi, mid, lo] = pairs;
+    const other = sorted.filter(c => !hi.includes(c) && !mid.includes(c) && !lo.includes(c));
+    return build([...mid, ...lo, other[0]], hi,
+      'Three pair: highest pair to front.');
+  }
+  if (pairs.length === 2) {
+    const [hi, lo] = pairs;
+    const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
+    const hv = rankVal(hi[0].rank);
+    const lv = rankVal(lo[0].rank);
+    const hiIsHigh = hv >= 6;
+    const loIsHigh = lv >= 6;
+    const hasAce = others.some(c => c.rank === 'A' || c.joker);
+    const ace = hasAce ? others.find(c => c.rank === 'A' || c.joker) : null;
+    const restNoAce = hasAce ? others.filter(c => c !== ace) : others;
+    if (!hiIsHigh && !loIsHigh) {
+      if (hasAce) {
+        const naSorted = restNoAce.slice().sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+        const frontKicker = naSorted[0];
+        const backKicker = naSorted[1] || naSorted[0];
+        return build([...hi, ...lo, backKicker], [ace, frontKicker],
+          'Two low pair with ace: both pairs in back, ace high in front.');
+      }
+      return build([...hi, ...lo, others[2]], [others[0], others[1]],
+        'Two low pair, no ace: both pairs in back, two highest others in front.');
+    }
+    if (hiIsHigh && !loIsHigh && hasAce) {
+      const naSorted = restNoAce.slice().sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+      const frontKicker = naSorted[0];
+      const backKicker = naSorted[1] || naSorted[0];
+      return build([...hi, ...lo, backKicker], [ace, frontKicker],
+        'High + low pair with ace: both pairs in back, ace high in front.');
+    }
+    return build([...hi, ...others.slice(0, 3)], lo,
+      'Two pair: split — high pair in back, low pair in front.');
+  }
+  if (pairs.length === 1) {
+    const p = pairs[0];
+    const others = sorted.filter(c => !p.includes(c));
+    return build([...p, ...others.slice(2, 5)], others.slice(0, 2),
+      'One pair: pair in back, two highest others in front.');
+  }
+  return build([sorted[0], ...sorted.slice(3)], [sorted[1], sorted[2]],
+    'No pair: highest card in back, next two highest in front.');
+}
+function bestStraightFlush(seven) {
+  for (const suit of SUITS) {
+    const inSuit = seven.filter(c => c.suit === suit);
+    const joker = seven.find(c => c.joker);
+    if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+    const r = bestStraightFrom(inSuit, joker);
+    if (r) return r;
+  }
+  return null;
+}
+function bestStraight(seven) {
+  return bestStraightFrom(seven.filter(c => !c.joker), seven.find(c => c.joker) || null);
+}
+function bestStraightFrom(real, joker) {
+  const byVal = {};
+  for (const c of real) byVal[rankVal(c.rank)] = c;
+  for (let hi = 14; hi >= 5; hi--) {
+    const need = [hi, hi - 1, hi - 2, hi - 3, hi - 4];
+    const have = [];
+    let miss = 0;
+    for (const v of need) {
+      let look = v;
+      if (hi === 5 && v === 1) look = 14;
+      if (byVal[look]) have.push(byVal[look]);
+      else miss++;
+    }
+    if (miss === 0) return { hi, cards: have };
+    if (miss === 1 && joker) return { hi, cards: [...have, joker] };
+  }
+  return null;
+}
+function bestFlush(seven) {
+  let best = null;
+  for (const suit of SUITS) {
+    const inSuit = seven.filter(c => c.suit === suit);
+    const joker = seven.find(c => c.joker);
+    if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+    inSuit.sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+    const pick = inSuit.slice(0, joker ? 4 : 5);
+    if (joker) pick.unshift(joker);
+    const score = pick.reduce((s, c) => s + (c.joker ? 14 : rankVal(c.rank)), 0);
+    if (!best || score > best.score) best = { cards: pick, score };
+  }
+  return best;
+}
+function allStraights(seven) {
+  const real = seven.filter(c => !c.joker);
+  const joker = seven.find(c => c.joker) || null;
+  const byVal = {};
+  for (const c of real) (byVal[rankVal(c.rank)] = byVal[rankVal(c.rank)] || []).push(c);
+  const out = [];
+  for (let hi = 14; hi >= 5; hi--) {
+    const need = [hi, hi - 1, hi - 2, hi - 3, hi - 4];
+    const have = [];
+    let miss = 0;
+    for (const v of need) {
+      let look = v;
+      if (hi === 5 && v === 1) look = 14;
+      if (byVal[look] && byVal[look].length) have.push(byVal[look][0]);
+      else miss++;
+    }
+    if (miss === 0) {
+      out.push({ hi, cards: have.slice() });
+      if (joker) {
+        for (let i = 0; i < have.length; i++) {
+          const variant = have.slice();
+          variant[i] = joker;
+          out.push({ hi, cards: variant });
+        }
+      }
+    } else if (miss === 1 && joker) {
+      out.push({ hi, cards: [...have, joker] });
+    }
+  }
+  return out;
+}
+function allFlushes(seven) {
+  const out = [];
+  const joker = seven.find(c => c.joker);
+  function combos(arr, k) {
+    if (k === 0) return [[]];
+    if (arr.length < k) return [];
+    const [h, ...t] = arr;
+    return combos(t, k - 1).map(c => [h, ...c]).concat(combos(t, k));
+  }
+  for (const suit of SUITS) {
+    const inSuit = seven.filter(c => c.suit === suit);
+    if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+    inSuit.sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
+    if (joker) {
+      for (const picked of combos(inSuit, 4)) out.push({ cards: [joker, ...picked] });
+    }
+    if (inSuit.length >= 5) {
+      for (const picked of combos(inSuit, 5)) out.push({ cards: picked.slice() });
+    }
+  }
+  return out;
+}
+function allStraightFlushes(seven) {
+  const out = [];
+  const joker = seven.find(c => c.joker);
+  for (const suit of SUITS) {
+    const inSuit = seven.filter(c => c.suit === suit);
+    if (inSuit.length + (joker ? 1 : 0) < 5) continue;
+    const byVal = {};
+    for (const c of inSuit) byVal[rankVal(c.rank)] = c;
+    for (let hi = 14; hi >= 5; hi--) {
+      const need = [hi, hi - 1, hi - 2, hi - 3, hi - 4];
+      const have = [];
+      let miss = 0;
+      for (const v of need) {
+        let look = v;
+        if (hi === 5 && v === 1) look = 14;
+        if (byVal[look]) have.push(byVal[look]);
+        else miss++;
+      }
+      if (miss === 0) {
+        out.push({ hi, cards: have.slice() });
+        if (joker) {
+          for (let i = 0; i < have.length; i++) {
+            const variant = have.slice();
+            variant[i] = joker;
+            out.push({ hi, cards: variant });
+          }
+        }
+      } else if (miss === 1 && joker) {
+        out.push({ hi, cards: [...have, joker] });
+      }
+    }
+  }
+  return out;
+}
+function findPair(cs) {
+  const m = {};
+  const joker = cs.find(c => c.joker);
+  for (const c of cs) {
+    if (c.joker) continue;
+    (m[c.rank] = m[c.rank] || []).push(c);
+  }
+  let best = null;
+  let bestVal = 0;
+  for (const k in m) {
+    if (m[k].length >= 2) {
+      const v = rankVal(k);
+      if (v > bestVal) { bestVal = v; best = [m[k][0], m[k][1]]; }
+    }
+  }
+  if (joker) {
+    const realA = m['A'];
+    if (realA && realA.length >= 1 && 14 > bestVal) {
+      bestVal = 14; best = [joker, realA[0]];
+    }
+  }
+  return best;
+}
+
+/* ===== 7-card analysis for side bets ===== */
+function combos5(seven) {
+  const out = [];
+  for (let i = 0; i < 7; i++)
+    for (let j = i + 1; j < 7; j++)
+      out.push(seven.filter((_, k) => k !== i && k !== j));
+  return out;
+}
+function bestFiveOfSeven(seven) {
+  let best = null;
+  for (const five of combos5(seven)) {
+    const e = evalFive(five);
+    if (!best || compare(e, best) > 0) best = e;
+  }
+  return best;
+}
+/* Pai gow check (for Insurance): 7 cards make NO pair, straight or flush.
+   Joker plays as an ace (joker + real ace = pair) and is wild for
+   straights/flushes — if it can complete one, the hand is not pai gow. */
+function paiGowInfo(seven) {
+  const joker = seven.find(c => c.joker);
+  const real = seven.filter(c => !c.joker);
+  const rc = {};
+  for (const c of real) rc[c.rank] = (rc[c.rank] || 0) + 1;
+  let pair = Object.values(rc).some(n => n >= 2);
+  if (joker && rc['A']) pair = true;
+  const straight = !!bestStraight(seven);
+  const flush = !!bestFlush(seven);
+  const isPG = !pair && !straight && !flush;
+  let high = 0;
+  for (const c of seven) high = Math.max(high, c.joker ? 14 : rankVal(c.rank));
+  return { isPaiGow: isPG, high, highRank: valToRank(high) };
+}
+/* 7-card straight flush: all 7 same suit & consecutive. With joker:
+   6 suited real cards + joker filling exactly one slot of a 7-window. */
+function sevenCardSF(seven) {
+  const joker = seven.find(c => c.joker);
+  const real = seven.filter(c => !c.joker);
+  const suits = new Set(real.map(c => c.suit));
+  if (suits.size !== 1) return null;
+  const have = new Set();
+  for (const c of real) {
+    const v = rankVal(c.rank);
+    have.add(v);
+    if (v === 14) have.add(1);
+  }
+  if (new Set(real.map(c => rankVal(c.rank))).size !== real.length) return null;
+  for (let lo = 1; lo <= 8; lo++) {
+    let present = 0;
+    for (let v = lo; v <= lo + 6; v++) if (have.has(v)) present++;
+    if (!joker && present === 7) return { joker: false };
+    if (joker && present === 6 && real.length === 6) return { joker: true };
+  }
+  return null;
+}
+/* Royal flush + suited Ace/King in the other two cards (A/K must be real). */
+function royalPlusAK(seven) {
+  const royals = allStraightFlushes(seven).filter(v => v.hi === 14);
+  for (const r of royals) {
+    const rest = seven.filter(c => !r.cards.includes(c));
+    if (rest.length === 2 && !rest.some(c => c.joker) &&
+        rest[0].suit === rest[1].suit) {
+      const rks = rest.map(c => c.rank).sort();
+      if (rks[0] === 'A' && rks[1] === 'K') return true;
+    }
+  }
+  return false;
+}
+
+/* ===== Paytables ===== */
+const CHIPS = [
+  { v: 1, cls: 'c1' }, { v: 5, cls: 'c5' }, { v: 25, cls: 'c25' },
+  { v: 100, cls: 'c100' }, { v: 500, cls: 'c500' }, { v: 1000, cls: 'c1000' },
+];
+function chipBreakdown(amount) {
+  const out = [];
+  let r = amount;
+  for (let i = CHIPS.length - 1; i >= 0; i--) {
+    while (r >= CHIPS[i].v) { out.push(CHIPS[i]); r -= CHIPS[i].v; }
+  }
+  return out;
+}
+const RED_TABLE  = { royal: 2500, sf: 500, quads: 375, fh: 20 };
+const BLUE_TABLE = { royal: 500,  sf: 100, quads: 75,  fh: 4  };
+const INS_MULT = { 9: 100, 10: 25, 11: 15, 12: 7, 13: 5, 14: 3 };
+const EMP_TABLE = [
+  { name: '7-Card Straight Flush (no joker)', mult: 5000, envy: 3000 },
+  { name: 'Royal Flush + Suited A/K',         mult: 2000, envy: 1000 },
+  { name: '7-Card Straight Flush (w/ joker)', mult: 1000, envy: 500  },
+  { name: 'Five Aces',                        mult: 400,  envy: 250  },
+  { name: 'Royal Flush',                      mult: 150,  envy: 50   },
+  { name: 'Straight Flush',                   mult: 50,   envy: 20   },
+  { name: 'Four of a Kind',                   mult: 25,   envy: 5    },
+  { name: 'Full House',                       mult: 5 },
+  { name: 'Flush',                            mult: 4 },
+  { name: 'Three of a Kind',                  mult: 3 },
+  { name: 'Straight',                         mult: 2 },
+];
+/* Returns index into EMP_TABLE, or -1. */
+function emperorIndex(seven) {
+  const s7 = sevenCardSF(seven);
+  if (s7 && !s7.joker) return 0;
+  if (royalPlusAK(seven)) return 1;
+  if (s7 && s7.joker) return 2;
+  const best = bestFiveOfSeven(seven);
+  if (best.cat === CAT.FIVE_ACES)   return 3;
+  if (best.cat === CAT.ROYAL_FL)    return 4;
+  if (best.cat === CAT.STRAIGHT_FL) return 5;
+  if (best.cat === CAT.QUADS)       return 6;
+  if (best.cat === CAT.FULL_HOUSE)  return 7;
+  if (best.cat === CAT.FLUSH)       return 8;
+  if (best.cat === CAT.THREE)       return 9;
+  if (best.cat === CAT.STRAIGHT)    return 10;
+  return -1;
+}
+/* Red/Blue jackpot: highest qualifying of royal/SF/quads/FH.
+   Five aces counts as four of a kind (four aces + joker). */
+function jackpotResult(seven, table) {
+  const best = bestFiveOfSeven(seven);
+  if (best.cat === CAT.ROYAL_FL)    return { pay: table.royal, name: '5-Card Royal Flush' };
+  if (best.cat === CAT.STRAIGHT_FL) return { pay: table.sf,    name: '5-Card Straight Flush' };
+  if (best.cat === CAT.QUADS || best.cat === CAT.FIVE_ACES)
+    return { pay: table.quads, name: 'Four of a Kind' };
+  if (best.cat === CAT.FULL_HOUSE)  return { pay: table.fh, name: 'Full House' };
+  return null;
+}
+
+/* ===== NPC optimal arrangement =====
+   Try to WIN vs the dealer's set hand; if impossible, try to PUSH;
+   otherwise play the house way. Never fouls. */
+function isFoul(front, back) {
+  return compare(evalTwo(front), evalFive(back)) > 0;
+}
+function outcomeVs(frontE, backE, dFrontE, dBackE) {
+  const fw = compare(frontE, dFrontE) > 0;  /* copies go to dealer */
+  const bw = compare(backE, dBackE) > 0;
+  if (fw && bw) return 2;          /* win  */
+  if (!fw && !bw) return 0;        /* lose */
+  return 1;                        /* push */
+}
+function npcArrange(seven, dFrontE, dBackE, dealerAceHighPG) {
+  const hw = houseWay(seven);
+  if (dealerAceHighPG) return { front: hw.front, back: hw.back, outcome: 1 };
+  let best = null;
+  for (let i = 0; i < 7; i++) {
+    for (let j = i + 1; j < 7; j++) {
+      const front = [seven[i], seven[j]];
+      const back = seven.filter((_, k) => k !== i && k !== j);
+      const fE = evalTwo(front), bE = evalFive(back);
+      if (compare(fE, bE) > 0) continue;  /* foul */
+      const o = outcomeVs(fE, bE, dFrontE, dBackE);
+      if (!best || o > best.outcome) best = { front, back, outcome: o };
+      if (best.outcome === 2) break;
+    }
+    if (best && best.outcome === 2) break;
+  }
+  const hwO = outcomeVs(evalTwo(hw.front), evalFive(hw.back), dFrontE, dBackE);
+  if (!best || hwO >= best.outcome) return { front: hw.front, back: hw.back, outcome: hwO };
+  return best;
+}
+
+/* ===== Wager generation ===== */
+function validSideBets(max) {
+  const arr = [];
+  for (let i = 1; i <= Math.min(4, max); i++) arr.push(i);
+  for (let i = 5; i <= max; i += 5) arr.push(i);
+  return arr;
+}
+function pickWeighted(list) {
+  const r = Math.pow(Math.random(), 1.8);
+  return list[Math.floor(r * list.length)];
+}
+function pickMainBet(max) {
+  const list = [];
+  for (let i = 25; i <= Math.max(25, max); i += 5) list.push(i);
+  return pickWeighted(list);
+}
+
+/* ===== Boosted dealing ===== */
+function takeCard(deck, rank, suit) {
+  const i = deck.findIndex(c => !c.joker && c.rank === rank && c.suit === suit);
+  if (i < 0) return null;
+  return deck.splice(i, 1)[0];
+}
+function takeJoker(deck) {
+  const i = deck.findIndex(c => c.joker);
+  if (i < 0) return null;
+  return deck.splice(i, 1)[0];
+}
+function takeRandom(deck, n) {
+  const out = [];
+  for (let k = 0; k < n; k++) out.push(deck.splice(Math.floor(Math.random() * deck.length), 1)[0]);
+  return out;
+}
+/* Build a 7-card bonus hand out of `deck` (cards removed). Null on failure. */
+function buildBoostHand(deck) {
+  const weighted = [
+    ['straight', 18], ['flush', 16], ['fullhouse', 16], ['trips', 14],
+    ['quads', 12], ['sf', 10], ['fiveaces', 6], ['royal', 5], ['royalak', 2], ['sf7', 1],
+  ];
+  const total = weighted.reduce((s, w) => s + w[1], 0);
+  let r = Math.random() * total, kind = weighted[0][0];
+  for (const [k, w] of weighted) { if ((r -= w) <= 0) { kind = k; break; } }
+  const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
+  const got = [];
+  function need(rank, st) {
+    const c = takeCard(deck, rank, st);
+    if (c) got.push(c);
+    return !!c;
+  }
+  function bail() { deck.push(...got); return null; }
+  let ok = true;
+  if (kind === 'straight') {
+    const startIdx = Math.floor(Math.random() * 9); /* 2..10 start */
+    for (let k = 0; k < 5 && ok; k++)
+      ok = need(RANKS[startIdx + k], SUITS[Math.floor(Math.random() * 4)]);
+  } else if (kind === 'flush') {
+    const idxs = shuffle([...Array(13).keys()]).slice(0, 5);
+    for (const ri of idxs) { if (!need(RANKS[ri], suit)) { ok = false; break; } }
+  } else if (kind === 'fullhouse') {
+    const r1 = RANKS[Math.floor(Math.random() * 13)];
+    let r2 = RANKS[Math.floor(Math.random() * 13)];
+    while (r2 === r1) r2 = RANKS[Math.floor(Math.random() * 13)];
+    const s3 = shuffle(SUITS.slice()).slice(0, 3);
+    const s2 = shuffle(SUITS.slice()).slice(0, 2);
+    for (const st of s3) if (!need(r1, st)) { ok = false; break; }
+    if (ok) for (const st of s2) if (!need(r2, st)) { ok = false; break; }
+  } else if (kind === 'trips') {
+    const r1 = RANKS[Math.floor(Math.random() * 13)];
+    const s3 = shuffle(SUITS.slice()).slice(0, 3);
+    for (const st of s3) if (!need(r1, st)) { ok = false; break; }
+  } else if (kind === 'quads') {
+    const r1 = RANKS[Math.floor(Math.random() * 13)];
+    for (const st of SUITS) if (!need(r1, st)) { ok = false; break; }
+  } else if (kind === 'sf') {
+    const startIdx = Math.floor(Math.random() * 8);
+    for (let k = 0; k < 5 && ok; k++) ok = need(RANKS[startIdx + k], suit);
+  } else if (kind === 'royal') {
+    for (const rk of ['10','J','Q','K','A']) if (!need(rk, suit)) { ok = false; break; }
+  } else if (kind === 'royalak') {
+    for (const rk of ['10','J','Q','K','A']) if (!need(rk, suit)) { ok = false; break; }
+    if (ok) {
+      const s2 = SUITS.find(s => s !== suit && deck.some(c => !c.joker && c.rank === 'A' && c.suit === s) && deck.some(c => !c.joker && c.rank === 'K' && c.suit === s));
+      if (s2) { ok = need('A', s2) && need('K', s2); } else ok = false;
+    }
+  } else if (kind === 'fiveaces') {
+    for (const st of SUITS) if (!need('A', st)) { ok = false; break; }
+    if (ok) { const j = takeJoker(deck); if (j) got.push(j); else ok = false; }
+  } else if (kind === 'sf7') {
+    const startIdx = Math.floor(Math.random() * 7);
+    for (let k = 0; k < 7 && ok; k++) ok = need(RANKS[startIdx + k], suit);
+  }
+  if (!ok) return bail();
+  while (got.length < 7) {
+    if (!deck.length) return bail();
+    got.push(...takeRandom(deck, 1));
+  }
+  return shuffle(got);
+}
+
+/* ===== Round construction ===== */
+function dealRound(settings) {
+  const deck = shuffle(buildDeck());
+  const boostP = settings.boost === 0 ? 0 : (settings.boost === 1 ? 0.3 : 0.6);
+  const playerHands = [];
+  for (let i = 0; i < 3; i++) {
+    let hand = null;
+    if (Math.random() < boostP) hand = buildBoostHand(deck);
+    if (!hand) hand = takeRandom(deck, 7);
+    playerHands.push(hand);
+  }
+  const dealer7 = takeRandom(deck, 7);
+  const dHW = houseWay(dealer7);
+  const dFrontE = evalTwo(dHW.front);
+  const dBackE = evalFive(dHW.back);
+  const dPG = paiGowInfo(dealer7);
+  const dealerAceHighPG = dPG.isPaiGow && dPG.high === 14;
+
+  const players = playerHands.map((seven, idx) => {
+    const arr = npcArrange(seven, dFrontE, dBackE, dealerAceHighPG);
+    const bets = { main: pickMainBet(settings.maxMain) };
+    if (Math.random() < 0.5)  bets.red = 5;
+    if (Math.random() < 0.5)  bets.blue = 1;
+    if (Math.random() < 0.45) {
+      bets.ins = pickWeighted(validSideBets(settings.maxSide));
+      bets.insOnDealer = Math.random() < 0.3;
+    }
+    if (Math.random() < 0.6)  bets.emp = pickWeighted(validSideBets(settings.maxSide));
+    return { idx, seven, front: arr.front, back: arr.back, outcome: arr.outcome, bets };
+  });
+
+  /* Settlement specs */
+  for (const p of players) {
+    const spec = {};
+    /* Main */
+    if (dealerAceHighPG) spec.main = { push: true, why: "Dealer has an ace-high pai gow — all main bets push." };
+    else if (p.outcome === 2) spec.main = { pay: p.bets.main, why: 'Player wins both hands — pay even money: ' + fmt(p.bets.main) + '.' };
+    else if (p.outcome === 1) spec.main = { push: true, why: 'One hand each — push.' };
+    else spec.main = { take: true, why: 'Dealer wins both hands (copies go to the dealer) — take the bet.' };
+    /* Red / Blue */
+    if (p.bets.red != null) {
+      const r = jackpotResult(p.seven, RED_TABLE);
+      spec.red = r ? { pay: r.pay, why: r.name + ' — Red Jackpot pays fixed ' + fmt(r.pay) + '.' }
+                   : { take: true, why: 'No full house or better — take the Red Jackpot bet.' };
+    }
+    if (p.bets.blue != null) {
+      const r = jackpotResult(p.seven, BLUE_TABLE);
+      spec.blue = r ? { pay: r.pay, why: r.name + ' — Blue Jackpot pays fixed ' + fmt(r.pay) + '.' }
+                    : { take: true, why: 'No full house or better — take the Blue Jackpot bet.' };
+    }
+    /* Insurance */
+    if (p.bets.ins != null) {
+      const target7 = p.bets.insOnDealer ? dealer7 : p.seven;
+      const pg = paiGowInfo(target7);
+      const who = p.bets.insOnDealer ? "dealer's" : "player's";
+      if (pg.isPaiGow) {
+        const mult = INS_MULT[pg.high];
+        spec.ins = { pay: p.bets.ins * mult,
+          why: 'Insurance on the ' + who + ' hand: ' + pg.highRank + '-high pai gow pays ' + mult + ' to 1 → ' + fmt(p.bets.ins) + ' × ' + mult + ' = ' + fmt(p.bets.ins * mult) + '.' };
+      } else {
+        spec.ins = { take: true, why: 'Insurance on the ' + who + ' hand: hand is not a pai gow — take the bet.' };
+      }
+    }
+    /* Emperor's Treasure + envy */
+    if (p.bets.emp != null) {
+      const ei = emperorIndex(p.seven);
+      const own = ei >= 0 ? p.bets.emp * EMP_TABLE[ei].mult : 0;
+      let envy = 0;
+      const envyParts = [];
+      if (p.bets.emp >= 5) {
+        for (const q of players) {
+          if (q === p) continue;
+          const qi = emperorIndex(q.seven);
+          if (qi >= 0 && EMP_TABLE[qi].envy) {
+            envy += EMP_TABLE[qi].envy;
+            envyParts.push('Player ' + (q.idx + 1) + ' ' + EMP_TABLE[qi].name + ' envy ' + fmt(EMP_TABLE[qi].envy));
+          }
+        }
+      }
+      const s = {};
+      let why = '';
+      if (own > 0) {
+        why = EMP_TABLE[ei].name + ': ' + fmt(p.bets.emp) + ' × ' + EMP_TABLE[ei].mult.toLocaleString() + ' to 1 = ' + fmt(own) + '.';
+      } else {
+        s.take = true;
+        why = 'No straight or better — take the Emperor’s bet.';
+      }
+      if (envy > 0) {
+        why += ' Envy ($5+ wager): ' + envyParts.join(', ') + ' → total envy ' + fmt(envy) + '.';
+      }
+      const totalPay = own + envy;
+      if (totalPay > 0) s.pay = totalPay;
+      s.why = why;
+      spec.emp = s;
+    }
+    p.spec = spec;
+  }
+
+  return { dealer7, dealerFront: dHW.front, dealerBack: dHW.back,
+           dFrontE, dBackE, dealerAceHighPG, dPG, players };
+}
+function fmt(n) { return '$' + n.toLocaleString(); }
+/* ============================================================
+   UI — table rendering, settling flow, instant feedback
+   ============================================================ */
+const SETTINGS_KEY = 'paigow-dealer-sim-settings';
+const STATS_KEY    = 'paigow-dealer-sim-stats';
+const SETTINGS = (function() {
+  let s = { maxMain: 100, maxSide: 25, boost: 1, help: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+    if (saved) s = Object.assign(s, saved);
+  } catch (e) {}
+  return s;
+})();
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch (e) {}
+}
+const STATS = (function() {
+  let s = { correct: 0, total: 0, streak: 0, best: 0 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+    if (saved) s = Object.assign(s, saved);
+  } catch (e) {}
+  return s;
+})();
+function saveStats() {
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(STATS)); } catch (e) {}
+}
+
+const BET_DEFS = {
+  main: { name: 'Main Bet',        cls: 'b-main' },
+  red:  { name: 'Bonus JP · Red',  cls: 'b-red'  },
+  blue: { name: 'Bonus JP · Blue', cls: 'b-blue' },
+  ins:  { name: 'Insurance',       cls: 'b-ins'  },
+  emp:  { name: "Emperor's",       cls: 'b-emp'  },
+};
+const BET_ORDER = ['main', 'red', 'blue', 'ins', 'emp'];
+const SETTLE_ORDER = [2, 1, 0];   /* right to left */
+
+let round = null;
+let settlePos = 0;          /* index into SETTLE_ORDER */
+let betStates = [];         /* [playerIdx][betKey] = {took,paid,pushed,resolved,errors} */
+let sel = null;             /* { p: playerIdx, key } */
+let payMode = false;
+let payStack = [];
+
+const $ = id => document.getElementById(id);
+const $playersRow = $('players-row');
+const $msgbar = $('msgbar');
+const $msg = $('msg');
+const $actions = $('action-btns');
+const $payBuild = $('pay-build');
+const $pbAmt = $('pb-amt');
+const $pbStack = $('pb-stack');
+const $palette = $('chip-palette');
+
+/* ---------- card / chip elements ---------- */
+function cardEl(c) {
+  const el = document.createElement('div');
+  if (c.joker) {
+    el.className = 'pcard joker';
+    el.innerHTML = '<div class="tl">★</div><div class="ct">JKR</div>';
+  } else {
+    el.className = 'pcard ' + SUIT_COLOR[c.suit];
+    el.innerHTML = '<div class="tl">' + c.rank + '<small>' + c.suit + '</small></div>' +
+                   '<div class="ct">' + c.suit + '</div>';
+  }
+  return el;
+}
+function chipLabel(v) { return v >= 1000 ? (v / 1000) + 'K' : String(v); }
+function miniChips(amount) {
+  const frag = document.createDocumentFragment();
+  chipBreakdown(amount).forEach(c => {
+    const el = document.createElement('span');
+    el.className = 'minichip ' + c.cls;
+    el.textContent = chipLabel(c.v);
+    frag.appendChild(el);
+  });
+  return frag;
+}
+
+/* ---------- spec helpers ---------- */
+function specActions(spec) {
+  /* Human-readable expected action(s) */
+  if (spec.push) return 'Push';
+  const parts = [];
+  if (spec.take) parts.push('Take');
+  if (spec.pay)  parts.push('Pay ' + fmt(spec.pay));
+  return parts.join(' + ') || 'Push';
+}
+function betResolvedCheck(p, key) {
+  const spec = round.players[p].spec[key];
+  const st = betStates[p][key];
+  if (spec.push) return st.pushed;
+  return (!spec.take || st.took) && (!spec.pay || st.paid);
+}
+
+/* ---------- rendering ---------- */
+function renderDealer() {
+  const df = $('dealer-front'), db = $('dealer-back');
+  df.innerHTML = ''; db.innerHTML = '';
+  const fl = document.createElement('div'); fl.className = 'hlbl'; fl.textContent = 'F';
+  const bl = document.createElement('div'); bl.className = 'hlbl'; bl.textContent = 'B';
+  df.appendChild(fl); db.appendChild(bl);
+  round.dealerFront.forEach(c => df.appendChild(cardEl(c)));
+  round.dealerBack.forEach(c => db.appendChild(cardEl(c)));
+  $('dealer-note').textContent =
+    'Front: ' + round.dFrontE.label + ' · Back: ' + round.dBackE.label;
+  $('dealer-flag').classList.toggle('show', round.dealerAceHighPG);
+}
+function renderPlayers() {
+  $playersRow.innerHTML = '';
+  round.players.forEach((p, i) => {
+    const spot = document.createElement('div');
+    spot.className = 'spot';
+    spot.id = 'spot-' + i;
+    const head = document.createElement('div');
+    head.className = 'spot-head';
+    head.innerHTML = '<span class="nm">Player ' + (i + 1) + '</span><span class="tag wait" id="tag-' + i + '">Waiting</span>';
+    spot.appendChild(head);
+
+    const hands = document.createElement('div');
+    hands.className = 'hands';
+    const fr = document.createElement('div'); fr.className = 'handrow';
+    fr.innerHTML = '<div class="hlbl">F</div>';
+    p.front.forEach(c => fr.appendChild(cardEl(c)));
+    const br = document.createElement('div'); br.className = 'handrow';
+    br.innerHTML = '<div class="hlbl">B</div>';
+    p.back.forEach(c => br.appendChild(cardEl(c)));
+    hands.appendChild(fr); hands.appendChild(br);
+    spot.appendChild(hands);
+
+    const note = document.createElement('div');
+    note.className = 'rank-note';
+    note.textContent = 'Front: ' + evalTwo(p.front).label + ' · Back: ' + evalFive(p.back).label;
+    spot.appendChild(note);
+
+    const bets = document.createElement('div');
+    bets.className = 'bets';
+    BET_ORDER.forEach(key => {
+      if (p.bets[key] == null) return;
+      const def = BET_DEFS[key];
+      const b = document.createElement('div');
+      b.className = 'bet unresolved ' + def.cls;
+      b.id = 'bet-' + i + '-' + key;
+      let nameHtml = '<span class="dot"></span>' + def.name;
+      if (key === 'ins' && p.bets.insOnDealer) nameHtml += ' <span class="dlr-lammer">DEALER</span>';
+      b.innerHTML = '<div class="bname">' + nameHtml + '</div>';
+      const chips = document.createElement('div');
+      chips.className = 'bchips';
+      chips.appendChild(miniChips(p.bets[key]));
+      b.appendChild(chips);
+      const amt = document.createElement('div');
+      amt.className = 'bamt';
+      amt.textContent = fmt(p.bets[key]);
+      b.appendChild(amt);
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = '→ ' + specActions(p.spec[key]);
+      b.appendChild(hint);
+      b.onclick = () => onBetClick(i, key);
+      bets.appendChild(b);
+    });
+    spot.appendChild(bets);
+    $playersRow.appendChild(spot);
+  });
+}
+function renderPalette() {
+  $palette.innerHTML = '';
+  CHIPS.slice().reverse().forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'chip-btn';
+    btn.innerHTML = '<span class="chip ' + c.cls + '">' + chipLabel(c.v) + '</span>' +
+                    '<span class="clabel">' + fmt(c.v) + '</span>';
+    btn.onclick = () => {
+      if (!payMode) return;
+      payStack.push(c.v);
+      renderPayStack();
+    };
+    $palette.appendChild(btn);
+  });
+  updatePaletteEnabled();
+}
+function updatePaletteEnabled() {
+  [...$palette.querySelectorAll('.chip-btn')].forEach(b => b.disabled = !payMode);
+  $payBuild.classList.toggle('active', payMode);
+}
+function renderPayStack() {
+  $pbStack.innerHTML = '';
+  payStack.slice().sort((a, b) => b - a).forEach(v => {
+    const c = CHIPS.find(x => x.v === v);
+    const el = document.createElement('span');
+    el.className = 'chip ' + c.cls;
+    el.textContent = chipLabel(v);
+    el.onclick = () => {
+      const idx = payStack.indexOf(v);
+      if (idx >= 0) payStack.splice(idx, 1);
+      renderPayStack();
+    };
+    $pbStack.appendChild(el);
+  });
+  $pbAmt.textContent = fmt(payStack.reduce((a, b) => a + b, 0));
+}
+function renderStats() {
+  $('st-correct').textContent = STATS.correct;
+  $('st-total').textContent = STATS.total;
+  $('st-streak').textContent = STATS.streak;
+  $('st-best').textContent = STATS.best;
+}
+
+/* ---------- flow ---------- */
+function currentPlayer() {
+  return settlePos < SETTLE_ORDER.length ? SETTLE_ORDER[settlePos] : -1;
+}
+function updateSpots() {
+  round.players.forEach((p, i) => {
+    const spot = $('spot-' + i);
+    const tag = $('tag-' + i);
+    const allDone = BET_ORDER.every(k => p.bets[k] == null || betStates[i][k].resolved);
+    spot.classList.toggle('done', allDone);
+    spot.classList.toggle('active', i === currentPlayer() && !allDone);
+    if (allDone) { tag.className = 'tag done'; tag.textContent = 'Settled'; }
+    else if (i === currentPlayer()) { tag.className = 'tag settle'; tag.textContent = 'Settle now'; }
+    else { tag.className = 'tag wait'; tag.textContent = 'Waiting'; }
+  });
+}
+function setMsg(html, mood) {
+  $msg.innerHTML = html;
+  $msgbar.classList.remove('good', 'bad');
+  if (mood) $msgbar.classList.add(mood);
+}
+function clearSelection() {
+  if (sel) {
+    const el = $('bet-' + sel.p + '-' + sel.key);
+    if (el) el.classList.remove('selected');
+  }
+  sel = null;
+  payMode = false;
+  payStack = [];
+  renderPayStack();
+  updatePaletteEnabled();
+  renderActions();
+}
+function onBetClick(p, key) {
+  if (!round) return;
+  if (p !== currentPlayer()) {
+    if (round.players[p] && !betStates[p][key].resolved && currentPlayer() >= 0) {
+      setMsg('Settle <b>Player ' + (currentPlayer() + 1) + '</b> first — right to left.', 'bad');
+      flashWrong(p, key);
+    }
+    return;
+  }
+  if (betStates[p][key].resolved) return;
+  if (sel && sel.p === p && sel.key === key) return;
+  clearSelection();
+  sel = { p, key };
+  $('bet-' + p + '-' + key).classList.add('selected');
+  const bet = round.players[p].bets[key];
+  const st = betStates[p][key];
+  let extra = '';
+  if (st.took && !betResolvedCheck(p, key)) extra = ' Wager taken — envy still owed.';
+  setMsg('<b>Player ' + (p + 1) + '</b> — ' + BET_DEFS[key].name + ' ' + fmt(bet) + '. Choose an action.' + extra);
+  renderActions();
+}
+function renderActions() {
+  $actions.innerHTML = '';
+  if (!sel) return;
+  const st = betStates[sel.p][sel.key];
+  function mk(label, cls, fn, disabled) {
+    const b = document.createElement('button');
+    b.className = 'act-btn ' + cls;
+    b.textContent = label;
+    b.onclick = fn;
+    if (disabled) b.disabled = true;
+    $actions.appendChild(b);
+  }
+  if (!payMode) {
+    mk('Take', 'take', actTake, st.took);
+    mk('Push', 'push', actPush);
+    mk('Pay…', 'pay', () => {
+      payMode = true;
+      payStack = [];
+      renderPayStack();
+      updatePaletteEnabled();
+      renderActions();
+      setMsg('<b>Player ' + (sel.p + 1) + '</b> — ' + BET_DEFS[sel.key].name + ': build the payout from the tray, then confirm.');
+    });
+  } else {
+    mk('Confirm Pay', 'confirm', actConfirmPay);
+    mk('Clear', 'clear', () => { payStack = []; renderPayStack(); });
+    mk('Back', 'clear', () => {
+      payMode = false; payStack = [];
+      renderPayStack(); updatePaletteEnabled(); renderActions();
+    });
+  }
+}
+function flashWrong(p, key) {
+  const el = $('bet-' + p + '-' + key);
+  if (!el) return;
+  el.classList.remove('flash-wrong');
+  void el.offsetWidth;
+  el.classList.add('flash-wrong');
+  setTimeout(() => el.classList.remove('flash-wrong'), 450);
+}
+function wrong(msgHtml) {
+  const st = betStates[sel.p][sel.key];
+  st.errors++;
+  flashWrong(sel.p, sel.key);
+  setMsg(msgHtml, 'bad');
+}
+function actTake() {
+  if (!sel) return;
+  const { p, key } = sel;
+  const spec = round.players[p].spec[key];
+  const st = betStates[p][key];
+  if (spec.take && !st.took) {
+    st.took = true;
+    if (betResolvedCheck(p, key)) {
+      resolveBet(p, key);
+    } else {
+      /* Emperor's: wager taken, envy still owed */
+      setMsg('Correct — wager taken. <b>Envy is still owed</b>: pay it with chips.', 'good');
+      renderBetVisual(p, key);
+      renderActions();
+    }
+  } else if (st.took) {
+    wrong('Already took the wager. ' + escapeWhy(spec));
+  } else {
+    wrong('No — that bet should be: <b>' + specActions(spec) + '</b>. ' + escapeWhy(spec));
+  }
+}
+function actPush() {
+  if (!sel) return;
+  const { p, key } = sel;
+  const spec = round.players[p].spec[key];
+  const st = betStates[p][key];
+  if (spec.push) {
+    st.pushed = true;
+    resolveBet(p, key);
+  } else {
+    wrong('No — that bet should be: <b>' + specActions(spec) + '</b>. ' + escapeWhy(spec));
+  }
+}
+function actConfirmPay() {
+  if (!sel) return;
+  const { p, key } = sel;
+  const spec = round.players[p].spec[key];
+  const st = betStates[p][key];
+  const total = payStack.reduce((a, b) => a + b, 0);
+  if (!spec.pay || st.paid) {
+    wrong('No — that bet should be: <b>' + specActions(spec) + '</b>. ' + escapeWhy(spec));
+    return;
+  }
+  if (total !== spec.pay) {
+    wrong('Wrong amount — you cut ' + fmt(total) + ', correct is <b>' + fmt(spec.pay) + '</b>. ' + escapeWhy(spec));
+    return;
+  }
+  st.paid = true;
+  if (betResolvedCheck(p, key)) resolveBet(p, key);
+  else {
+    setMsg('Correct — paid ' + fmt(spec.pay) + '. <b>Now take the losing wager.</b>', 'good');
+    payMode = false; payStack = [];
+    renderPayStack(); updatePaletteEnabled();
+    renderBetVisual(p, key);
+    renderActions();
+  }
+}
+function escapeWhy(spec) {
+  return '<span style="opacity:0.85">' + spec.why + '</span>';
+}
+function renderBetVisual(p, key) {
+  const el = $('bet-' + p + '-' + key);
+  if (!el) return;
+  const st = betStates[p][key];
+  const spec = round.players[p].spec[key];
+  if (st.took) {
+    const chips = el.querySelector('.bchips');
+    if (chips) chips.innerHTML = '<span style="font:600 10px Inter,sans-serif;color:rgba(255,255,255,0.35)">collected</span>';
+  }
+  if (st.paid && spec.pay) {
+    let ps = el.querySelector('.paystack');
+    if (!ps) {
+      ps = document.createElement('div');
+      ps.className = 'paystack';
+      el.appendChild(ps);
+    }
+    ps.innerHTML = '';
+    ps.appendChild(miniChips(spec.pay));
+  }
+}
+function resolveBet(p, key) {
+  const st = betStates[p][key];
+  const spec = round.players[p].spec[key];
+  st.resolved = true;
+  const clean = st.errors === 0;
+  STATS.total++;
+  if (clean) {
+    STATS.correct++;
+    STATS.streak++;
+    if (STATS.streak > STATS.best) STATS.best = STATS.streak;
+  } else {
+    STATS.streak = 0;
+  }
+  saveStats();
+  renderStats();
+
+  const el = $('bet-' + p + '-' + key);
+  el.classList.remove('selected', 'unresolved');
+  el.classList.add('resolved', clean ? 'was-clean' : 'was-error');
+  const hint = el.querySelector('.hint');
+  if (hint) hint.remove();
+  const tag = document.createElement('span');
+  let tcls, ttxt;
+  if (spec.push) { tcls = 't-push'; ttxt = 'Push'; }
+  else if (spec.take && spec.pay) { tcls = 't-pay'; ttxt = 'Took · Envy ' + fmt(spec.pay); }
+  else if (spec.pay) { tcls = 't-pay'; ttxt = 'Paid ' + fmt(spec.pay); }
+  else { tcls = 't-take'; ttxt = 'Taken'; }
+  tag.className = 'result-tag ' + tcls;
+  tag.textContent = ttxt;
+  el.appendChild(tag);
+  renderBetVisual(p, key);
+
+  sel = null;
+  payMode = false;
+  payStack = [];
+  renderPayStack();
+  updatePaletteEnabled();
+  renderActions();
+
+  /* advance flow */
+  const player = round.players[p];
+  const allDone = BET_ORDER.every(k => player.bets[k] == null || betStates[p][k].resolved);
+  if (allDone) {
+    while (settlePos < SETTLE_ORDER.length) {
+      const idx = SETTLE_ORDER[settlePos];
+      const done = BET_ORDER.every(k => round.players[idx].bets[k] == null || betStates[idx][k].resolved);
+      if (!done) break;
+      settlePos++;
+    }
+  }
+  updateSpots();
+  if (settlePos >= SETTLE_ORDER.length) {
+    setMsg('<b>Round complete.</b> Press <b>New Round</b> to deal again.', 'good');
+    $('btn-new').classList.add('pulse');
+  } else if (allDone) {
+    setMsg((clean ? 'Correct. ' : 'Settled (with errors). ') +
+      'Player ' + (p + 1) + ' done — now settle <b>Player ' + (currentPlayer() + 1) + '</b>.', clean ? 'good' : undefined);
+  } else {
+    setMsg((clean ? 'Correct — ' : 'Settled (with errors) — ') + BET_DEFS[key].name + ' ' + ttxt.toLowerCase() + '. Next bet for <b>Player ' + (p + 1) + '</b>.', clean ? 'good' : undefined);
+  }
+}
+
+/* ---------- round lifecycle ---------- */
+function newRound() {
+  round = dealRound(SETTINGS);
+  settlePos = 0;
+  betStates = round.players.map(p => {
+    const o = {};
+    BET_ORDER.forEach(k => { if (p.bets[k] != null) o[k] = { took: false, paid: false, pushed: false, resolved: false, errors: 0 }; });
+    return o;
+  });
+  sel = null; payMode = false; payStack = [];
+  $('btn-new').classList.remove('pulse');
+  renderDealer();
+  renderPlayers();
+  renderPayStack();
+  updatePaletteEnabled();
+  renderActions();
+  updateSpots();
+  setMsg('Settle <b>Player ' + (currentPlayer() + 1) + '</b> first (right to left) — click one of their bets.' +
+    (round.dealerAceHighPG ? ' <b>Watch the dealer’s hand…</b>' : ''));
+}
+
+/* ---------- help & settings ---------- */
+function applyHelp() {
+  document.body.classList.toggle('help-on', !!SETTINGS.help);
+  $('btn-help').classList.toggle('active', !!SETTINGS.help);
+}
+$('btn-help').onclick = () => {
+  SETTINGS.help = !SETTINGS.help;
+  saveSettings();
+  applyHelp();
+};
+$('btn-new').onclick = newRound;
+
+const $modal = $('settings-modal');
+$('btn-settings').onclick = () => {
+  $('max-main').value = SETTINGS.maxMain;
+  $('max-main-val').textContent = fmt(SETTINGS.maxMain);
+  $('max-side').value = SETTINGS.maxSide;
+  $('max-side-val').textContent = fmt(SETTINGS.maxSide);
+  renderBoostPicker();
+  $modal.classList.add('open');
+};
+$('settings-close').onclick = () => $modal.classList.remove('open');
+$modal.onclick = e => { if (e.target === $modal) $modal.classList.remove('open'); };
+$('max-main').oninput = e => {
+  SETTINGS.maxMain = +e.target.value;
+  $('max-main-val').textContent = fmt(SETTINGS.maxMain);
+  saveSettings();
+};
+$('max-side').oninput = e => {
+  SETTINGS.maxSide = +e.target.value;
+  $('max-side-val').textContent = fmt(SETTINGS.maxSide);
+  saveSettings();
+};
+function renderBoostPicker() {
+  [...$('boost-picker').querySelectorAll('button')].forEach(b => {
+    b.classList.toggle('active', +b.dataset.v === SETTINGS.boost);
+    b.onclick = () => { SETTINGS.boost = +b.dataset.v; saveSettings(); renderBoostPicker(); };
+  });
+}
+
+/* keyboard: Enter confirms pay */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && payMode) { e.preventDefault(); actConfirmPay(); }
+});
+
+/* boot */
+renderPalette();
+renderStats();
+applyHelp();
+newRound();
+})();
+</script>
+</body>
+</html>
