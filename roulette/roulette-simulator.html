@@ -52,6 +52,8 @@
   text{user-select:none;-webkit-user-select:none;}
   @keyframes winpulse{0%,100%{opacity:.12;}50%{opacity:.55;}}
   .winPulse{animation:winpulse 3.4s ease-in-out infinite;pointer-events:none;}
+  @keyframes paypulse{0%,100%{opacity:.2;}50%{opacity:.75;}}
+  .payPulse{animation:paypulse 2.6s ease-in-out infinite;pointer-events:none;}
 
   /* ---- action button ---- */
   #actionBar{flex:none;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom));
@@ -201,6 +203,7 @@ const WHEEL_ORDER=[0,28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,ZZ,27,10,2
 const numLabel=n=>n===ZZ?'00':String(n);
 const numColor=n=>(n===0||n===ZZ)?'green':(RED_NUMS.has(n)?'red':'black');
 const PAYOUT={straight:35,split:17,street:11,corner:8,basket:6,sixline:5,dozen:2,column:2,even:1};
+const TABLE_MIN=15; // outside bets must be at least table minimum
 const money=v=>'$'+v.toLocaleString();
 
 /* cheques: cage money */
@@ -213,7 +216,7 @@ const CHEQUES=[
 /* colour chips: layout-only, value set by the lammer */
 const CHIP_COLORS=[
   {name:'Yellow',   css:'#e6c229',text:'#222'},
-  {name:'Dark Grey',css:'#54595f',text:'#fff'},
+  {name:'Gray',     css:'#54595f',text:'#fff'},
   {name:'Orange',   css:'#e07b22',text:'#222'},
   {name:'Pink',     css:'#d957a8',text:'#fff'},
   {name:'Purple',   css:'#8a4fd0',text:'#fff'},
@@ -378,10 +381,12 @@ function generateBets(diff, clusterWin, clusterPlayer){
              won:false,paid:false,swept:false,payAttempted:false,sweepCounted:false,els:null};
     if(isOutside(type)&&diff.chequeDenoms.length&&Math.random()<diff.chequeOutsideProb){
       b.chequeVal=pick(diff.chequeDenoms);
-      b.chequeCount=1+rnd(diff.maxCheques);
+      b.chequeCount=Math.max(Math.ceil(TABLE_MIN/b.chequeVal), 1+rnd(diff.maxCheques));
       b.player=-1;
     }else{
       b.chips=diff.maxStack===1?1:1+rnd(diff.maxStack);
+      if(isOutside(type)) // outside must meet the $15 table minimum
+        b.chips=Math.max(b.chips, Math.ceil(TABLE_MIN/players[pIdx].chipVal));
     }
     bets.push(b);
   }
@@ -415,6 +420,7 @@ const cellsG=el('g',{},svg);    // tappable number cells (dolly phase)
 const dollyG=el('g',{},svg);    // win pulse + dolly marker (UNDER chips so counts stay visible)
 const chipsG=el('g',{},svg);    // bet chips
 const paidG=el('g',{},svg);     // payout markers
+const payHintG=el('g',{},svg);  // pulsing rings around the next payout
 const winNumG=el('g',{},svg);   // big winning-number display (blank bottom-left corner)
 const targetsG=el('g',{},svg);  // bet tap targets
 
@@ -689,6 +695,7 @@ function deal(){
   renderBets();
   dollyG.innerHTML='';
   winNumG.innerHTML='';
+  payHintG.innerHTML='';
   $('winBadge').style.display='none';
   $('peek').style.display='none';
   payQueue=[];payTarget=null;
@@ -716,7 +723,6 @@ function startSpin(){
   spinWheel(WHEEL_ORDER.indexOf(winNum),afterLanding);
 }
 function afterLanding(){
-  showWinNum(winNum);
   const c=numColor(winNum), wb=$('winBadge');
   wb.innerHTML=numLabel(winNum)+
     `<br><span style="font-size:10px;letter-spacing:1.5px;font-weight:700">${c.toUpperCase()}</span>`;
@@ -737,28 +743,58 @@ function toClearPhase(){
    each cheque bet its own group. Furthest winning chip from the winning
    number gets paid first. */
 function buildPayQueue(){
-  const groups=[], byPlayer={};
+  /* OUTSIDE pays first, one spot + one colour at a time.
+     INSIDE pays per colour, everything at once. */
+  const groups=[], inside={};
   for(const b of bets){
     if(!b.won||b.paid)continue;
-    if(b.chequeVal)groups.push({cheque:true,bets:[b],attempted:false});
-    else (byPlayer[b.player]=byPlayer[b.player]||[]).push(b);
+    if(b.chequeVal)groups.push({cheque:true,outside:true,bets:[b],attempted:false});
+    else if(isOutside(b.spot.type))
+      groups.push({cheque:false,outside:true,player:b.player,bets:[b],attempted:false});
+    else
+      (inside[b.player]=inside[b.player]||{cheque:false,outside:false,player:b.player,bets:[],attempted:false}).bets.push(b);
   }
-  for(const k in byPlayer)groups.push({cheque:false,player:+k,bets:byPlayer[k],attempted:false});
+  groups.push(...Object.values(inside));
   const dp=cellCenter(winNum);
   for(const g of groups)
     g.dist=Math.max(...g.bets.map(b=>Math.hypot(b.spot.x-dp.x,b.spot.y-dp.y)));
-  groups.sort((a,b)=>b.dist-a.dist);
+  groups.sort((a,b)=>(b.outside-a.outside)||
+    (a.outside?outsideRank(a)-outsideRank(b)||(a.player??-1)-(b.player??-1):b.dist-a.dist));
   return groups;
+}
+/* house procedure: columns right-to-left, then down the outside */
+const OUTSIDE_PAY_ORDER=['Column 3','Column 2','Column 1','High 19-36','3rd Dozen',
+  'ODD','BLACK','2nd Dozen','RED','EVEN','1st Dozen','Low 1-18'];
+function outsideRank(g){
+  const n=g.bets[0].spot.name;
+  const i=OUTSIDE_PAY_ORDER.findIndex(p=>n.startsWith(p));
+  return i<0?99:i;
 }
 function payTargetName(g){
   return g.cheque?'CHEQUE BET':players[g.player].color.name.toUpperCase();
+}
+/* subtle pulse on the chips to pay next, and raise them above
+   any other colours sharing the spot */
+function showPayHint(){
+  payHintG.innerHTML='';
+  if(!payTarget)return;
+  for(const b of payTarget.bets){
+    const c=el('circle',{cx:b.els.x,cy:b.els.y,r:24,fill:'none',stroke:'#d4af37',
+      'stroke-width':2.5,'stroke-dasharray':'6 5'},payHintG);
+    c.setAttribute('class','payPulse');
+    chipsG.appendChild(b.els.chips); // bring to front so lower colours' counts show
+  }
 }
 function updatePayUI(){
   const name=payTargetName(payTarget);
   $('actionBtn').textContent='PAY '+name;
   $('actionBtn').disabled=false;
-  setInstr(`Pay ${name} in full — total ALL their winning bets, then press PAY ${name}.`,
-    'Tap any chips on the layout to inspect them. '+payQueue.length+' payout'+(payQueue.length>1?'s':'')+' left.');
+  const where=payTarget.outside
+    ? payTarget.bets[0].spot.name+' — outside pays one spot at a time'
+    : 'ALL their inside bets at once';
+  setInstr(`Pay ${name}: ${where}.`,
+    'The highlighted chips are next. Tap chips to inspect. '+payQueue.length+' payout'+(payQueue.length>1?'s':'')+' left.');
+  showPayHint();
 }
 function toPayPhase(){
   if(winnersLeft()===0){endRound();return;}
@@ -769,6 +805,7 @@ function toPayPhase(){
 }
 function endRound(){
   state='END';syncTaps();
+  payHintG.innerHTML='';
   $('actionBtn').textContent='NEXT ROUND';$('actionBtn').disabled=false;
   const w=bets.filter(b=>b.won).length;
   let body=w===0?'No winners this round — the house takes all.\n'
@@ -818,7 +855,11 @@ function onBetTap(b){
 let peekTimer=null;
 function peek(b){
   const p=$('peek');
-  p.textContent=`${betDesc(b)} — ${b.spot.name}${b.paid?' (paid)':''}`;
+  const mult=PAYOUT[b.spot.type];
+  const hint=b.paid?' · paid ✓':!b.won?'':
+    b.chequeVal?` · pays ${mult}:1 = ${money(owedValue(b))}`
+               :` · pays ${mult}:1 = ${owedChips(b)} chips`;
+  p.textContent=`${betDesc(b)} — ${b.spot.name}${hint}`;
   p.style.display='block';
   clearTimeout(peekTimer);
   peekTimer=setTimeout(()=>{p.style.display='none';},2400);
@@ -827,7 +868,9 @@ function peek(b){
 /* ---------- payout bottom sheet ---------- */
 function renderBetInfo(){
   const g=payState.group, isCheq=g.cheque;
-  const header=isCheq?'Cheque bet':`Pay ${players[g.player].color.name} — everything at once`;
+  const header=isCheq?'Cheque bet':
+    g.outside?`Pay ${players[g.player].color.name} — ${g.bets[0].spot.name}`:
+    `Pay ${players[g.player].color.name} — all inside bets at once`;
   if(payState.expanded){
     const lines=g.bets.map(b=>`• ${betDesc(b)} on ${b.spot.name}`).join('<br>');
     const sub=isCheq?'Pay in cheques.':
@@ -848,10 +891,10 @@ function openSheet(g){
   let html='';
   if(!isCheq){
     const p=players[g.player];
-    html+=dRow('chips',`<span class="dot" style="background:${p.color.css}"></span>${p.color.name} chips`,[1,5,20]);
+    html+=dRow('chips',`<span class="dot" style="background:${p.color.css}"></span>${p.color.name} chips`,[1,5,20,100]);
   }
   for(const c of CHEQUES)
-    html+=dRow('q'+c.val,`<span class="dot cheq" style="background:${c.css}"></span>${c.name}`,[1,20]);
+    html+=dRow('q'+c.val,`<span class="dot cheq" style="background:${c.css}"></span>${c.name}`,[1,20,100]);
   $('denoms').innerHTML=html;
   $('denoms').querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click',()=>{
@@ -950,7 +993,7 @@ $('diffSel').addEventListener('change',()=>{
   score={round:0,correct:0,errors:0,streak:0,best:0};
   state='IDLE';syncTaps();
   diff=DIFFS[+$('diffSel').value];
-  bets=[];chipsG.innerHTML='';targetsG.innerHTML='';paidG.innerHTML='';dollyG.innerHTML='';winNumG.innerHTML='';
+  bets=[];chipsG.innerHTML='';targetsG.innerHTML='';paidG.innerHTML='';dollyG.innerHTML='';winNumG.innerHTML='';payHintG.innerHTML='';
   $('winBadge').style.display='none';$('peek').style.display='none';closeSheet();
   payQueue=[];payTarget=null;
   $('actionBtn').textContent='DEAL';$('actionBtn').disabled=false;
