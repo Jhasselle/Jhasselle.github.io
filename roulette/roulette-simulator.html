@@ -9,7 +9,7 @@
   :root{
     --bg:#0d1117; --panel:#161d27; --border:#2c3a4d; --gold:#d4af37;
     --text:#e8e6e0; --dim:#9aa4b2; --good:#39c46d; --bad:#e05252;
-    --felt:#1d5637; --felt2:#246b45;
+    --felt:#43317a; --felt2:#56439b;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
   html,body{background:var(--bg);color:var(--text);
@@ -18,7 +18,7 @@
   body{display:flex;flex-direction:column;height:100dvh;}
 
   /* ---- header ---- */
-  #header{flex:none;padding:8px 10px 6px;padding-top:calc(8px + env(safe-area-inset-top));
+  #header{flex:none;position:relative;padding:8px 10px 6px;padding-top:calc(8px + env(safe-area-inset-top));
     background:var(--panel);border-bottom:1px solid var(--border);z-index:5;}
   #hrow1{display:flex;align-items:center;gap:8px;}
   #hrow1 h1{font-size:13px;color:var(--gold);letter-spacing:.5px;white-space:nowrap;}
@@ -29,8 +29,11 @@
   #scoreRow .good{color:var(--good);} #scoreRow .bad{color:var(--bad);}
   #instr{margin-top:6px;font-size:13.5px;font-weight:600;color:var(--gold);line-height:1.35;}
   #instrSub{font-size:11.5px;font-weight:400;color:var(--dim);}
-  #winBadge{display:none;margin-left:auto;padding:2px 10px;border-radius:12px;
-    border:1.5px solid var(--gold);font-weight:700;font-size:13px;white-space:nowrap;}
+  /* big winning-number badge, fills the empty right side under the difficulty selector */
+  #winBadge{display:none;position:absolute;right:10px;top:calc(44px + env(safe-area-inset-top));
+    padding:5px 13px;border-radius:12px;border:2px solid var(--gold);
+    font-weight:900;font-size:21px;line-height:1.1;white-space:nowrap;text-align:center;
+    background:#0e1420;}
 
   /* ---- players strip ---- */
   #players{flex:none;display:flex;gap:6px;overflow-x:auto;padding:6px 10px;
@@ -47,6 +50,8 @@
     background:radial-gradient(ellipse at 50% 30%, var(--felt2), var(--felt) 75%);}
   #tableSvg{display:block;width:100%;height:auto;}
   text{user-select:none;-webkit-user-select:none;}
+  @keyframes winpulse{0%,100%{opacity:.12;}50%{opacity:.55;}}
+  .winPulse{animation:winpulse 3.4s ease-in-out infinite;pointer-events:none;}
 
   /* ---- action button ---- */
   #actionBar{flex:none;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom));
@@ -58,6 +63,13 @@
   #sheetLink{display:block;text-align:center;color:var(--dim);font-size:11.5px;
     margin-top:6px;text-decoration:underline;}
 
+  /* ---- bet peek (inspect during pay phase) ---- */
+  #peek{display:none;position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(86px + env(safe-area-inset-bottom));z-index:30;
+    background:#0e1420f0;border:1px solid var(--gold);border-radius:10px;
+    padding:7px 14px;font-size:13px;white-space:nowrap;max-width:92vw;
+    overflow:hidden;text-overflow:ellipsis;}
+
   /* ---- payout bottom sheet ---- */
   #sheet{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);
     border-top:2px solid var(--gold);border-radius:16px 16px 0 0;
@@ -68,6 +80,8 @@
   #betInfo{font-size:14px;line-height:1.5;margin-bottom:10px;padding:9px 11px;border-radius:8px;
     background:#0e1420;border:1px solid var(--border);}
   #betInfo .big{font-weight:700;color:var(--gold);}
+  #betInfo{cursor:pointer;}
+  .expandHint{font-size:10.5px;color:var(--dim);margin-top:5px;}
   .dRow{display:flex;align-items:center;gap:5px;margin:7px 0;}
   .dRow .lbl{flex:1;font-size:12.5px;display:flex;align-items:center;gap:6px;min-width:0;}
   .dRow .dot{width:14px;height:14px;border-radius:50%;flex:none;border:2px dashed rgba(255,255,255,.6);}
@@ -85,7 +99,8 @@
   /* ---- wheel overlay ---- */
   #wheelWrap{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
     flex-direction:column;background:rgba(5,8,12,.88);}
-  #wheelResult{margin-top:18px;font-size:26px;font-weight:800;min-height:36px;}
+  #wheelResult{margin-top:20px;font-size:58px;font-weight:900;min-height:70px;
+    letter-spacing:2px;text-shadow:0 2px 12px rgba(0,0,0,.6);}
 
   /* ---- modal ---- */
   #modalWrap{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
@@ -132,6 +147,7 @@
 
 <div id="tableWrap"></div>
 
+<div id="peek"></div>
 <div id="actionBar">
   <button id="actionBtn">DEAL</button>
   <a id="sheetLink">payout chart</a>
@@ -196,13 +212,13 @@ const CHEQUES=[
 ];
 /* colour chips: layout-only, value set by the lammer */
 const CHIP_COLORS=[
-  {name:'Yellow',css:'#e6c229',text:'#222'},
-  {name:'Grey',  css:'#9aa0a6',text:'#222'},
-  {name:'Red',   css:'#c0392b',text:'#fff'},
-  {name:'Orange',css:'#e07b22',text:'#222'},
-  {name:'White', css:'#f0ede4',text:'#222'},
-  {name:'Blue',  css:'#2f6fdd',text:'#fff'},
-  {name:'Green', css:'#1e8a4c',text:'#fff'},
+  {name:'Yellow',   css:'#e6c229',text:'#222'},
+  {name:'Dark Grey',css:'#54595f',text:'#fff'},
+  {name:'Orange',   css:'#e07b22',text:'#222'},
+  {name:'Pink',     css:'#d957a8',text:'#fff'},
+  {name:'Purple',   css:'#8a4fd0',text:'#fff'},
+  {name:'Blue',     css:'#2f6fdd',text:'#fff'},
+  {name:'Green',    css:'#1e8a4c',text:'#fff'},
 ];
 
 const DIFFS=[
@@ -212,10 +228,10 @@ const DIFFS=[
   { name:'Stacks', players:1, chipVals:[1], betCount:[5,7], maxStack:8,
     chequeOutsideProb:0.4, chequeDenoms:[5], maxCheques:4,
     weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0,dozen:2,column:2,even:3} },
-  { name:'Two Players', players:2, chipVals:[1,2], betCount:[8,12], maxStack:12,
+  { name:'Two Players', players:2, chipVals:[1,5], betCount:[8,12], maxStack:12,
     chequeOutsideProb:0.5, chequeDenoms:[5,25], maxCheques:4,
     weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0.5,dozen:2,column:2,even:3} },
-  { name:'Full Table', players:5, chipVals:[1,1,2,2,5], betCount:[16,24], maxStack:20,
+  { name:'Full Table', players:5, chipVals:[1,1,5,5,25], betCount:[16,24], maxStack:20,
     chequeOutsideProb:0.5, chequeDenoms:[5,25], maxCheques:6,
     weights:{straight:6,split:5,street:3,corner:4,sixline:2,basket:0.7,dozen:3,column:3,even:4} },
 ];
@@ -329,10 +345,27 @@ function setupPlayers(diff){
   const colors=shuffle(CHIP_COLORS).slice(0,diff.players);
   players=colors.map((c,i)=>({color:c, chipVal:diff.chipVals[i%diff.chipVals.length]}));
 }
-function generateBets(diff){
+/* inside-bet spots that cover a given number (for pressed-number clusters) */
+function coveringSpots(n){
+  return SPOTS.filter(s=>!isOutside(s.type)&&s.nums.includes(n));
+}
+function generateBets(diff, clusterWin, clusterPlayer){
   bets=[];
   const used=new Set();
   const count=diff.betCount[0]+rnd(diff.betCount[1]-diff.betCount[0]+1);
+  /* cluster: one player has pressed the (pre-picked) winning number with
+     several bets that all cover it — counted inside the normal bet total */
+  if(clusterWin!=null){
+    const spots=shuffle(coveringSpots(clusterWin));
+    const size=Math.min(2+rnd(8), spots.length, count); // 2-9, capped
+    for(let i=0;i<size;i++){
+      const spot=spots[i];
+      used.add(spot.type+':'+spot.nums.join(',')+':'+clusterPlayer);
+      bets.push({id:bets.length,spot,player:clusterPlayer,
+        chips:diff.maxStack===1?1:1+rnd(diff.maxStack),chequeVal:0,chequeCount:0,
+        won:false,paid:false,swept:false,payAttempted:false,sweepCounted:false,els:null});
+    }
+  }
   let guard=0;
   while(bets.length<count&&guard++<500){
     const type=weightedType(diff.weights);
@@ -379,49 +412,68 @@ const svg=el('svg',{id:'tableSvg',viewBox:`0 0 ${SVG_W} ${SVG_H}`});
 $('tableWrap').appendChild(svg);
 const layoutG=el('g',{},svg);   // static layout
 const cellsG=el('g',{},svg);    // tappable number cells (dolly phase)
+const dollyG=el('g',{},svg);    // win pulse + dolly marker (UNDER chips so counts stay visible)
 const chipsG=el('g',{},svg);    // bet chips
 const paidG=el('g',{},svg);     // payout markers
-const dollyG=el('g',{},svg);    // dolly marker
+const winNumG=el('g',{},svg);   // big winning-number display (blank bottom-left corner)
 const targetsG=el('g',{},svg);  // bet tap targets
 
+const RED_FILL='#c0392b', BLK_FILL='#17171c';
 function drawLayout(){
   const line='#e9e5d8';
-  const box=(x,y,w,h,fill)=>{const r=el('rect',{x,y,width:w,height:h,fill:fill||'none',
-    stroke:line,'stroke-width':2},layoutG);return r;};
+  const box=(x,y,w,h,sw)=>el('rect',{x,y,width:w,height:h,fill:'none',
+    stroke:line,'stroke-width':sw||2},layoutG);
   const txt=(t,x,y,size,fill,rotate)=>{
     const e=el('text',{x,y,'font-size':size,fill:fill||line,'text-anchor':'middle',
       'dominant-baseline':'central','font-weight':'700','font-family':'Georgia,serif',
       ...(rotate?{transform:`rotate(${rotate} ${x} ${y})`}:{})},layoutG);
     e.textContent=t;return e;};
-  // zeros
-  box(GX,GY0,105,ZH,'#1c7a40'); box(GX+105,GY0,105,ZH,'#1c7a40');
-  txt('0',GX+52.5,GY0+ZH/2,24,'#f2efe6'); txt('00',GX+157.5,GY0+ZH/2,24,'#f2efe6');
-  // numbers
+  /* double-bordered label frame, like the printed felt */
+  const frame=(cx,cy,w,h)=>{
+    el('rect',{x:cx-w/2,y:cy-h/2,width:w,height:h,rx:7,fill:'none',stroke:line,'stroke-width':2},layoutG);
+    el('rect',{x:cx-w/2+3.5,y:cy-h/2+3.5,width:w-7,height:h-7,rx:5,fill:'none',stroke:line,'stroke-width':1},layoutG);
+  };
+  // zeros: felt cells with white-outlined ovals
+  box(GX,GY0,105,ZH); box(GX+105,GY0,105,ZH);
+  el('ellipse',{cx:GX+52.5,cy:GY0+ZH/2,rx:33,ry:19,fill:'none',stroke:line,'stroke-width':2.5},layoutG);
+  txt('0',GX+52.5,GY0+ZH/2,23,'#f2efe6');
+  el('ellipse',{cx:GX+157.5,cy:GY0+ZH/2,rx:33,ry:19,fill:'none',stroke:line,'stroke-width':2.5},layoutG);
+  txt('00',GX+157.5,GY0+ZH/2,21,'#f2efe6');
+  // numbers: red/black ovals on the felt inside white-lined cells
   for(let n=1;n<=36;n++){
     const r=cellRect(n);
-    box(r.x,r.y,r.w,r.h,RED_NUMS.has(n)?'#a4262d':'#15161a');
+    box(r.x,r.y,r.w,r.h);
+    el('ellipse',{cx:r.x+r.w/2,cy:r.y+r.h/2,rx:29,ry:20.5,
+      fill:RED_NUMS.has(n)?RED_FILL:BLK_FILL,stroke:line,'stroke-width':1.5},layoutG);
     txt(String(n),r.x+r.w/2,r.y+r.h/2,22,'#f2efe6');
   }
-  // dozens
-  const dz=['1st 12','2nd 12','3rd 12'];
+  // dozens: framed rotated labels
+  const dz=['1ST 12','2ND 12','3RD 12'];
   for(let d=0;d<3;d++){
-    box(DZX,GY+d*4*CH,DZW,4*CH);
-    txt(dz[d],DZX+DZW/2,GY+d*4*CH+2*CH,17,line,-90);
+    const cy=GY+d*4*CH+2*CH;
+    box(DZX,GY+d*4*CH,DZW,4*CH,1.5);
+    frame(DZX+DZW/2,cy,30,88);
+    txt(dz[d],DZX+DZW/2,cy,14,line,90);
   }
-  // even money
-  const ems=['1 – 18','EVEN','RED','BLACK','ODD','19 – 36'];
+  // even money: framed rotated labels; RED/BLACK as filled lozenges
+  const ems=['1 TO 18','EVEN','RED','BLACK','ODD','19 TO 36'];
   for(let i=0;i<6;i++){
-    box(EMX,GY+i*2*CH,EMW,2*CH);
+    const cy=GY+i*2*CH+CH, cx=EMX+EMW/2;
+    box(EMX,GY+i*2*CH,EMW,2*CH,1.5);
     if(ems[i]==='RED'||ems[i]==='BLACK'){
-      const cx=EMX+EMW/2,cy=GY+i*2*CH+CH;
-      el('path',{d:`M ${cx} ${cy-15} L ${cx+12} ${cy} L ${cx} ${cy+15} L ${cx-12} ${cy} Z`,
-        fill:ems[i]==='RED'?'#a4262d':'#15161a',stroke:line,'stroke-width':1.5},layoutG);
-    } else txt(ems[i],EMX+EMW/2,GY+i*2*CH+CH,14,line,-90);
+      el('rect',{x:cx-13,y:cy-37,width:26,height:74,rx:9,
+        fill:ems[i]==='RED'?RED_FILL:BLK_FILL,stroke:line,'stroke-width':1.5},layoutG);
+    }else{
+      frame(cx,cy,30,80);
+      txt(ems[i],cx,cy,12.5,line,90);
+    }
   }
-  // columns
+  // columns: framed 2 TO 1
   for(let c=0;c<3;c++){
-    box(GX+c*CW,COLY,CW,COLH);
-    txt('2:1',GX+c*CW+CW/2,COLY+COLH/2,18);
+    const cx=GX+c*CW+CW/2, cy=COLY+COLH/2;
+    box(GX+c*CW,COLY,CW,COLH,1.5);
+    frame(cx,cy,58,32);
+    txt('2 TO 1',cx,cy,13);
   }
   // tappable number cells (for the dolly)
   const cellTap=(x,y,w,h,num)=>{
@@ -467,9 +519,9 @@ function renderBets(){
       const p=players[b.player];
       drawChipStack(g,x,y,p.color.css,p.color.text,b.chips,false);
     }
-    b.els={chips:g,x,y};
     const tap=el('circle',{cx:x,cy:y,r:21,fill:'transparent'},targetsG);
     tap.addEventListener('click',()=>onBetTap(b));
+    b.els={chips:g,x,y,tap};
   }
 }
 function sweepBet(b){
@@ -478,6 +530,7 @@ function sweepBet(b){
   b.els.chips.style.opacity='0';
   b.els.chips.style.transform='translateY(18px)';
   setTimeout(()=>{b.els.chips.remove();},260);
+  b.els.tap.remove();
 }
 function markPaid(b){
   el('circle',{cx:b.els.x+16,cy:b.els.y-16,r:10,fill:'#39c46d'},paidG);
@@ -485,12 +538,28 @@ function markPaid(b){
     'dominant-baseline':'central','font-weight':'900','font-family':'system-ui'},paidG);
   t.textContent='✓';
 }
+/* big winning-number oval in the blank space left of the 2 TO 1 row */
+function showWinNum(n){
+  winNumG.innerHTML='';
+  const cx=(EMX+DZX+DZW)/2, cy=COLY+COLH/2;
+  const col=numColor(n);
+  el('ellipse',{cx,cy,rx:41,ry:23,
+    fill:col==='red'?RED_FILL:col==='black'?BLK_FILL:'none',
+    stroke:'#e9e5d8','stroke-width':2.5},winNumG);
+  const t=el('text',{x:cx,y:cy+1,'font-size':30,fill:'#f2efe6','text-anchor':'middle',
+    'dominant-baseline':'central','font-weight':'800','font-family':'Georgia,serif'},winNumG);
+  t.textContent=numLabel(n);
+}
 function placeDolly(n){
   dollyG.innerHTML='';
-  const p=n===0?{x:GX+52.5,y:GY0+ZH/2}:n===ZZ?{x:GX+157.5,y:GY0+ZH/2}:
-    (()=>{const r=cellRect(n);return {x:r.x+r.w/2,y:r.y+r.h/2};})();
-  el('circle',{cx:p.x,cy:p.y,r:13,fill:'#e8e4da',stroke:'#999','stroke-width':1.5},dollyG);
-  el('circle',{cx:p.x,cy:p.y,r:5.5,fill:'#c9c4b8'},dollyG);
+  const r=n===0?{x:GX,y:GY0,w:105,h:ZH}:n===ZZ?{x:GX+105,y:GY0,w:105,h:ZH}:cellRect(n);
+  // pulsing highlight on the winning cell
+  const pulse=el('rect',{x:r.x+2,y:r.y+2,width:r.w-4,height:r.h-4,rx:6,fill:'#d4af37'},dollyG);
+  pulse.setAttribute('class','winPulse');
+  // small dolly tucked in the corner so chips and their counts stay visible
+  const cx=r.x+r.w-13,cy=r.y+13;
+  el('circle',{cx,cy,r:9.5,fill:'#e8e4da',stroke:'#888','stroke-width':1.5},dollyG);
+  el('circle',{cx,cy,r:4,fill:'#c9c4b8'},dollyG);
 }
 
 /* ============================================================
@@ -559,7 +628,8 @@ function spinWheel(winIdx,done){
    ============================================================ */
 let state='IDLE';
 let diff=DIFFS[0];
-let winNum=-1;
+let winNum=-1, forcedWin=null;
+let payQueue=[], payTarget=null;
 let score={round:0,correct:0,errors:0,streak:0,best:0};
 let roundStats={correct:0,errors:0,paid:0};
 let dollyAttempted=false;
@@ -607,10 +677,21 @@ function showModal(title,cls,bodyHTML,buttons){
 function deal(){
   diff=DIFFS[+$('diffSel').value];
   setupPlayers(diff);
-  generateBets(diff);
+  /* 50% of rounds: pre-pick the winner and have one colour press it */
+  forcedWin=null;
+  let clusterPlayer=null;
+  if(Math.random()<0.5){
+    const n=rnd(38);
+    forcedWin=n===37?ZZ:n;
+    clusterPlayer=rnd(players.length);
+  }
+  generateBets(diff,forcedWin,clusterPlayer);
   renderBets();
   dollyG.innerHTML='';
+  winNumG.innerHTML='';
   $('winBadge').style.display='none';
+  $('peek').style.display='none';
+  payQueue=[];payTarget=null;
   closeSheet();
   roundStats={correct:0,errors:0,paid:0};
   dollyAttempted=false;
@@ -622,8 +703,12 @@ function deal(){
 }
 
 function startSpin(){
-  const covered=[...new Set(bets.flatMap(b=>b.spot.nums))];
-  winNum=(Math.random()<0.6&&covered.length)?pick(covered):(()=>{const n=rnd(38);return n===37?ZZ:n;})();
+  if(forcedWin!=null){
+    winNum=forcedWin;
+  }else{
+    const covered=[...new Set(bets.flatMap(b=>b.spot.nums))];
+    winNum=(Math.random()<0.6&&covered.length)?pick(covered):(()=>{const n=rnd(38);return n===37?ZZ:n;})();
+  }
   for(const b of bets)b.won=betWins(b,winNum);
   state='SPINNING';
   $('actionBtn').disabled=true;
@@ -631,10 +716,11 @@ function startSpin(){
   spinWheel(WHEEL_ORDER.indexOf(winNum),afterLanding);
 }
 function afterLanding(){
-  const c=numColor(winNum);
-  const wb=$('winBadge');
-  wb.textContent=numLabel(winNum)+' '+c.toUpperCase();
-  wb.style.display='inline-block';
+  showWinNum(winNum);
+  const c=numColor(winNum), wb=$('winBadge');
+  wb.innerHTML=numLabel(winNum)+
+    `<br><span style="font-size:10px;letter-spacing:1.5px;font-weight:700">${c.toUpperCase()}</span>`;
+  wb.style.display='block';
   wb.style.color=c==='red'?'#ff6b6b':c==='green'?'#4cd97f':'#e8e6e0';
   state='MARK';syncTaps();
   setInstr('Place the dolly — tap the winning number.','The ball landed on '+numLabel(winNum)+'.');
@@ -647,10 +733,39 @@ function toClearPhase(){
   state='CLEAR';syncTaps();
   setInstr('Sweep the losing bets — tap each one.',losersLeft()+' to clear. Don’t touch the winners!');
 }
+/* group unpaid winners: one group per chip colour (paid in full at once),
+   each cheque bet its own group. Furthest winning chip from the winning
+   number gets paid first. */
+function buildPayQueue(){
+  const groups=[], byPlayer={};
+  for(const b of bets){
+    if(!b.won||b.paid)continue;
+    if(b.chequeVal)groups.push({cheque:true,bets:[b],attempted:false});
+    else (byPlayer[b.player]=byPlayer[b.player]||[]).push(b);
+  }
+  for(const k in byPlayer)groups.push({cheque:false,player:+k,bets:byPlayer[k],attempted:false});
+  const dp=cellCenter(winNum);
+  for(const g of groups)
+    g.dist=Math.max(...g.bets.map(b=>Math.hypot(b.spot.x-dp.x,b.spot.y-dp.y)));
+  groups.sort((a,b)=>b.dist-a.dist);
+  return groups;
+}
+function payTargetName(g){
+  return g.cheque?'CHEQUE BET':players[g.player].color.name.toUpperCase();
+}
+function updatePayUI(){
+  const name=payTargetName(payTarget);
+  $('actionBtn').textContent='PAY '+name;
+  $('actionBtn').disabled=false;
+  setInstr(`Pay ${name} in full — total ALL their winning bets, then press PAY ${name}.`,
+    'Tap any chips on the layout to inspect them. '+payQueue.length+' payout'+(payQueue.length>1?'s':'')+' left.');
+}
 function toPayPhase(){
   if(winnersLeft()===0){endRound();return;}
   state='PAY';syncTaps();
-  setInstr('Pay the winners — tap a winning bet.',winnersLeft()+' to pay.');
+  payQueue=buildPayQueue();
+  payTarget=payQueue[0];
+  updatePayUI();
 }
 function endRound(){
   state='END';syncTaps();
@@ -696,22 +811,43 @@ function onBetTap(b){
     if(losersLeft()===0)toPayPhase();
     else setInstr('Sweep the losing bets — tap each one.',losersLeft()+' to go.');
   }else if(state==='PAY'){
-    if(!b.won||b.paid||b.swept)return;
-    openSheet(b);
+    /* looking around the layout while totalling — taps just inspect */
+    peek(b);
   }
+}
+let peekTimer=null;
+function peek(b){
+  const p=$('peek');
+  p.textContent=`${betDesc(b)} — ${b.spot.name}${b.paid?' (paid)':''}`;
+  p.style.display='block';
+  clearTimeout(peekTimer);
+  peekTimer=setTimeout(()=>{p.style.display='none';},2400);
 }
 
 /* ---------- payout bottom sheet ---------- */
-function openSheet(b){
-  payState={bet:b,chips:0,cheq:{1:0,5:0,25:0,100:0,500:0}};
-  const isCheq=b.chequeVal>0;
-  $('betInfo').innerHTML=
-    `<span class="big">${b.spot.name}</span><br>${betDesc(b)}`+
-    (isCheq?'<br><span style="color:var(--dim);font-size:12px">Cheque bet — pay in cheques.</span>'
-           :`<br><span style="color:var(--dim);font-size:12px">Pay in ${players[b.player].color.name} chips (just count them), cheques, or a mix.</span>`);
+function renderBetInfo(){
+  const g=payState.group, isCheq=g.cheque;
+  const header=isCheq?'Cheque bet':`Pay ${players[g.player].color.name} — everything at once`;
+  if(payState.expanded){
+    const lines=g.bets.map(b=>`• ${betDesc(b)} on ${b.spot.name}`).join('<br>');
+    const sub=isCheq?'Pay in cheques.':
+      `One payout for all their winning bets: ${players[g.player].color.name} chips (just count them), cheques, or a mix.`;
+    $('betInfo').innerHTML=`<span class="big">${header}</span><br>${lines}`+
+      `<br><span style="color:var(--dim);font-size:12px">${sub}</span>`+
+      `<div class="expandHint">tap to minimize ▲</div>`;
+  }else{
+    $('betInfo').innerHTML=`<span class="big">${header}</span> · ${g.bets.length} bet${g.bets.length>1?'s':''}`+
+      `<div class="expandHint">tap to see the bets ▼</div>`;
+  }
+}
+function openSheet(g){
+  payState={group:g,chips:0,cheq:{1:0,5:0,25:0,100:0,500:0},
+            expanded:false}; // always minimized by default — tap to expand
+  const isCheq=g.cheque;
+  renderBetInfo();
   let html='';
   if(!isCheq){
-    const p=players[b.player];
+    const p=players[g.player];
     html+=dRow('chips',`<span class="dot" style="background:${p.color.css}"></span>${p.color.name} chips`,[1,5,20]);
   }
   for(const c of CHEQUES)
@@ -745,59 +881,67 @@ function setCount(k,v,updateInput=true){
 function bump(k,d){setCount(k,getCount(k)+d);}
 function closeSheet(){$('sheet').classList.remove('open');payState=null;}
 $('cancelBtn').addEventListener('click',closeSheet);
+$('betInfo').addEventListener('click',()=>{
+  if(payState){payState.expanded=!payState.expanded;renderBetInfo();}
+});
 
 $('payBtn').addEventListener('click',()=>{
   if(!payState)return;
-  const b=payState.bet;
-  const chipVal=b.player>=0?players[b.player].chipVal:0;
+  const g=payState.group;
+  const chipVal=g.cheque?0:players[g.player].chipVal;
   const chequeTotal=Object.entries(payState.cheq).reduce((s,[d,c])=>s+d*c,0);
   const totalValue=payState.chips*chipVal+chequeTotal;
-  const needValue=owedValue(b);
-  const first=!b.payAttempted;b.payAttempted=true;
+  const needValue=g.bets.reduce((s,b)=>s+owedValue(b),0);
+  const first=!g.attempted;g.attempted=true;
   if(totalValue===needValue){
     if(first)mark(true);
-    deliver(b);
+    deliver(g);
   }else{
     if(first)mark(false);
-    const mult=PAYOUT[b.spot.type];
     let body;
-    if(b.chequeVal){
+    if(g.cheque){
+      const b=g.bets[0], mult=PAYOUT[b.spot.type];
       body=`<b>${b.spot.name}</b> pays <b>${mult} : 1</b>.\n`+
         `${betDesc(b)} = ${money(betValue(b))} → pays <b>${money(needValue)}</b> in cheques.\n`+
         `You offered ${money(totalValue)}.`+
         `<div class="sug">${chequeText(needValue)}</div>`;
     }else{
-      const oc=owedChips(b), p=players[b.player];
-      body=`<b>${b.spot.name}</b> pays <b>${mult} : 1</b>.\n`+
-        `${b.chips} × ${mult} = <b>${oc} ${p.color.name} chips</b>.\n`+
+      const p=players[g.player];
+      const needChips=g.bets.reduce((s,b)=>s+owedChips(b),0);
+      const lines=g.bets.map(b=>
+        `${b.spot.name} (${PAYOUT[b.spot.type]}:1): ${b.chips} × ${PAYOUT[b.spot.type]} = ${owedChips(b)}`).join('\n');
+      body=lines+`\nTotal: <b>${needChips} ${p.color.name} chips</b>\n`+
         `(worth ${money(needValue)} at the $${chipVal} lammer)\n`+
         `You offered ${money(totalValue)} worth.`+
-        `<div class="sug">${oc} ${p.color.name} chips, or ${chequeText(needValue)}</div>`;
+        `<div class="sug">${needChips} ${p.color.name} chips, or ${chequeText(needValue)}</div>`;
     }
     showModal('Incorrect payout','bad',body,
       [{label:'Try again'},
-       {label:'Auto-pay & continue',cls:'btn-ghost',fn:()=>deliver(b)}]);
+       {label:'Auto-pay & continue',cls:'btn-ghost',fn:()=>deliver(g)}]);
   }
 });
-function deliver(b){
-  b.paid=true;roundStats.paid++;
-  markPaid(b);
+function deliver(g){
+  for(const b of g.bets){b.paid=true;roundStats.paid++;markPaid(b);}
   closeSheet();
-  if(winnersLeft()===0)endRound();
-  else setInstr('Pay the winners — tap a winning bet.',winnersLeft()+' still to pay.');
+  if(winnersLeft()===0){endRound();return;}
+  payQueue=buildPayQueue();
+  payTarget=payQueue[0];
+  updatePayUI();
 }
 
 /* ---------- top-level controls ---------- */
 $('actionBtn').addEventListener('click',()=>{
   if(state==='IDLE'||state==='END')deal();
   else if(state==='READY')startSpin();
+  else if(state==='PAY'&&payTarget)openSheet(payTarget);
 });
 $('diffSel').addEventListener('change',()=>{
   score={round:0,correct:0,errors:0,streak:0,best:0};
   state='IDLE';syncTaps();
   diff=DIFFS[+$('diffSel').value];
-  bets=[];chipsG.innerHTML='';targetsG.innerHTML='';paidG.innerHTML='';dollyG.innerHTML='';
-  $('winBadge').style.display='none';closeSheet();
+  bets=[];chipsG.innerHTML='';targetsG.innerHTML='';paidG.innerHTML='';dollyG.innerHTML='';winNumG.innerHTML='';
+  $('winBadge').style.display='none';$('peek').style.display='none';closeSheet();
+  payQueue=[];payTarget=null;
   $('actionBtn').textContent='DEAL';$('actionBtn').disabled=false;
   setupPlayers(diff);updatePlayers();updateScore();
   setInstr('Press DEAL to put bets on the layout.',diff.name+' — '+diff.players+' player'+(diff.players>1?'s':'')+'.');
