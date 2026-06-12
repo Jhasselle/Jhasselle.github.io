@@ -89,6 +89,7 @@
   .dRow button{background:#243043;color:var(--text);border:1px solid var(--border);
     border-radius:7px;min-width:38px;padding:8px 4px;font-size:13px;font-weight:600;}
   .dRow button:active{background:#33445f;}
+  .dRow button.rst{margin-right:10px;color:var(--dim);}
   .dRow input{width:52px;text-align:center;font-weight:700;font-size:14px;background:#0e1420;
     color:var(--text);border:1px solid var(--border);border-radius:7px;padding:7px 2px;}
   #sheetBtns{display:flex;gap:8px;margin-top:12px;}
@@ -855,22 +856,33 @@ function openSheet(g){
   $('denoms').innerHTML=html;
   $('denoms').querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      bump(btn.dataset.k,+btn.dataset.d);
+      if(btn.dataset.r)setCount(btn.dataset.k,0);   // reset row
+      else bump(btn.dataset.k,+btn.dataset.d);
     });
   });
   $('denoms').querySelectorAll('input').forEach(inp=>{
     inp.addEventListener('input',()=>{
       const v=Math.max(0,parseInt(inp.value||'0',10)||0);
+      if(/^0\d/.test(inp.value))inp.value=String(v); // typing over a lone 0 never gives 056
       setCount(inp.dataset.k,v,false);
     });
+    /* caret always lands at the right end; a lone 0 gets selected so the
+       next digit replaces it */
+    const caret=()=>{requestAnimationFrame(()=>{
+      if(inp.value==='0')inp.select();
+      else inp.setSelectionRange(inp.value.length,inp.value.length);
+    });};
+    inp.addEventListener('focus',caret);
+    inp.addEventListener('click',caret);
   });
   $('sheet').classList.add('open');
 }
 function dRow(key,label,incs){
-  let btns=`<button data-k="${key}" data-d="-1">−</button>`;
+  let btns=`<button data-k="${key}" data-r="1" class="rst">⟲</button>`+
+           `<button data-k="${key}" data-d="-1">−</button>`;
   incs.forEach(i=>btns+=`<button data-k="${key}" data-d="${i}">+${i}</button>`);
   return `<div class="dRow"><span class="lbl">${label}</span>${btns}`+
-    `<input data-k="${key}" id="in-${key}" type="number" inputmode="numeric" min="0" value="0"></div>`;
+    `<input data-k="${key}" id="in-${key}" type="text" inputmode="numeric" pattern="[0-9]*" value="0"></div>`;
 }
 function getCount(k){return k==='chips'?payState.chips:payState.cheq[+k.slice(1)];}
 function setCount(k,v,updateInput=true){
