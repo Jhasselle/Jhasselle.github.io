@@ -207,7 +207,9 @@ const WHEEL_ORDER=[0,28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,ZZ,27,10,2
 const numLabel=n=>n===ZZ?'00':String(n);
 const numColor=n=>(n===0||n===ZZ)?'green':(RED_NUMS.has(n)?'red':'black');
 const PAYOUT={straight:35,split:17,street:11,corner:8,basket:6,sixline:5,dozen:2,column:2,even:1};
-const TABLE_MIN=15; // outside bets must be at least table minimum
+const TABLE_MIN=15;    // outside bets must be at least table minimum
+const INSIDE_MAX=100;  // no single inside bet may exceed $100
+const OUTSIDE_MAX=2000;// no single outside bet may exceed $2000
 const money=v=>'$'+v.toLocaleString();
 
 /* cheques: cage money */
@@ -356,6 +358,15 @@ function setupPlayers(diff){
 function coveringSpots(n){
   return SPOTS.filter(s=>!isOutside(s.type)&&s.nums.includes(n));
 }
+/* random stack size respecting table limits:
+   inside ≤ $100 per spot, outside $15..$2000 */
+function chipStack(diff,pIdx,inside){
+  let c=diff.maxStack===1?1:1+rnd(diff.maxStack);
+  const v=players[pIdx].chipVal;
+  if(inside) c=Math.min(c, Math.floor(INSIDE_MAX/v));
+  else c=Math.min(Math.max(c, Math.ceil(TABLE_MIN/v)), Math.floor(OUTSIDE_MAX/v));
+  return Math.max(1,c);
+}
 function generateBets(diff, clusterWin, clusterPlayer){
   bets=[];
   const used=new Set();
@@ -369,7 +380,7 @@ function generateBets(diff, clusterWin, clusterPlayer){
       const spot=spots[i];
       used.add(spot.type+':'+spot.nums.join(',')+':'+clusterPlayer);
       bets.push({id:bets.length,spot,player:clusterPlayer,
-        chips:diff.maxStack===1?1:1+rnd(diff.maxStack),chequeVal:0,chequeCount:0,
+        chips:chipStack(diff,clusterPlayer,true),chequeVal:0,chequeCount:0,
         won:false,paid:false,swept:false,payAttempted:false,sweepCounted:false,els:null});
     }
   }
@@ -385,12 +396,12 @@ function generateBets(diff, clusterWin, clusterPlayer){
              won:false,paid:false,swept:false,payAttempted:false,sweepCounted:false,els:null};
     if(isOutside(type)&&diff.chequeDenoms.length&&Math.random()<diff.chequeOutsideProb){
       b.chequeVal=pick(diff.chequeDenoms);
-      b.chequeCount=Math.max(Math.ceil(TABLE_MIN/b.chequeVal), 1+rnd(diff.maxCheques));
+      b.chequeCount=Math.min(
+        Math.max(Math.ceil(TABLE_MIN/b.chequeVal), 1+rnd(diff.maxCheques)),
+        Math.floor(OUTSIDE_MAX/b.chequeVal));
       b.player=-1;
     }else{
-      b.chips=diff.maxStack===1?1:1+rnd(diff.maxStack);
-      if(isOutside(type)) // outside must meet the $15 table minimum
-        b.chips=Math.max(b.chips, Math.ceil(TABLE_MIN/players[pIdx].chipVal));
+      b.chips=chipStack(diff,pIdx,!isOutside(type));
     }
     bets.push(b);
   }
