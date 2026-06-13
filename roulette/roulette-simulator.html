@@ -433,9 +433,9 @@ $('tableWrap').appendChild(svg);
 const layoutG=el('g',{},svg);   // static layout
 const cellsG=el('g',{},svg);    // tappable number cells (dolly phase)
 const dollyG=el('g',{},svg);    // win pulse + dolly marker (UNDER chips so counts stay visible)
-const chipsG=el('g',{},svg);    // bet chips
-const paidG=el('g',{},svg);     // payout markers
-const payHintG=el('g',{},svg);  // pulsing rings around the next payout
+const paidG=el('g',{},svg);     // payout markers (UNDER chips — checkmark always behind chips)
+const payHintG=el('g',{},svg);  // pulsing rings around the next payout (UNDER chips)
+const chipsG=el('g',{},svg);    // bet chips (always on top of pay hint + paid markers)
 const winNumG=el('g',{},svg);   // big winning-number display (blank bottom-left corner)
 const targetsG=el('g',{},svg);  // bet tap targets
 
