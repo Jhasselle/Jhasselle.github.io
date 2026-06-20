@@ -759,27 +759,34 @@ h1 {
   let revealed = false;
 
   function pickNext(){
-    let center, spots, picked, attempt=0;
+    let center, hasCenter, spots, picked, attempt=0;
     while(attempt++ < 120){
       center = 1 + Math.floor(Math.random() * 36);
+      /* Coin-flip on whether to place a straight-up chip on the center.
+         Picture bets don't have to include the winning number's own spot. */
+      hasCenter = Math.random() < 0.5;
       /* Drop spots whose kind the user excluded in settings. */
       spots = adjacentSpots(center).filter(sp => !STATE.excludedKinds[sp.kind]);
-      const [minTotal, maxTotal] = targetRange(spots.length);
-      /* Total chips includes the center, so adjacent count = totalChips - 1 */
-      const lo = Math.max(0, minTotal - 1);
-      const hi = Math.max(lo, Math.min(spots.length, maxTotal - 1));
+      const baseAdj = hasCenter ? 1 : 0;
+      const [minTotal, maxTotal] = targetRange(spots.length + baseAdj);
+      /* Total chips = picked.length + baseAdj. Solve for picked.length range. */
+      const lo = Math.max(0, minTotal - baseAdj);
+      const hi = Math.max(lo, Math.min(spots.length, maxTotal - baseAdj));
       const adjCount = lo + Math.floor(Math.random() * (hi - lo + 1));
       const shuffled = spots.slice().sort(() => Math.random() - 0.5);
       picked = shuffled.slice(0, adjCount);
-      /* For non-random difficulties, ensure the total satisfies the range
-         (skip when it doesn't, in case some centers can't reach the target). */
-      const total = picked.length + 1;
+      const total = picked.length + baseAdj;
+      /* Need at least one chip on the table — center counts. */
+      if(total < 1) continue;
+      /* For non-random difficulties, ensure the total satisfies the range. */
       if(STATE.difficulty !== "random" && (total < minTotal || total > maxTotal)) continue;
-      if(current && current.center === center && current.picked.length === picked.length
+      /* Avoid exact-repeat of the previous picture. */
+      if(current && current.center === center && current.hasCenter === hasCenter
+          && current.picked.length === picked.length
           && current.picked.every(p => picked.some(q => q.x===p.x && q.y===p.y))) continue;
       break;
     }
-    current = { center, picked };
+    current = { center, hasCenter, picked };
     revealed = false;
   }
 
@@ -1007,9 +1014,11 @@ h1 {
 
     buildLayoutInto(svg);
 
-    /* Chips: always the center (straight-up), plus selected adjacent spots */
-    const cc = cellCenter(current.center);
-    svg.appendChild(chipGroup(cc.x, cc.y, "straight"));
+    /* Chips: optionally a center straight-up, plus selected adjacent spots */
+    if(current.hasCenter){
+      const cc = cellCenter(current.center);
+      svg.appendChild(chipGroup(cc.x, cc.y, "straight"));
+    }
     for(const sp of current.picked){
       svg.appendChild(chipGroup(sp.x, sp.y, sp.kind));
     }
@@ -1023,7 +1032,10 @@ h1 {
   }
 
   function computePayout(){
-    const counts = { straight:1, split:0, corner:0, street:0, sixline:0, topline:0, basket:0 };
+    const counts = {
+      straight: current.hasCenter ? 1 : 0,
+      split:0, corner:0, street:0, sixline:0, topline:0, basket:0,
+    };
     for(const sp of current.picked) counts[sp.kind]++;
     let total = 0;
     for(const k in counts) total += counts[k] * PAY[k];
