@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette — Add Total</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 560px; margin: 0 auto;
+  padding: 70px 20px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 6px 0 22px; font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 18px 18px 22px;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+}
+
+/* Difficulty pill row */
+.diff-row {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  margin-bottom: 16px;
+}
+.diff-btn {
+  flex: 1 1 70px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 9px 12px;
+  font: 700 11px/1.2 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+.diff-btn:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.diff-btn.active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.22));
+  border-color: rgba(139, 110, 247, 0.55);
+  color: #fff;
+}
+.diff-btn .sub {
+  display: block;
+  font: 600 9.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.04em; text-transform: none;
+  color: rgba(255,255,255,0.45);
+  margin-top: 3px;
+}
+.diff-btn.active .sub { color: rgba(196, 181, 253, 0.85); }
+
+/* Step indicator */
+.step-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 8px;
+}
+.step-row b { color: #c4b5fd; font-weight: 800; }
+
+/* The big +N display */
+.addend {
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 26px 14px 24px;
+  text-align: center;
+  margin-bottom: 14px;
+  min-height: 138px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: border-color 0.18s, background 0.18s;
+}
+.addend .plus-sign {
+  display: block;
+  font: 700 18px/1 "JetBrains Mono", "Courier New", monospace;
+  color: rgba(196, 181, 253, 0.7);
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.addend .value {
+  font: 800 clamp(52px, 11vw, 76px)/1 "JetBrains Mono", "Courier New", monospace;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #c7d2fe 0%, #a78bfa 60%, #f0abfc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.addend .ratio {
+  margin-top: 8px;
+  font: 700 11px/1 "Inter", sans-serif;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+.addend.empty .plus-sign { color: rgba(255,255,255,0.25); }
+.addend.empty .value {
+  background: none;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.18);
+  font-size: clamp(42px, 9vw, 56px);
+}
+.addend.pop { animation: pop 0.24s ease; }
+@keyframes pop {
+  0%   { transform: scale(0.92); opacity: 0.5; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.addend.reveal {
+  border-style: solid;
+  border-color: rgba(52,211,153,0.45);
+  background: rgba(52,211,153,0.06);
+}
+.addend.reveal .plus-sign {
+  color: rgba(52,211,153,0.65);
+}
+.addend.reveal .value {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 12px;
+  padding: 13px 26px; font: 700 13.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 160px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+.btn.ghost {
+  background: transparent; border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.85);
+  min-width: 130px;
+}
+.btn.ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.28); background-image: none; }
+.btn.success { background: linear-gradient(135deg, #10b981, #047857); }
+.btn.success:hover { background: linear-gradient(135deg, #34d399, #059669); }
+
+/* Breakdown shown after reveal */
+.breakdown {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.06);
+  font: 600 12.5px/1.6 "Inter", sans-serif;
+  color: rgba(255,255,255,0.7);
+}
+.breakdown h3 {
+  margin: 0 0 8px;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.breakdown .row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 0;
+}
+.breakdown .row .label { color: rgba(255,255,255,0.65); }
+.breakdown .row .val {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  color: #f4f4f5; font-weight: 800;
+}
+.breakdown .total {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; justify-content: space-between;
+  font-weight: 800; letter-spacing: 0.04em;
+}
+.breakdown .total .val { color: #34d399; font-size: 14.5px; }
+
+.beta-badge {
+  display: inline-block; margin-left: 10px;
+  padding: 3px 9px; border-radius: 999px;
+  font: 800 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.10);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  vertical-align: middle;
+}
+
+@media (max-width: 560px) {
+  .page { padding: 56px 12px 60px; }
+  h1 { font-size: 22px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .trainer { padding: 14px 14px 18px; }
+  .btn { min-width: 0; flex: 1; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="roulette.html">Roulette</a>
+
+<div class="page">
+  <div class="greet">Roulette · Dealer practice</div>
+  <h1>Add total <span class="beta-badge">Beta</span></h1>
+
+  <div class="trainer">
+    <div class="diff-row" id="diff-row">
+      <button class="diff-btn" data-d="easy"><span class="t">Easy</span><span class="sub">2 – 4 stacks</span></button>
+      <button class="diff-btn" data-d="medium"><span class="t">Medium</span><span class="sub">4 – 8 stacks</span></button>
+      <button class="diff-btn" data-d="hard"><span class="t">Hard</span><span class="sub">8 – 12 stacks</span></button>
+      <button class="diff-btn" data-d="random"><span class="t">Random</span><span class="sub">2 – 12 stacks</span></button>
+    </div>
+
+    <div class="step-row">
+      <span id="step-label">Tap Next to begin</span>
+      <span>Total <b id="total-label">?</b></span>
+    </div>
+
+    <div class="addend empty" id="addend">
+      <span class="plus-sign">+</span>
+      <span class="value" id="addend-val">?</span>
+      <span class="ratio" id="addend-ratio">&nbsp;</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn success" id="btn-next">Next</button>
+      <button class="btn ghost" id="btn-new">New scenario</button>
+    </div>
+
+    <div class="breakdown" id="breakdown" style="display:none">
+      <h3>Breakdown</h3>
+      <div id="breakdown-rows"></div>
+      <div class="total"><span>Total</span><span class="val" id="breakdown-total">0</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ===== Inside bet types only (per the spec — no outside bets) ===== */
+  const BETS = [
+    { id: "straight", label: "Straight up", ratio: 35 },
+    { id: "split",    label: "Split",       ratio: 17 },
+    { id: "corner",   label: "Corner",      ratio:  8 },
+    { id: "street",   label: "Street",      ratio: 11 },
+    { id: "sixline",  label: "Line",        ratio:  5 },
+    { id: "topline",  label: "Top line",    ratio:  6 },
+    { id: "basket",   label: "Basket",      ratio: 11 },
+  ];
+  /* The two most common bet types are straight & split — bias toward them */
+  const BET_WEIGHTS = {
+    straight: 4, split: 4, corner: 3, street: 2,
+    sixline: 2, topline: 1, basket: 1,
+  };
+  function pickBet() {
+    const pool = [];
+    for (const b of BETS) for (let i = 0; i < BET_WEIGHTS[b.id]; i++) pool.push(b);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  /* ===== Persistent state ===== */
+  const STATE = (function() {
+    let s = { difficulty: "medium" };
+    try {
+      const saved = JSON.parse(localStorage.getItem("roulette-add-total") || "null");
+      if (saved) s = Object.assign(s, saved);
+    } catch (e) {}
+    return s;
+  })();
+  function saveState() {
+    try { localStorage.setItem("roulette-add-total", JSON.stringify(STATE)); } catch (e) {}
+  }
+
+  function stackRange() {
+    switch (STATE.difficulty) {
+      case "easy":   return [2, 4];
+      case "medium": return [4, 8];
+      case "hard":   return [8, 12];
+      default:       return [2, 12];   /* random */
+    }
+  }
+  function chipRange() {
+    /* Chip stack sizes per spot — keep them realistic.
+       Easy uses smaller stacks too so totals stay tractable. */
+    switch (STATE.difficulty) {
+      case "easy":   return [1, 5];
+      case "medium": return [1, 10];
+      case "hard":   return [1, 20];
+      default:       return [1, 20];
+    }
+  }
+
+  function genScenario() {
+    const [minN, maxN] = stackRange();
+    const [minC, maxC] = chipRange();
+    const N = minN + Math.floor(Math.random() * (maxN - minN + 1));
+    const spots = [];
+    for (let i = 0; i < N; i++) {
+      const bet = pickBet();
+      const chips = minC + Math.floor(Math.random() * (maxC - minC + 1));
+      const payout = chips * bet.ratio;
+      spots.push({ bet, chips, payout });
+    }
+    const total = spots.reduce((a, b) => a + b.payout, 0);
+    return { spots, total };
+  }
+
+  /* ===== Runtime ===== */
+  let scenario = null;
+  let cursor = -1;          /* -1 = not started; 0..N-1 = showing addend i; N = total revealed */
+  let phase = "idle";       /* idle | running | done */
+
+  const $addend     = document.getElementById("addend");
+  const $addendVal  = document.getElementById("addend-val");
+  const $addendRat  = document.getElementById("addend-ratio");
+  const $step       = document.getElementById("step-label");
+  const $totalLbl   = document.getElementById("total-label");
+  const $btnNext    = document.getElementById("btn-next");
+  const $btnNew     = document.getElementById("btn-new");
+  const $bd         = document.getElementById("breakdown");
+  const $bdRows     = document.getElementById("breakdown-rows");
+  const $bdTotal    = document.getElementById("breakdown-total");
+
+  function fmt(n) { return n.toLocaleString(); }
+
+  function renderEmpty() {
+    $addend.classList.remove("reveal", "pop");
+    $addend.classList.add("empty");
+    $addendVal.textContent = "?";
+    $addendRat.textContent = "Tap Next to start";
+    $step.textContent = "Ready";
+    $totalLbl.textContent = "?";
+    $btnNext.textContent = "Start";
+    $bd.style.display = "none";
+    $bdRows.innerHTML = "";
+  }
+
+  function renderAddend(i) {
+    const sp = scenario.spots[i];
+    $addend.classList.remove("empty", "reveal");
+    $addend.classList.remove("pop"); void $addend.offsetWidth; $addend.classList.add("pop");
+    $addendVal.textContent = fmt(sp.payout);
+    $addendRat.textContent = sp.chips + " × " + sp.bet.ratio + " (" + sp.bet.label + ")";
+    $step.textContent = "Stack " + (i + 1) + " of " + scenario.spots.length;
+    $totalLbl.textContent = "?";
+    if (i < scenario.spots.length - 1) {
+      $btnNext.textContent = "Next";
+    } else {
+      $btnNext.textContent = "Reveal total";
+    }
+  }
+
+  function renderTotal() {
+    $addend.classList.remove("empty", "pop");
+    $addend.classList.remove("reveal"); void $addend.offsetWidth; $addend.classList.add("reveal");
+    $addendVal.textContent = fmt(scenario.total);
+    $addendRat.textContent = "Final total";
+    $step.textContent = "Done";
+    $totalLbl.textContent = fmt(scenario.total);
+    $btnNext.textContent = "New scenario";
+    /* Build the breakdown list. */
+    $bdRows.innerHTML = "";
+    scenario.spots.forEach((sp, i) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML =
+        '<span class="label">' + sp.bet.label + " (" + sp.bet.ratio + ":1) " +
+        sp.chips + " chip" + (sp.chips === 1 ? "" : "s") + '</span>' +
+        '<span class="val">' + sp.chips + " × " + sp.bet.ratio + " = " + fmt(sp.payout) + "</span>";
+      $bdRows.appendChild(row);
+    });
+    $bdTotal.textContent = fmt(scenario.total);
+    $bd.style.display = "";
+  }
+
+  function newScenario() {
+    scenario = genScenario();
+    cursor = -1;
+    phase = "idle";
+    renderEmpty();
+  }
+
+  function advance() {
+    if (phase === "idle") {
+      cursor = 0;
+      phase = "running";
+      renderAddend(cursor);
+      return;
+    }
+    if (phase === "running") {
+      cursor++;
+      if (cursor < scenario.spots.length) {
+        renderAddend(cursor);
+      } else {
+        phase = "done";
+        renderTotal();
+      }
+      return;
+    }
+    if (phase === "done") {
+      newScenario();
+    }
+  }
+
+  $btnNext.onclick = advance;
+  $btnNew.onclick = newScenario;
+
+  /* Keyboard: Space / Enter = next; N = new scenario */
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); advance(); }
+    else if (e.key && e.key.toLowerCase() === "n") { e.preventDefault(); newScenario(); }
+  });
+
+  /* ===== Difficulty buttons ===== */
+  const $diffRow = document.getElementById("diff-row");
+  function renderDiff() {
+    $diffRow.querySelectorAll(".diff-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.d === STATE.difficulty);
+    });
+  }
+  $diffRow.querySelectorAll(".diff-btn").forEach(b => {
+    b.onclick = () => {
+      STATE.difficulty = b.dataset.d;
+      saveState();
+      renderDiff();
+      newScenario();
+    };
+  });
+  renderDiff();
+  newScenario();
+})();
+</script>
+
+</body>
+</html>

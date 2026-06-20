@@ -1,0 +1,1532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette Picture Bets</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "←"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 600px; margin: 0 auto;
+  padding: 70px 18px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 6px 0 22px; font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 18px 14px 22px;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+}
+
+/* Felt background matches the simulator's purple */
+.layout-wrap {
+  background: radial-gradient(ellipse at 50% 40%, #56439b, #43317a 80%);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.layout-wrap svg { display: block; width: 100%; height: auto; }
+
+/* Difficulty selector */
+.diff-row {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  margin-bottom: 12px;
+}
+.diff-btn {
+  flex: 1 1 70px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font: 700 11px/1.2 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+.diff-btn:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.diff-btn.active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.22));
+  border-color: rgba(139, 110, 247, 0.55);
+  color: #fff;
+}
+.diff-btn .sub {
+  display: block;
+  font: 600 9.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: rgba(255,255,255,0.45);
+  margin-top: 3px;
+}
+.diff-btn.active .sub { color: rgba(196, 181, 253, 0.85); }
+
+/* Chip styling */
+.chip {
+  stroke: #052e16; stroke-width: 1.2;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55));
+}
+
+/* Result panel */
+.answer-slot {
+  margin: 12px auto 12px;
+  min-height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: clamp(42px, 9vw, 60px);
+  line-height: 1;
+  color: #34d399;
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 14px 12px;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.answer-slot.empty { color: rgba(255,255,255,0.18); font-size: clamp(34px, 7vw, 46px); }
+.answer-slot.revealed {
+  border-style: solid;
+  border-color: rgba(52,211,153,0.45);
+  background: rgba(52,211,153,0.06);
+  animation: pop 0.25s ease;
+}
+@keyframes pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.bd-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; flex-wrap: wrap;
+  font: 700 10.5px/1.4 "Inter", sans-serif;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  margin-top: 6px;
+  min-height: 36px;            /* reserves space so the button doesn't shift */
+}
+.bd-row.hidden-bd { visibility: hidden; }
+.bd-row span b { color: #fde047; font-weight: 800; }
+.bd-row .sep { color: rgba(255,255,255,0.2); }
+
+.btn-row { display: flex; justify-content: center; margin-top: 12px; }
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 12px;
+  padding: 14px 28px; font: 700 14px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 200px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+
+.beta-badge {
+  display: inline-block; margin-left: 10px;
+  padding: 3px 9px; border-radius: 999px;
+  font: 800 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.10);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  vertical-align: middle;
+}
+
+/* Title row + settings button */
+.h1-row {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  margin-bottom: 18px;
+}
+.h1-row h1 { margin: 6px 0 0; }
+.settings-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer; flex: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+  margin-bottom: 4px;
+}
+.settings-btn:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+  border-color: rgba(139,110,247,0.45);
+  transform: translateY(-1px);
+}
+
+/* Picture name display — always rendered so the layout doesn't shift
+   between pre-reveal and post-reveal states. */
+.name-row {
+  display: flex; align-items: stretch; gap: 8px;
+  margin-top: 10px;
+  min-height: 44px;
+}
+/* "Empty" state: no known name pre-reveal — reserve space, hide content */
+.name-row.empty .name,
+.name-row.empty .edit-btn { visibility: hidden; }
+/* Inline editor — only visible when the row is in "editing" state */
+.name-row .name-input {
+  flex: 1;
+  display: none;
+  font: 700 16px/1.2 "Inter", -apple-system, system-ui, sans-serif;
+  letter-spacing: -0.005em;
+  text-align: center;
+  color: #fde047;
+  padding: 9px 14px;
+  background: rgba(250, 204, 21, 0.07);
+  border: 1px solid rgba(250, 204, 21, 0.5);
+  border-radius: 10px;
+  outline: none;
+  width: 100%;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.name-row .name-input:focus {
+  border-color: rgba(250, 204, 21, 0.85);
+  background: rgba(250, 204, 21, 0.12);
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.18);
+}
+.name-row .name-input::placeholder {
+  color: rgba(250, 204, 21, 0.35);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.name-row.editing .name { display: none; }
+.name-row.editing .name-input { display: block; }
+/* "Show name" pre-reveal state: known name exists, hide the slot, make
+   the button stretch full-width like a CTA. */
+.name-row.show-name .name { display: none; }
+.name-row.show-name .edit-btn {
+  flex: 1;
+  padding: 12px 14px;
+  font: 700 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.08);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+.name-row.show-name .edit-btn:hover {
+  background: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.62);
+  color: #fef08a;
+}
+.name-row .name {
+  flex: 1;
+  font: 800 17px/1.2 "Inter", sans-serif;
+  letter-spacing: -0.005em;
+  text-align: center;
+  color: rgba(255,255,255,0.35);
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.22);
+  border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 10px;
+  transition: color 0.18s, background 0.18s, border-color 0.18s;
+}
+.name-row.has-name .name {
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.08);
+  border-style: solid;
+  border-color: rgba(250, 204, 21, 0.4);
+}
+.name-row .name .src {
+  display: inline-block; margin-left: 10px;
+  font: 700 8.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.85);
+  padding: 3px 6px;
+  background: rgba(139, 110, 247, 0.12);
+  border: 1px solid rgba(139, 110, 247, 0.32);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.name-row.has-name .name .src.custom {
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.10);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+.name-row .edit-btn {
+  background: transparent; border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.75);
+  font: 700 11px/1 "Inter", sans-serif;
+  letter-spacing: 0.06em;
+  padding: 9px 12px; border-radius: 9px; cursor: pointer;
+  flex: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.name-row .edit-btn:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.28);
+  color: #fff;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(7,8,12,0.78);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.18s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  position: relative;
+  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
+  background: linear-gradient(180deg, rgba(20,22,32,0.97), rgba(15,17,24,0.97));
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 22px 22px 26px;
+  box-shadow: 0 28px 80px -20px rgba(0,0,0,0.9);
+}
+.modal h2 {
+  margin: 0 0 18px;
+  font: 800 22px/1 "Inter", sans-serif;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.modal h3 {
+  margin: 0 0 9px;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.modal section { margin-bottom: 22px; }
+.modal section:last-child { margin-bottom: 0; }
+.modal .hint {
+  margin: 8px 0 0;
+  font: 600 11px/1.45 "Inter", sans-serif;
+  color: rgba(255,255,255,0.42);
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px;
+  background: transparent; border: 0;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 22px/1 "Inter", sans-serif;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer; border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.modal-close:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.kind-list { display: flex; flex-direction: column; gap: 6px; }
+.kind-list label {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  font: 600 13px/1.2 "Inter", sans-serif;
+  color: rgba(255,255,255,0.85);
+  transition: background 0.15s, border-color 0.15s;
+}
+.kind-list label:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.16); }
+.kind-list input[type=checkbox] {
+  width: 16px; height: 16px; accent-color: #a855f7; cursor: pointer; flex: none;
+}
+.kind-list .ratio {
+  margin-left: auto;
+  font: 700 11px/1 "JetBrains Mono", monospace;
+  color: rgba(196,181,253,0.85);
+  letter-spacing: 0.04em;
+}
+.names-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 320px; overflow-y: auto;
+}
+.names-list .row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 9px;
+  flex-wrap: wrap;
+}
+.names-list .row .name-cell {
+  flex: 1 1 130px; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.names-list .row .name-cell .name {
+  font: 700 13px/1.2 "Inter", sans-serif;
+  color: #fde047;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.names-list .row .name-cell .name.builtin { color: rgba(255,255,255,0.78); }
+.names-list .row .sig {
+  font: 600 10.5px/1.3 "Inter", sans-serif;
+  color: rgba(255,255,255,0.45);
+}
+.names-list .row .src-pill {
+  margin-right: 2px; padding: 2px 6px; border-radius: 4px;
+  font: 700 8.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  flex: none;
+}
+.names-list .row .src-pill.custom { color: #fde047; background: rgba(250,204,21,0.12); border: 1px solid rgba(250,204,21,0.4); }
+.names-list .row .src-pill.builtin { color: rgba(196,181,253,0.85); background: rgba(139,110,247,0.12); border: 1px solid rgba(139,110,247,0.32); }
+.names-list .row button {
+  background: transparent; border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.7);
+  padding: 5px 9px; border-radius: 6px; cursor: pointer;
+  font: 700 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  flex: none;
+  transition: background 0.15s, color 0.15s;
+}
+.names-list .row button:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.names-list .empty {
+  padding: 24px; text-align: center;
+  color: rgba(255,255,255,0.4);
+  font: 600 12px/1.4 "Inter", sans-serif;
+}
+/* Inline editor inside a names-list row */
+.names-list .row .row-editor {
+  display: flex; gap: 6px; flex: 1 1 200px; min-width: 0;
+}
+.names-list .row .row-editor input {
+  flex: 1; min-width: 0;
+  font: 700 13px/1.2 "Inter", sans-serif;
+  color: #fde047;
+  padding: 8px 11px;
+  background: rgba(250,204,21,0.07);
+  border: 1px solid rgba(250,204,21,0.5);
+  border-radius: 7px;
+  outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+.names-list .row .row-editor input:focus {
+  border-color: rgba(250,204,21,0.85);
+  background: rgba(250,204,21,0.12);
+}
+
+/* Backup section */
+.backup-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.backup-btn {
+  flex: 1 1 140px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font: 700 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.82);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.backup-btn:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(139,110,247,0.55);
+  color: #fff;
+}
+.backup-status {
+  margin-top: 10px;
+  font: 600 12px/1.4 "Inter", sans-serif;
+  text-align: center;
+  min-height: 1em;
+}
+.backup-status.success { color: #34d399; }
+.backup-status.error   { color: #fca5a5; }
+.backup-status.info    { color: rgba(196,181,253,0.85); }
+
+@media (max-width: 560px) {
+  .page { padding: 56px 10px 60px; }
+  h1 { font-size: 22px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .trainer { padding: 14px 10px 18px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="roulette.html">Roulette</a>
+
+<div class="page">
+  <div class="greet">Roulette · Dealer practice</div>
+  <div class="h1-row">
+    <h1>Picture bets <span class="beta-badge">Beta</span></h1>
+    <button class="settings-btn" id="btn-settings" type="button">Settings</button>
+  </div>
+
+  <div class="trainer">
+    <div class="diff-row" id="diff-row">
+      <button class="diff-btn" data-d="random"><span class="t">Random</span><span class="sub">1 – max</span></button>
+      <button class="diff-btn" data-d="easy"><span class="t">Easy</span><span class="sub">1 – 3 chips</span></button>
+      <button class="diff-btn" data-d="medium"><span class="t">Medium</span><span class="sub">4 – 6 chips</span></button>
+      <button class="diff-btn" data-d="hard"><span class="t">Hard</span><span class="sub">6 – max</span></button>
+    </div>
+    <div class="layout-wrap" id="layout-wrap"></div>
+
+    <div class="answer-slot empty" id="answer-slot">?</div>
+
+    <div class="name-row empty" id="name-row">
+      <span class="name" id="name-text">&mdash;</span>
+      <input class="name-input" id="name-input" type="text" maxlength="40"
+             placeholder="Type a name, Enter to save, Esc to cancel"
+             autocomplete="off" spellcheck="false">
+      <button class="edit-btn" id="btn-edit-name" type="button">Name this</button>
+    </div>
+
+    <div class="bd-row hidden-bd" id="bd-row">
+      <span id="bd-detail"></span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-show">Show payout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="modal-overlay" style="display:none">
+  <div class="modal" role="dialog" aria-label="Settings">
+    <button class="modal-close" id="modal-close" type="button" aria-label="Close">&times;</button>
+    <h2>Settings</h2>
+
+    <section>
+      <h3>Include bet types</h3>
+      <div class="kind-list" id="kind-list">
+        <label><input type="checkbox" data-kind="topline"> <span>Top line</span> <span class="ratio">6 : 1</span></label>
+        <label><input type="checkbox" data-kind="sixline"> <span>Six&#8209;line</span> <span class="ratio">5 : 1</span></label>
+        <label><input type="checkbox" data-kind="street"> <span>Street</span> <span class="ratio">11 : 1</span></label>
+        <label><input type="checkbox" data-kind="basket"> <span>Basket</span> <span class="ratio">11 : 1</span></label>
+      </div>
+      <p class="hint">Straight, split, and corner are always included.</p>
+    </section>
+
+    <section>
+      <h3>Picture names</h3>
+      <div class="names-list" id="names-list"></div>
+      <p class="hint">Custom names override built-ins for the same chip pattern. Patterns are matched by the <em>count</em> of each bet type, not their exact positions.</p>
+    </section>
+
+    <section>
+      <h3>Backup</h3>
+      <div class="backup-row">
+        <button class="backup-btn" id="btn-export" type="button">Download names</button>
+        <button class="backup-btn" id="btn-import" type="button">Upload names</button>
+        <input type="file" id="import-file"
+               accept=".json,.txt,application/json,text/plain"
+               style="position:absolute;left:-9999px">
+      </div>
+      <div class="backup-status" id="backup-status" role="status"></div>
+      <p class="hint">Save your custom names to a file you can keep, or restore them on another device. Imports merge with what you already have (matching patterns are overwritten).</p>
+    </section>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ===== Geometry — copied directly from Fabel's simulator ===== */
+  const EMX=0, EMW=44, DZX=46, DZW=44, GX=92, CW=70, CH=52;
+  const GY0=2, ZH=52, GY=GY0+ZH;
+  const COLY=GY+12*CH+2, COLH=48;
+  const SVG_W=GX+3*CW+4, SVG_H=COLY+COLH+4;
+  const ZZ=100;  /* sentinel for "00" */
+  const RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const RED_FILL='#c0392b', BLK_FILL='#17171c', LINE='#e9e5d8';
+
+  function cellRect(n){
+    const col=(n-1)%3, row=Math.floor((n-1)/3);
+    return {x:GX+col*CW, y:GY+row*CH, w:CW, h:CH};
+  }
+  function cellCenter(n){
+    if(n===0)  return {x:GX+52.5,  y:GY0+ZH/2};
+    if(n===ZZ) return {x:GX+157.5, y:GY0+ZH/2};
+    const r=cellRect(n); return {x:r.x+r.w/2, y:r.y+r.h/2};
+  }
+
+  /* ===== Bet payouts ===== */
+  const PAY = {
+    straight: 35, split: 17, corner: 8,
+    street: 11, sixline: 5, topline: 6, basket: 11,
+  };
+
+  /* ===== For a given center number, enumerate all adjacent picture spots ===== */
+  function adjacentSpots(n){
+    if(n<1||n>36) return [];
+    const col=(n-1)%3, row=Math.floor((n-1)/3);
+    const spots=[];
+
+    /* SPLITS (17:1) */
+    if(row>0)  spots.push({kind:"split",x:GX+col*CW+CW/2, y:GY+row*CH,        nums:[n,n-3]});
+    if(row<11) spots.push({kind:"split",x:GX+col*CW+CW/2, y:GY+(row+1)*CH,    nums:[n,n+3]});
+    if(col<2)  spots.push({kind:"split",x:GX+(col+1)*CW,  y:GY+row*CH+CH/2,   nums:[n,n+1]});
+    if(col>0)  spots.push({kind:"split",x:GX+col*CW,      y:GY+row*CH+CH/2,   nums:[n,n-1]});
+
+    /* CORNERS (8:1) — only where 4 cells meet */
+    if(row>0 && col<2)  spots.push({kind:"corner",x:GX+(col+1)*CW, y:GY+row*CH,     nums:[n-3,n-2,n,n+1]});
+    if(row>0 && col>0)  spots.push({kind:"corner",x:GX+col*CW,     y:GY+row*CH,     nums:[n-4,n-3,n-1,n]});
+    if(row<11 && col<2) spots.push({kind:"corner",x:GX+(col+1)*CW, y:GY+(row+1)*CH, nums:[n,n+1,n+3,n+4]});
+    if(row<11 && col>0) spots.push({kind:"corner",x:GX+col*CW,     y:GY+(row+1)*CH, nums:[n-1,n,n+2,n+3]});
+
+    /* STREET (11:1) — left edge of this row */
+    {
+      const sn=row*3+1;
+      spots.push({kind:"street",x:GX, y:GY+row*CH+CH/2, nums:[sn,sn+1,sn+2]});
+    }
+
+    /* SIX-LINE (5:1) — left edge at row boundaries */
+    if(row>0)  spots.push({kind:"sixline",x:GX, y:GY+row*CH,     nums:[(row-1)*3+1,(row-1)*3+2,(row-1)*3+3,row*3+1,row*3+2,row*3+3]});
+    if(row<11) spots.push({kind:"sixline",x:GX, y:GY+(row+1)*CH, nums:[row*3+1,row*3+2,row*3+3,(row+1)*3+1,(row+1)*3+2,(row+1)*3+3]});
+
+    /* ROW-0 special bets touching the 0/00 row */
+    if(row===0){
+      /* TOP LINE (6:1) — 0, 00, 1, 2, 3 — anchor at corner where zeros meet n=1 */
+      spots.push({kind:"topline",x:GX, y:GY, nums:[0,ZZ,1,2,3]});
+      /* BASKETS (11:1) — the three trio bets near the zeros, anchored at the
+         shared boundary between the zeros row and the 1/2/3 row. */
+      if(col===0)            spots.push({kind:"basket",x:GX+35,  y:GY, nums:[0,1,2]});
+      if(col===0 || col===2) spots.push({kind:"basket",x:GX+105, y:GY, nums:[0,ZZ,2]});
+      if(col===2)            spots.push({kind:"basket",x:GX+175, y:GY, nums:[ZZ,2,3]});
+      /* Splits to the zeros (also 17:1) */
+      if(col===0) spots.push({kind:"split",x:GX+35,   y:GY, nums:[0,1]});
+      if(col===1) spots.push({kind:"split",x:GX+87.5, y:GY, nums:[0,2]});
+      if(col===1) spots.push({kind:"split",x:GX+122.5,y:GY, nums:[ZZ,2]});
+      if(col===2) spots.push({kind:"split",x:GX+175,  y:GY, nums:[ZZ,3]});
+    }
+    return spots;
+  }
+
+  /* ===== Persistent state ===== */
+  const STATE = (function(){
+    let s = {
+      difficulty: "random",
+      /* Map kind → true if EXCLUDED from random generation. Defaults: all included. */
+      excludedKinds: {},
+      /* Map signature → custom name. Signature = "s-sp-c-st-sl-tl-b" counts. */
+      customNames: {},
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("roulette-picture-bets") || "null");
+      if(saved) s = Object.assign(s, saved);
+      /* Defensive defaults in case an older saved value lacks these keys */
+      if(!s.excludedKinds || typeof s.excludedKinds !== "object") s.excludedKinds = {};
+      if(!s.customNames   || typeof s.customNames   !== "object") s.customNames = {};
+    } catch(e) {}
+    return s;
+  })();
+  function saveState(){
+    try { localStorage.setItem("roulette-picture-bets", JSON.stringify(STATE)); } catch(e) {}
+  }
+
+  /* ===== Named picture-bet patterns =====
+     Each entry is keyed by the COUNT of each bet type around the center
+     (so two corners count as a Mickey Mouse no matter which two corners).
+     Order: straight (s), split (sp), corner (c), street (st),
+            six-line (sl), top line (tl), basket (b).
+  */
+  const BUILTIN_NAMES = [
+    { name: "Corner pocket", s:1, sp:0, c:1, st:0, sl:0, tl:0, b:0 },
+    { name: "Quarter",       s:0, sp:1, c:1, st:0, sl:0, tl:0, b:0 },
+    { name: "Deck of cards", s:1, sp:1, c:0, st:0, sl:0, tl:0, b:0 },
+    { name: "Mickey Mouse",  s:1, sp:0, c:2, st:0, sl:0, tl:0, b:0 },
+    { name: "Lovers",        s:1, sp:2, c:0, st:0, sl:0, tl:0, b:0 },
+    { name: "Diamond cross", s:1, sp:1, c:2, st:0, sl:0, tl:0, b:0 },
+    { name: "Full cross",    s:1, sp:3, c:0, st:0, sl:0, tl:0, b:0 },
+    { name: "Rail road",     s:1, sp:3, c:2, st:0, sl:0, tl:0, b:0 },
+    { name: "Picture frame", s:0, sp:4, c:4, st:0, sl:0, tl:0, b:0 },
+    { name: "Full house",    s:1, sp:4, c:4, st:0, sl:0, tl:0, b:0 },
+    { name: "Lucky bastard", s:1, sp:4, c:4, st:1, sl:2, tl:0, b:0 },
+  ];
+  function sigFromCounts(counts){
+    return counts.straight + "-" + counts.split + "-" + counts.corner + "-"
+         + counts.street   + "-" + counts.sixline + "-" + counts.topline + "-" + counts.basket;
+  }
+  function sigFromEntry(e){
+    return e.s + "-" + e.sp + "-" + e.c + "-" + e.st + "-" + e.sl + "-" + e.tl + "-" + e.b;
+  }
+  const BUILTIN_BY_SIG = {};
+  for(const e of BUILTIN_NAMES) BUILTIN_BY_SIG[sigFromEntry(e)] = e.name;
+
+  function lookupName(counts){
+    const key = sigFromCounts(counts);
+    if(STATE.customNames && STATE.customNames[key])
+      return { name: STATE.customNames[key], source: "custom", sig: key };
+    if(BUILTIN_BY_SIG[key])
+      return { name: BUILTIN_BY_SIG[key], source: "builtin", sig: key };
+    return { name: null, source: null, sig: key };
+  }
+
+  /* Pretty-print a signature for the settings list. */
+  function sigBreakdown(sig){
+    const parts = sig.split("-").map(Number);
+    const labels = ["Straight","Split","Corner","Street","Six-line","Top line","Basket"];
+    const out = [];
+    for(let i=0;i<7;i++) if(parts[i] > 0) out.push(parts[i] + " " + labels[i]);
+    return out.length ? out.join(" + ") : "(empty)";
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* Map difficulty to a (min, max) count of total chips (center counts as 1). */
+  function targetRange(maxAvail){
+    /* maxAvail = number of adjacent spots available for this center (so max total chips = maxAvail+1). */
+    const maxTotal = maxAvail + 1;  /* +1 for the center */
+    switch(STATE.difficulty){
+      case "easy":   return [1, Math.min(3, maxTotal)];
+      case "medium": return [Math.min(4, maxTotal), Math.min(6, maxTotal)];
+      case "hard":   return [Math.min(6, maxTotal), maxTotal];
+      default:       return [1, maxTotal];  /* random */
+    }
+  }
+
+  /* ===== Generate a random picture ===== */
+  let current = null;
+  let revealed = false;
+
+  function pickNext(){
+    let center, spots, picked, attempt=0;
+    while(attempt++ < 120){
+      center = 1 + Math.floor(Math.random() * 36);
+      /* Drop spots whose kind the user excluded in settings. */
+      spots = adjacentSpots(center).filter(sp => !STATE.excludedKinds[sp.kind]);
+      const [minTotal, maxTotal] = targetRange(spots.length);
+      /* Total chips includes the center, so adjacent count = totalChips - 1 */
+      const lo = Math.max(0, minTotal - 1);
+      const hi = Math.max(lo, Math.min(spots.length, maxTotal - 1));
+      const adjCount = lo + Math.floor(Math.random() * (hi - lo + 1));
+      const shuffled = spots.slice().sort(() => Math.random() - 0.5);
+      picked = shuffled.slice(0, adjCount);
+      /* For non-random difficulties, ensure the total satisfies the range
+         (skip when it doesn't, in case some centers can't reach the target). */
+      const total = picked.length + 1;
+      if(STATE.difficulty !== "random" && (total < minTotal || total > maxTotal)) continue;
+      if(current && current.center === center && current.picked.length === picked.length
+          && current.picked.every(p => picked.some(q => q.x===p.x && q.y===p.y))) continue;
+      break;
+    }
+    current = { center, picked };
+    revealed = false;
+  }
+
+  /* ===== Render the table EXACTLY like Fabel's simulator, zoomed on center ===== */
+  function svgEl(tag, attrs){
+    const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    if(attrs) for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function buildLayoutInto(svg){
+    /* zeros row */
+    const box=(x,y,w,h,sw)=>svg.appendChild(svgEl("rect",{x,y,width:w,height:h,fill:"none",stroke:LINE,"stroke-width":sw||2}));
+    const txt=(t,x,y,size,fill,rotate)=>{
+      const attrs={x,y,"font-size":size,fill:fill||LINE,"text-anchor":"middle","dominant-baseline":"central","font-weight":"700","font-family":"Georgia,serif"};
+      if(rotate) attrs.transform=`rotate(${rotate} ${x} ${y})`;
+      const e=svgEl("text",attrs); e.textContent=t; svg.appendChild(e);
+    };
+    const frame=(cx,cy,w,h)=>{
+      svg.appendChild(svgEl("rect",{x:cx-w/2,y:cy-h/2,width:w,height:h,rx:7,fill:"none",stroke:LINE,"stroke-width":2}));
+      svg.appendChild(svgEl("rect",{x:cx-w/2+3.5,y:cy-h/2+3.5,width:w-7,height:h-7,rx:5,fill:"none",stroke:LINE,"stroke-width":1}));
+    };
+    /* Zeros row cells */
+    box(GX,GY0,105,ZH); box(GX+105,GY0,105,ZH);
+    svg.appendChild(svgEl("ellipse",{cx:GX+52.5,cy:GY0+ZH/2,rx:33,ry:19,fill:"none",stroke:LINE,"stroke-width":2.5}));
+    txt("0",GX+52.5,GY0+ZH/2,23,"#f2efe6");
+    svg.appendChild(svgEl("ellipse",{cx:GX+157.5,cy:GY0+ZH/2,rx:33,ry:19,fill:"none",stroke:LINE,"stroke-width":2.5}));
+    txt("00",GX+157.5,GY0+ZH/2,21,"#f2efe6");
+    /* Number cells */
+    for(let n=1;n<=36;n++){
+      const r=cellRect(n);
+      /* Winning-number cell: paint a white background INSIDE the cell only —
+         it replaces the purple felt behind the oval. The red/black oval and
+         the white number stay exactly the same as every other cell. */
+      if(current && n === current.center){
+        svg.appendChild(svgEl("rect",{x:r.x+0.5,y:r.y+0.5,width:r.w-1,height:r.h-1,fill:"#f4eede"}));
+      }
+      box(r.x,r.y,r.w,r.h);
+      svg.appendChild(svgEl("ellipse",{cx:r.x+r.w/2,cy:r.y+r.h/2,rx:29,ry:20.5,fill:RED.has(n)?RED_FILL:BLK_FILL,stroke:LINE,"stroke-width":1.5}));
+      txt(String(n),r.x+r.w/2,r.y+r.h/2,22,"#f2efe6");
+    }
+    /* Dozens */
+    const dz=["1ST 12","2ND 12","3RD 12"];
+    for(let d=0;d<3;d++){
+      const cy=GY+d*4*CH+2*CH;
+      box(DZX,GY+d*4*CH,DZW,4*CH,1.5);
+      frame(DZX+DZW/2,cy,30,88);
+      txt(dz[d],DZX+DZW/2,cy,14,LINE,90);
+    }
+    /* Even-money */
+    const ems=["1 TO 18","EVEN","RED","BLACK","ODD","19 TO 36"];
+    for(let i=0;i<6;i++){
+      const cy=GY+i*2*CH+CH, cx=EMX+EMW/2;
+      box(EMX,GY+i*2*CH,EMW,2*CH,1.5);
+      if(ems[i]==="RED"||ems[i]==="BLACK"){
+        svg.appendChild(svgEl("rect",{x:cx-13,y:cy-37,width:26,height:74,rx:9,fill:ems[i]==="RED"?RED_FILL:BLK_FILL,stroke:LINE,"stroke-width":1.5}));
+      } else {
+        frame(cx,cy,30,80);
+        txt(ems[i],cx,cy,12.5,LINE,90);
+      }
+    }
+    /* Columns 2:1 */
+    for(let c=0;c<3;c++){
+      const cx=GX+c*CW+CW/2, cy=COLY+COLH/2;
+      box(GX+c*CW,COLY,CW,COLH,1.5);
+      frame(cx,cy,58,32);
+      txt("2 TO 1",cx,cy,13);
+    }
+  }
+
+  /* Bet-type metadata: payout ratio + display name. Used by the chip tooltip. */
+  const KIND_INFO = {
+    straight: { label: "Straight up", ratio: "35 to 1" },
+    split:    { label: "Split",       ratio: "17 to 1" },
+    corner:   { label: "Corner",      ratio: "8 to 1"  },
+    street:   { label: "Street",      ratio: "11 to 1" },
+    sixline:  { label: "Line",        ratio: "5 to 1"  },
+    topline:  { label: "Top line",    ratio: "6 to 1"  },
+    basket:   { label: "Basket",      ratio: "11 to 1" },
+  };
+
+  function chipGroup(x,y,kind){
+    const g=svgEl("g",{ style:"cursor:pointer" });
+    /* main coin */
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:13,fill:"url(#chipGreen)","class":"chip"}));
+    /* edge stripes */
+    for(let i=0;i<4;i++){
+      const a=i*Math.PI/2+Math.PI/4;
+      const x1=x+Math.cos(a)*11.5, y1=y+Math.sin(a)*11.5;
+      const x2=x+Math.cos(a)*8.5,  y2=y+Math.sin(a)*8.5;
+      g.appendChild(svgEl("line",{x1,y1,x2,y2,stroke:"#f0fdf4","stroke-width":1.6,"stroke-linecap":"round"}));
+    }
+    /* invisible larger hit target — makes the chip easy to tap */
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:18,fill:"transparent"}));
+    /* label */
+    const t=svgEl("text",{x,y:y+0.5,"font-size":11,fill:"#f0fdf4","text-anchor":"middle","dominant-baseline":"central","font-weight":"800","font-family":"JetBrains Mono, Courier New, monospace"});
+    t.textContent="1";
+    g.appendChild(t);
+    /* click → show info tooltip near the chip */
+    g.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showTooltip(x, y, kind);
+    });
+    return g;
+  }
+
+  /* ===== Bet-info tooltip ===== */
+  let activeTooltip = null;
+  function dismissTooltip(){
+    if(activeTooltip){
+      activeTooltip.remove();
+      activeTooltip = null;
+    }
+  }
+  function showTooltip(x, y, kind){
+    /* If clicking the same chip again, just dismiss. Track current chip via data. */
+    if(activeTooltip && activeTooltip.__chipX === x && activeTooltip.__chipY === y){
+      dismissTooltip();
+      return;
+    }
+    dismissTooltip();
+    const info = KIND_INFO[kind];
+    if(!info) return;
+    const svg = document.querySelector("#layout-wrap svg");
+    if(!svg) return;
+
+    /* Build a small rounded pill with the label + ratio, anchored above the chip */
+    const g = svgEl("g");
+    g.__chipX = x; g.__chipY = y;
+    const label = info.label;
+    const ratio = info.ratio;
+    /* Approximate text widths to size the pill (font is ~10pt) */
+    const labelLen = label.length, ratioLen = ratio.length;
+    const charW = 5.6;
+    const padX = 9, gap = 7;
+    const w = padX*2 + labelLen*charW + gap + ratioLen*charW + 6;
+    const h = 22;
+    const tx = Math.max(8, Math.min(x - w/2, /* clamp inside SVG */ 999));
+    const ty = y - 26;
+    /* Background pill */
+    g.appendChild(svgEl("rect", {
+      x: tx, y: ty - h/2,
+      width: w, height: h, rx: 11,
+      fill: "rgba(15,17,24,0.94)",
+      stroke: "rgba(139,110,247,0.7)", "stroke-width": "1"
+    }));
+    /* Drop shadow under the pill */
+    g.insertBefore(svgEl("rect", {
+      x: tx + 1, y: ty - h/2 + 2,
+      width: w, height: h, rx: 11,
+      fill: "rgba(0,0,0,0.45)",
+    }), g.firstChild);
+    /* Tail / arrow pointing down to the chip */
+    const tailX = Math.max(tx + 10, Math.min(x, tx + w - 10));
+    g.appendChild(svgEl("path", {
+      d: "M " + (tailX - 4) + " " + (ty + h/2 - 1) +
+         " L " + tailX + " " + (ty + h/2 + 5) +
+         " L " + (tailX + 4) + " " + (ty + h/2 - 1) + " Z",
+      fill: "rgba(15,17,24,0.94)",
+      stroke: "rgba(139,110,247,0.7)", "stroke-width": "1"
+    }));
+    /* Label text */
+    const labelEl = svgEl("text", {
+      x: tx + padX, y: ty + 0.5,
+      "font-size": "10",
+      fill: "#c4b5fd",
+      "font-weight": "700",
+      "font-family": "Inter, system-ui, sans-serif",
+      "dominant-baseline": "central",
+      "letter-spacing": "0.06em",
+      "text-transform": "uppercase",
+    });
+    labelEl.textContent = label;
+    g.appendChild(labelEl);
+    /* Ratio text */
+    const ratioEl = svgEl("text", {
+      x: tx + w - padX, y: ty + 0.5,
+      "font-size": "10",
+      fill: "#fde047",
+      "font-weight": "800",
+      "font-family": "JetBrains Mono, Courier New, monospace",
+      "dominant-baseline": "central",
+      "text-anchor": "end",
+    });
+    ratioEl.textContent = ratio;
+    g.appendChild(ratioEl);
+
+    svg.appendChild(g);
+    activeTooltip = g;
+  }
+
+  function renderLayout(){
+    /* Compute zoom window. Center on the chosen number. Show ~3 rows tall
+       plus the 0/00 row when relevant, and include outside-bet columns
+       on the left + some space on the right. */
+    const cR = cellRect(current.center);
+    const row = Math.floor((current.center-1)/3);
+    /* Vertical window: 5 rows centered on the chosen row, expanded if near edges */
+    let topRow = Math.max(0, row-2), botRow = Math.min(11, row+2);
+    if(botRow - topRow + 1 < 5){
+      if(topRow === 0) botRow = Math.min(11, topRow+4);
+      else if(botRow === 11) topRow = Math.max(0, botRow-4);
+    }
+    /* Always include the 0/00 row when the chosen number is in row 0 */
+    const includeZeros = row === 0;
+    const vbX = EMX - 4;
+    const vbY = includeZeros ? GY0 - 4 : GY + topRow * CH - 4;
+    const vbW = (GX + 3*CW) - vbX + 8;
+    const vbBottom = GY + (botRow+1) * CH + 4;
+    const vbH = vbBottom - vbY;
+
+    const svg = svgEl("svg", {
+      xmlns: "http://www.w3.org/2000/svg",
+      viewBox: vbX + " " + vbY + " " + vbW + " " + vbH,
+    });
+
+    /* Defs for chip + dolly gradients */
+    const defs = svgEl("defs");
+    defs.innerHTML =
+      '<radialGradient id="chipGreen" cx="35%" cy="35%" r="65%">' +
+        '<stop offset="0%" stop-color="#34d399"/>' +
+        '<stop offset="100%" stop-color="#047857"/>' +
+      '</radialGradient>';
+    svg.appendChild(defs);
+
+    buildLayoutInto(svg);
+
+    /* Chips: always the center (straight-up), plus selected adjacent spots */
+    const cc = cellCenter(current.center);
+    svg.appendChild(chipGroup(cc.x, cc.y, "straight"));
+    for(const sp of current.picked){
+      svg.appendChild(chipGroup(sp.x, sp.y, sp.kind));
+    }
+    /* Click outside any chip dismisses the tooltip */
+    svg.addEventListener("click", () => dismissTooltip());
+
+
+    const wrap = document.getElementById("layout-wrap");
+    wrap.innerHTML = "";
+    wrap.appendChild(svg);
+  }
+
+  function computePayout(){
+    const counts = { straight:1, split:0, corner:0, street:0, sixline:0, topline:0, basket:0 };
+    for(const sp of current.picked) counts[sp.kind]++;
+    let total = 0;
+    for(const k in counts) total += counts[k] * PAY[k];
+    return { counts, total };
+  }
+
+  const $slot    = document.getElementById("answer-slot");
+  const $btn     = document.getElementById("btn-show");
+  const $bdRow   = document.getElementById("bd-row");
+  const $bd      = document.getElementById("bd-detail");
+  const $nameRow = document.getElementById("name-row");
+  const $nameTxt = document.getElementById("name-text");
+  const $btnEditName = document.getElementById("btn-edit-name");
+  const $nameInput   = document.getElementById("name-input");
+
+  /* ===== Name-row state machine =====
+     Possible states:
+       "empty"      — pre-reveal, no known name for this picture: row is
+                      laid out but its content is invisible (preserves space).
+       "show-name"  — pre-reveal, a known name exists: row shows a single
+                      full-width "Show name" button.
+       "named"      — name has been revealed (either by Show name or by
+                      Show payout). Shows the name + Rename/Name this button.
+       "unnamed"    — payout revealed but no name exists. Shows "Unnamed
+                      picture" + a "Name this" button.
+     The function is the single source of truth — call it whenever something
+     about the current picture's name might have changed. */
+  function applyNameRowState(state){
+    /* Reset all state classes — including "editing" so any in-progress
+       inline edit is torn down whenever the picture or reveal state changes. */
+    $nameRow.classList.remove("empty", "show-name", "has-name", "editing");
+    if(state === "empty"){
+      $nameRow.classList.add("empty");
+      $nameTxt.innerHTML = "&mdash;";
+      $btnEditName.textContent = "—";
+      $btnEditName.dataset.action = "noop";
+      return;
+    }
+    if(state === "show-name"){
+      $nameRow.classList.add("show-name");
+      $btnEditName.textContent = "Show name";
+      $btnEditName.dataset.action = "show-name";
+      return;
+    }
+    /* "named" or "unnamed" — the revealed-name shape */
+    const { counts } = computePayout();
+    const look = lookupName(counts);
+    if(look.name){
+      $nameRow.classList.add("has-name");
+      const srcCls = look.source === "custom" ? "custom" : "builtin";
+      const srcTxt = look.source === "custom" ? "Custom" : "Built-in";
+      $nameTxt.innerHTML = escapeHtml(look.name) +
+        ' <span class="src ' + srcCls + '">' + srcTxt + '</span>';
+      $btnEditName.textContent = "Rename";
+    } else {
+      $nameTxt.textContent = "Unnamed picture";
+      $btnEditName.textContent = "Name this";
+    }
+    $btnEditName.dataset.action = "edit";
+  }
+
+  /* What state should the name row be in *right now*?
+     Pre-reveal: "show-name" if a known name exists, otherwise "empty".
+     Post-reveal: "named"/"unnamed" (handled by applyNameRowState branch). */
+  function preRevealNameState(){
+    const { counts } = computePayout();
+    const look = lookupName(counts);
+    return look.name ? "show-name" : "empty";
+  }
+
+  function newPrompt(){
+    pickNext();
+    activeTooltip = null;  /* old SVG is replaced; the variable should follow */
+    renderLayout();
+    $slot.textContent = "?";
+    $slot.classList.add("empty");
+    $slot.classList.remove("revealed");
+    /* Reserve space for the breakdown — hidden, not display:none. */
+    $bdRow.classList.add("hidden-bd");
+    /* Decide pre-reveal name-row state based on whether the picture is named. */
+    applyNameRowState(preRevealNameState());
+    $btn.textContent = "Show payout";
+  }
+
+  function showAnswer(){
+    const { counts, total } = computePayout();
+    $slot.textContent = "$" + total.toLocaleString();
+    $slot.classList.remove("empty");
+    $slot.classList.add("revealed");
+    $slot.style.animation = "none"; void $slot.offsetWidth; $slot.style.animation = "";
+    /* Build a compact breakdown line: only show non-zero counts */
+    const order = [
+      ["straight", "Straight", 35],
+      ["split",    "Split",    17],
+      ["corner",   "Corner",    8],
+      ["street",   "Street",   11],
+      ["sixline",  "Line",      5],
+      ["topline",  "Top line",  6],
+      ["basket",   "Basket",   11],
+    ];
+    const parts = [];
+    for(const [k, label, rate] of order){
+      if(counts[k]) parts.push('<span><b>' + counts[k] + '</b> ' + label + ' × ' + rate + '</span>');
+    }
+    $bd.innerHTML = parts.join('<span class="sep"> · </span>');
+    $bdRow.classList.remove("hidden-bd");
+    /* Final reveal: show the matched name (or "Unnamed picture") with the edit button. */
+    applyNameRowState("revealed");
+    $btn.textContent = "Next";
+    revealed = true;
+  }
+
+  /* ===== Inline rename editor =====
+     Replaces the old window.prompt() flow with an inline text input that
+     appears in place of the name slot. Save / cancel from the same button
+     (text changes to "Save" while editing), Enter to save, Esc to cancel. */
+  function startEditing(){
+    const { counts } = computePayout();
+    const sig = sigFromCounts(counts);
+    const existing = (STATE.customNames && STATE.customNames[sig])
+                  || BUILTIN_BY_SIG[sig] || "";
+    $nameInput.value = existing;
+    $nameRow.classList.add("editing");
+    $btnEditName.textContent = "Save";
+    $btnEditName.dataset.action = "save";
+    /* Focus + select so typing replaces existing text. requestAnimationFrame
+       avoids the focus being stolen by the click that opened the editor. */
+    requestAnimationFrame(() => {
+      $nameInput.focus();
+      $nameInput.select();
+    });
+  }
+
+  function commitEdit(){
+    const { counts } = computePayout();
+    const sig = sigFromCounts(counts);
+    const trimmed = $nameInput.value.trim();
+    if(!STATE.customNames) STATE.customNames = {};
+    if(trimmed === ""){
+      delete STATE.customNames[sig];
+    } else {
+      STATE.customNames[sig] = trimmed;
+    }
+    saveState();
+    finishEditing();
+  }
+
+  function cancelEdit(){
+    finishEditing();
+  }
+
+  /* Tear down the editing UI and restore the right name-row state. */
+  function finishEditing(){
+    $nameRow.classList.remove("editing");
+    if(revealed){
+      applyNameRowState("revealed");
+    } else {
+      applyNameRowState(preRevealNameState());
+    }
+  }
+
+  /* Single button — dispatches based on the current action it carries. */
+  $btnEditName.onclick = () => {
+    const action = $btnEditName.dataset.action;
+    if(action === "show-name"){
+      /* Reveal just the name. Payout & breakdown remain hidden. */
+      applyNameRowState("revealed");
+      return;
+    }
+    if(action === "noop") return;
+    if(action === "save"){
+      commitEdit();
+      return;
+    }
+    /* default: action === "edit" — open the inline editor */
+    startEditing();
+  };
+
+  /* Enter to save, Escape to cancel — only while the input is focused. */
+  $nameInput.addEventListener("keydown", (e) => {
+    if(e.key === "Enter"){
+      e.preventDefault();
+      commitEdit();
+    } else if(e.key === "Escape"){
+      e.preventDefault();
+      cancelEdit();
+    }
+    /* Stop space/enter from also triggering the global Show-payout shortcut */
+    e.stopPropagation();
+  });
+
+  $btn.onclick = () => {
+    if(revealed) newPrompt();
+    else showAnswer();
+  };
+  document.addEventListener("keydown", (e) => {
+    if(e.key === " " || e.key === "Enter"){
+      const t = e.target;
+      if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      $btn.click();
+    }
+  });
+
+  /* ===== Difficulty buttons ===== */
+  const $diffRow = document.getElementById("diff-row");
+  function renderDiff(){
+    $diffRow.querySelectorAll(".diff-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.d === STATE.difficulty);
+    });
+  }
+  $diffRow.querySelectorAll(".diff-btn").forEach(b => {
+    b.onclick = () => {
+      STATE.difficulty = b.dataset.d;
+      saveState();
+      renderDiff();
+      newPrompt();
+    };
+  });
+
+  /* ===== Settings modal ===== */
+  const $modalOverlay = document.getElementById("modal-overlay");
+  const $namesList    = document.getElementById("names-list");
+
+  function openModal(){
+    renderKindCheckboxes();
+    renderNamesList();
+    $modalOverlay.style.display = "";
+  }
+  function closeModal(){
+    $modalOverlay.style.display = "none";
+  }
+
+  document.getElementById("btn-settings").onclick = openModal;
+  document.getElementById("modal-close").onclick = closeModal;
+  $modalOverlay.addEventListener("click", (e) => {
+    if(e.target === $modalOverlay) closeModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape" && $modalOverlay.style.display !== "none") closeModal();
+  });
+
+  function renderKindCheckboxes(){
+    document.querySelectorAll("#kind-list input[type=checkbox]").forEach(cb => {
+      const kind = cb.dataset.kind;
+      cb.checked = !STATE.excludedKinds[kind];  /* checked = included */
+      cb.onchange = () => {
+        if(cb.checked) delete STATE.excludedKinds[kind];
+        else STATE.excludedKinds[kind] = true;
+        saveState();
+        /* If the currently shown picture uses an excluded kind, redraw. */
+        if(current && current.picked.some(sp => STATE.excludedKinds[sp.kind])){
+          newPrompt();
+        }
+      };
+    });
+  }
+
+  function renderNamesList(){
+    /* Show ALL named patterns (custom + built-in). Custom takes priority
+       so a custom override shows the custom name with the "custom" pill. */
+    const seen = new Set();
+    const rows = [];
+    for(const sig in (STATE.customNames || {})){
+      rows.push({ sig, name: STATE.customNames[sig], source: "custom" });
+      seen.add(sig);
+    }
+    for(const sig in BUILTIN_BY_SIG){
+      if(seen.has(sig)) continue;
+      rows.push({ sig, name: BUILTIN_BY_SIG[sig], source: "builtin" });
+    }
+    /* Stable order: built-ins first by their predefined order, then custom-only. */
+    const builtinOrder = {};
+    BUILTIN_NAMES.forEach((e, i) => { builtinOrder[sigFromEntry(e)] = i; });
+    rows.sort((a, b) => {
+      const ai = a.sig in builtinOrder ? builtinOrder[a.sig] : 1000 + (a.name || "").localeCompare(b.name || "");
+      const bi = b.sig in builtinOrder ? builtinOrder[b.sig] : 1000;
+      return ai - bi;
+    });
+
+    $namesList.innerHTML = "";
+    if(rows.length === 0){
+      $namesList.innerHTML = '<div class="empty">No saved names yet.</div>';
+      return;
+    }
+    for(const it of rows){
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const nameCell = document.createElement("div");
+      nameCell.className = "name-cell";
+      const nameEl = document.createElement("div");
+      nameEl.className = "name " + (it.source === "builtin" ? "builtin" : "");
+      nameEl.textContent = it.name;
+      const sigEl = document.createElement("div");
+      sigEl.className = "sig";
+      sigEl.textContent = sigBreakdown(it.sig);
+      nameCell.appendChild(nameEl);
+      nameCell.appendChild(sigEl);
+
+      const pill = document.createElement("span");
+      pill.className = "src-pill " + it.source;
+      pill.textContent = it.source === "custom" ? "Custom" : "Built-in";
+
+      const renameBtn = document.createElement("button");
+      renameBtn.type = "button";
+      renameBtn.textContent = it.source === "custom" ? "Rename" : "Override";
+
+      /* Inline editor — replaces the row contents with an input + save/cancel
+         instead of using window.prompt() (which gets covered in some hosts). */
+      function enterEditMode(){
+        /* Hide the existing row contents */
+        nameCell.style.display = "none";
+        pill.style.display = "none";
+        renameBtn.style.display = "none";
+        if(delBtnRef) delBtnRef.style.display = "none";
+
+        const editor = document.createElement("div");
+        editor.className = "row-editor";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.maxLength = 40;
+        input.value = it.source === "custom" ? it.name : "";
+        input.placeholder = it.source === "custom"
+          ? "New name (blank = delete)"
+          : "Custom name (blank = keep built-in)";
+
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.textContent = "Save";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.textContent = "Cancel";
+
+        function commit(){
+          const t = input.value.trim();
+          if(!STATE.customNames) STATE.customNames = {};
+          if(t === ""){
+            delete STATE.customNames[it.sig];
+          } else {
+            STATE.customNames[it.sig] = t;
+          }
+          saveState();
+          renderNamesList();
+          const cur = computePayout();
+          if(sigFromCounts(cur.counts) === it.sig){
+            applyNameRowState(revealed ? "revealed" : preRevealNameState());
+          }
+        }
+        function cancel(){
+          renderNamesList();
+        }
+        saveBtn.onclick   = commit;
+        cancelBtn.onclick = cancel;
+        input.addEventListener("keydown", (e) => {
+          if(e.key === "Enter"){ e.preventDefault(); commit(); }
+          else if(e.key === "Escape"){ e.preventDefault(); cancel(); }
+          e.stopPropagation();
+        });
+
+        editor.appendChild(input);
+        editor.appendChild(saveBtn);
+        editor.appendChild(cancelBtn);
+        row.appendChild(editor);
+
+        requestAnimationFrame(() => {
+          input.focus();
+          input.select();
+        });
+      }
+      renameBtn.onclick = enterEditMode;
+
+      row.appendChild(nameCell);
+      row.appendChild(pill);
+      row.appendChild(renameBtn);
+
+      let delBtnRef = null;
+      if(it.source === "custom"){
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.textContent = "Delete";
+        delBtn.onclick = () => {
+          delete STATE.customNames[it.sig];
+          saveState();
+          renderNamesList();
+          const cur = computePayout();
+          if(sigFromCounts(cur.counts) === it.sig){
+            applyNameRowState(revealed ? "revealed" : preRevealNameState());
+          }
+        };
+        row.appendChild(delBtn);
+        delBtnRef = delBtn;
+      }
+
+      $namesList.appendChild(row);
+    }
+  }
+
+  /* ===== Backup: export + import custom names ===== */
+  const $backupStatus = document.getElementById("backup-status");
+  function showBackupStatus(msg, kind){
+    $backupStatus.textContent = msg;
+    $backupStatus.className = "backup-status " + (kind || "");
+    const stamp = msg;
+    setTimeout(() => {
+      if($backupStatus.textContent === stamp){
+        $backupStatus.textContent = "";
+        $backupStatus.className = "backup-status";
+      }
+    }, 6000);
+  }
+
+  document.getElementById("btn-export").onclick = () => {
+    const names = STATE.customNames || {};
+    const keys = Object.keys(names);
+    if(keys.length === 0){
+      showBackupStatus("Nothing to export — no custom names saved yet.", "info");
+      return;
+    }
+    const payload = {
+      format: "roulette-picture-names",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      customNames: names,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "roulette-picture-names-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showBackupStatus("Exported " + keys.length + " name" + (keys.length === 1 ? "" : "s") + ".", "success");
+  };
+
+  document.getElementById("btn-import").onclick = () => {
+    document.getElementById("import-file").click();
+  };
+
+  document.getElementById("import-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file){ return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        let incoming = null;
+        /* Accept either {customNames: {...}} (our export format) or a bare
+           {sig: name, ...} object as a convenience. */
+        if(data && typeof data === "object" && data.customNames && typeof data.customNames === "object"){
+          incoming = data.customNames;
+        } else if(data && typeof data === "object" && !Array.isArray(data)){
+          incoming = data;
+        }
+        if(!incoming) throw new Error("File doesn't contain a names object.");
+        let added = 0, replaced = 0, skipped = 0;
+        if(!STATE.customNames) STATE.customNames = {};
+        for(const sig in incoming){
+          const name = incoming[sig];
+          if(typeof sig !== "string" || typeof name !== "string"){ skipped++; continue; }
+          const parts = sig.split("-");
+          if(parts.length !== 7 || parts.some(p => isNaN(Number(p)))){ skipped++; continue; }
+          const trimmed = name.trim();
+          if(trimmed === ""){ skipped++; continue; }
+          if(sig in STATE.customNames) replaced++;
+          else added++;
+          STATE.customNames[sig] = trimmed;
+        }
+        saveState();
+        renderNamesList();
+        /* Refresh the currently-shown picture's name row if it was touched. */
+        if(current){
+          applyNameRowState(revealed ? "revealed" : preRevealNameState());
+        }
+        const parts2 = [];
+        if(added)    parts2.push(added + " added");
+        if(replaced) parts2.push(replaced + " updated");
+        if(skipped)  parts2.push(skipped + " skipped");
+        showBackupStatus(
+          (added + replaced > 0 ? "Imported: " : "Nothing imported — ") + (parts2.join(", ") || "nothing"),
+          (added + replaced > 0 ? "success" : "info")
+        );
+      } catch(err){
+        showBackupStatus("Couldn't import: " + err.message, "error");
+      }
+      /* Reset input so re-selecting the same file fires again */
+      e.target.value = "";
+    };
+    reader.onerror = () => {
+      showBackupStatus("Couldn't read the file.", "error");
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  renderDiff();
+  newPrompt();
+})();
+</script>
+
+</body>
+</html>
