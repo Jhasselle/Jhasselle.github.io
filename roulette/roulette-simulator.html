@@ -185,6 +185,7 @@
     <tr><td>Street (3 nums)</td><td>11 : 1</td></tr>
     <tr><td>Corner</td><td>8 : 1</td></tr>
     <tr><td>Basket (0-00-1-2-3)</td><td>6 : 1</td></tr>
+    <tr><td>Trio (0-1-2, 0-00-2, 00-2-3)</td><td>11 : 1</td></tr>
     <tr><td>Six line</td><td>5 : 1</td></tr>
     <tr><td>Dozen / Column</td><td>2 : 1</td></tr>
     <tr><td>Even money</td><td>1 : 1</td></tr>
@@ -206,7 +207,7 @@ const RED_NUMS=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const WHEEL_ORDER=[0,28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,ZZ,27,10,25,29,12,8,19,31,18,6,21,33,16,4,23,35,14,2];
 const numLabel=n=>n===ZZ?'00':String(n);
 const numColor=n=>(n===0||n===ZZ)?'green':(RED_NUMS.has(n)?'red':'black');
-const PAYOUT={straight:35,split:17,street:11,corner:8,basket:6,sixline:5,dozen:2,column:2,even:1};
+const PAYOUT={straight:35,split:17,street:11,corner:8,basket:6,trio:11,sixline:5,dozen:2,column:2,even:1};
 const TABLE_MIN=15;    // outside bets must be at least table minimum
 const INSIDE_MAX=100;  // no single inside bet may exceed $100
 const OUTSIDE_MAX=2000;// no single outside bet may exceed $2000
@@ -233,16 +234,16 @@ const CHIP_COLORS=[
 const DIFFS=[
   { name:'Beginner', players:1, chipVals:[5], betCount:[3,4], maxStack:1,
     chequeOutsideProb:0, chequeDenoms:[], maxCheques:0,
-    weights:{straight:5,split:4,street:2,corner:3,sixline:1,basket:0,dozen:1,column:1,even:2} },
+    weights:{straight:5,split:4,street:2,corner:3,sixline:1,basket:0,trio:0,dozen:1,column:1,even:2} },
   { name:'Stacks', players:1, chipVals:[5], betCount:[5,7], maxStack:8,
     chequeOutsideProb:0.4, chequeDenoms:[5], maxCheques:4,
-    weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0,dozen:2,column:2,even:3} },
+    weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0,trio:0.3,dozen:2,column:2,even:3} },
   { name:'Two Players', players:2, chipVals:[5,25], betCount:[8,12], maxStack:12,
     chequeOutsideProb:0.5, chequeDenoms:[5,25], maxCheques:4,
-    weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0.5,dozen:2,column:2,even:3} },
+    weights:{straight:5,split:4,street:2,corner:3,sixline:2,basket:0.5,trio:0.6,dozen:2,column:2,even:3} },
   { name:'Full Table', players:5, chipVals:[5,5,25,25,100], betCount:[16,24], maxStack:20,
     chequeOutsideProb:0.5, chequeDenoms:[5,25], maxCheques:6,
-    weights:{straight:6,split:5,street:3,corner:4,sixline:2,basket:0.7,dozen:3,column:3,even:4} },
+    weights:{straight:6,split:5,street:3,corner:4,sixline:2,basket:0.7,trio:0.9,dozen:3,column:3,even:4} },
 ];
 
 const rnd=n=>Math.floor(Math.random()*n);
@@ -309,6 +310,11 @@ function addSpot(type,nums,x,y,name){SPOTS.push({type,nums,x,y,name});}
     addSpot('sixline',[n,n+1,n+2,n+3,n+4,n+5],GX,GY+(r+1)*CH,`Six line ${n}-${n+5}`);
   }
   addSpot('basket',[0,ZZ,1,2,3],GX,GY,'Basket 0-00-1-2-3');
+  // trios — three-number bets that include a zero (11:1), anchored at the
+  // corners where the three cells meet (GX+70, +105, +140 at y=GY)
+  addSpot('trio',[0,1,2],   GX+70, GY,'Trio 0/1/2');
+  addSpot('trio',[0,ZZ,2],  GX+105,GY,'Trio 0/00/2');
+  addSpot('trio',[ZZ,2,3],  GX+140,GY,'Trio 00/2/3');
   // dozens
   for(let d=0;d<3;d++){
     const nums=[];for(let n=d*12+1;n<=d*12+12;n++)nums.push(n);
