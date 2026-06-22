@@ -417,7 +417,7 @@ h1 {
         <label><input type="checkbox" data-kind="topline"> <span>Top line</span> <span class="ratio">6 : 1</span></label>
         <label><input type="checkbox" data-kind="sixline"> <span>Six&#8209;line</span> <span class="ratio">5 : 1</span></label>
         <label><input type="checkbox" data-kind="street"> <span>Street</span> <span class="ratio">11 : 1</span></label>
-        <label><input type="checkbox" data-kind="basket"> <span>Basket</span> <span class="ratio">11 : 1</span></label>
+        <label><input type="checkbox" data-kind="trio"> <span>Trio</span> <span class="ratio">11 : 1</span></label>
       </div>
       <p class="hint">Straight, split, and corner are always included.</p>
     </section>
@@ -455,14 +455,14 @@ h1 {
 
   const PAY = {
     straight: 35, split: 17, corner: 8,
-    street: 11, sixline: 5, topline: 6, basket: 11,
+    street: 11, sixline: 5, topline: 6, trio: 11,
     /* Outside bets — 1:1 for the six even-money props, 2:1 for dozens & columns. */
     even1: 1, dozen: 2, column: 2,
   };
   const KIND_LABEL = {
     straight: "Straight up", split: "Split",     corner:  "Corner",
     street:   "Street",      sixline: "Six-line", topline: "Top line",
-    basket:   "Basket",
+    trio:     "Trio",
     even1:    "Even-money",  dozen:   "Dozen",    column:  "Column",
   };
 
@@ -492,14 +492,15 @@ h1 {
     /* ROW-0 specials */
     if(row===0){
       spots.push({kind:"topline",x:GX, y:GY, nums:[0,ZZ,1,2,3]});
-      /* BASKETS (11:1) — each trio wins only for the inside numbers in
-         its nums list:
-           (0, 1, 2)   → n=1 (col 0) or n=2 (col 1)
-           (0, 00, 2)  → n=2 only  (col 1)
-           (00, 2, 3)  → n=2 (col 1) or n=3 (col 2)                       */
-      if(col===0 || col===1) spots.push({kind:"basket",x:GX+35,  y:GY, nums:[0,1,2]});
-      if(col===1)            spots.push({kind:"basket",x:GX+105, y:GY, nums:[0,ZZ,2]});
-      if(col===1 || col===2) spots.push({kind:"basket",x:GX+175, y:GY, nums:[ZZ,2,3]});
+      /* TRIOS (11:1) — three-number bets that include a zero, anchored at
+         the CORNER where the three cells meet (NOT the middle of a side,
+         so they're visually distinct from the adjacent splits below).
+           (0, 1, 2)   → n=1 or n=2  → x = GX+70  (right edge of cell 1)
+           (0, 00, 2)  → n=2 only    → x = GX+105 (0/00 boundary)
+           (00, 2, 3)  → n=2 or n=3  → x = GX+140 (right edge of cell 2)  */
+      if(col===0 || col===1) spots.push({kind:"trio",x:GX+70,  y:GY, nums:[0,1,2]});
+      if(col===1)            spots.push({kind:"trio",x:GX+105, y:GY, nums:[0,ZZ,2]});
+      if(col===1 || col===2) spots.push({kind:"trio",x:GX+140, y:GY, nums:[ZZ,2,3]});
       if(col===0) spots.push({kind:"split",x:GX+35,   y:GY, nums:[0,1]});
       if(col===1) spots.push({kind:"split",x:GX+87.5, y:GY, nums:[0,2]});
       if(col===1) spots.push({kind:"split",x:GX+122.5,y:GY, nums:[ZZ,2]});
@@ -801,7 +802,7 @@ h1 {
     street:   { label: "Street",      ratio: 11 },
     sixline:  { label: "Six-line",    ratio:  5 },
     topline:  { label: "Top line",    ratio:  6 },
-    basket:   { label: "Basket",      ratio: 11 },
+    trio:     { label: "Trio",        ratio: 11 },
     even1:    { label: "Even-money",  ratio:  1 },
     dozen:    { label: "Dozen",       ratio:  2 },
     column:   { label: "Column",      ratio:  2 },
