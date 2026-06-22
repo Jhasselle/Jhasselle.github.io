@@ -569,7 +569,7 @@ h1 {
         <label><input type="checkbox" data-kind="topline"> <span>Top line</span> <span class="ratio">6 : 1</span></label>
         <label><input type="checkbox" data-kind="sixline"> <span>Six&#8209;line</span> <span class="ratio">5 : 1</span></label>
         <label><input type="checkbox" data-kind="street"> <span>Street</span> <span class="ratio">11 : 1</span></label>
-        <label><input type="checkbox" data-kind="basket"> <span>Basket</span> <span class="ratio">11 : 1</span></label>
+        <label><input type="checkbox" data-kind="trio"> <span>Trio</span> <span class="ratio">11 : 1</span></label>
       </div>
       <p class="hint">Straight, split, and corner are always included.</p>
     </section>
@@ -619,7 +619,7 @@ h1 {
   /* ===== Bet payouts ===== */
   const PAY = {
     straight: 35, split: 17, corner: 8,
-    street: 11, sixline: 5, topline: 6, basket: 11,
+    street: 11, sixline: 5, topline: 6, trio: 11,
   };
 
   /* ===== For a given center number, enumerate all adjacent picture spots ===== */
@@ -654,14 +654,15 @@ h1 {
     if(row===0){
       /* TOP LINE (6:1) — 0, 00, 1, 2, 3 — anchor at corner where zeros meet n=1 */
       spots.push({kind:"topline",x:GX, y:GY, nums:[0,ZZ,1,2,3]});
-      /* BASKETS (11:1) — each trio wins only when the chosen number is
-         actually in its nums list:
-           (0, 1, 2)   → n=1 (col 0) or n=2 (col 1)
-           (0, 00, 2)  → n=2 only  (col 1)
-           (00, 2, 3)  → n=2 (col 1) or n=3 (col 2)                       */
-      if(col===0 || col===1) spots.push({kind:"basket",x:GX+35,  y:GY, nums:[0,1,2]});
-      if(col===1)            spots.push({kind:"basket",x:GX+105, y:GY, nums:[0,ZZ,2]});
-      if(col===1 || col===2) spots.push({kind:"basket",x:GX+175, y:GY, nums:[ZZ,2,3]});
+      /* TRIOS (11:1) — three-number bets that include a zero, anchored at
+         the CORNER where the three cells meet (so they don't overlap with
+         the adjacent 2-number splits below).
+           (0, 1, 2)   → n=1 or n=2  → x = GX+70  (right edge of cell 1)
+           (0, 00, 2)  → n=2 only    → x = GX+105 (0/00 boundary)
+           (00, 2, 3)  → n=2 or n=3  → x = GX+140 (right edge of cell 2)  */
+      if(col===0 || col===1) spots.push({kind:"trio",x:GX+70,  y:GY, nums:[0,1,2]});
+      if(col===1)            spots.push({kind:"trio",x:GX+105, y:GY, nums:[0,ZZ,2]});
+      if(col===1 || col===2) spots.push({kind:"trio",x:GX+140, y:GY, nums:[ZZ,2,3]});
       /* Splits to the zeros (also 17:1) */
       if(col===0) spots.push({kind:"split",x:GX+35,   y:GY, nums:[0,1]});
       if(col===1) spots.push({kind:"split",x:GX+87.5, y:GY, nums:[0,2]});
@@ -697,7 +698,7 @@ h1 {
      Each entry is keyed by the COUNT of each bet type around the center
      (so two corners count as a Mickey Mouse no matter which two corners).
      Order: straight (s), split (sp), corner (c), street (st),
-            six-line (sl), top line (tl), basket (b).
+            six-line (sl), top line (tl), trio (b).
   */
   const BUILTIN_NAMES = [
     { name: "Corner pocket", s:1, sp:0, c:1, st:0, sl:0, tl:0, b:0 },
@@ -714,7 +715,7 @@ h1 {
   ];
   function sigFromCounts(counts){
     return counts.straight + "-" + counts.split + "-" + counts.corner + "-"
-         + counts.street   + "-" + counts.sixline + "-" + counts.topline + "-" + counts.basket;
+         + counts.street   + "-" + counts.sixline + "-" + counts.topline + "-" + counts.trio;
   }
   function sigFromEntry(e){
     return e.s + "-" + e.sp + "-" + e.c + "-" + e.st + "-" + e.sl + "-" + e.tl + "-" + e.b;
@@ -734,7 +735,7 @@ h1 {
   /* Pretty-print a signature for the settings list. */
   function sigBreakdown(sig){
     const parts = sig.split("-").map(Number);
-    const labels = ["Straight","Split","Corner","Street","Six-line","Top line","Basket"];
+    const labels = ["Straight","Split","Corner","Street","Six-line","Top line","Trio"];
     const out = [];
     for(let i=0;i<7;i++) if(parts[i] > 0) out.push(parts[i] + " " + labels[i]);
     return out.length ? out.join(" + ") : "(empty)";
@@ -868,7 +869,7 @@ h1 {
     street:   { label: "Street",      ratio: "11 to 1" },
     sixline:  { label: "Line",        ratio: "5 to 1"  },
     topline:  { label: "Top line",    ratio: "6 to 1"  },
-    basket:   { label: "Basket",      ratio: "11 to 1" },
+    trio:     { label: "Trio",        ratio: "11 to 1" },
   };
 
   function chipGroup(x,y,kind){
@@ -1037,7 +1038,7 @@ h1 {
   function computePayout(){
     const counts = {
       straight: current.hasCenter ? 1 : 0,
-      split:0, corner:0, street:0, sixline:0, topline:0, basket:0,
+      split:0, corner:0, street:0, sixline:0, topline:0, trio:0,
     };
     for(const sp of current.picked) counts[sp.kind]++;
     let total = 0;
@@ -1137,7 +1138,7 @@ h1 {
       ["street",   "Street",   11],
       ["sixline",  "Line",      5],
       ["topline",  "Top line",  6],
-      ["basket",   "Basket",   11],
+      ["trio",     "Trio",     11],
     ];
     const parts = [];
     for(const [k, label, rate] of order){
