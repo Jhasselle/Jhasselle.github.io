@@ -720,6 +720,33 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
       const q = quads[0];
       const qv = rankVal(q[0].rank);
       const others = sorted.filter(c => !q.includes(c));
+
+      /* Quads + pair: treat as THREE pairs (the quads split into two pairs
+         of the same rank, plus the external pair). Highest of the three
+         pairs goes to the front; the other two pairs + the singleton stay
+         in the back. Same idea as the standard 3-pair rule. */
+      if (pairs.length >= 1) {
+        const p = pairs[0];
+        const pv = rankVal(p[0].rank);
+        const singleton = sorted.filter(c => !q.includes(c) && !p.includes(c));
+        if (pv > qv) {
+          /* External pair beats the quads rank → keep all 4 quads in the
+             back (they're a 4-of-a-kind back); external pair to front. */
+          return build([...q, ...singleton], [...p],
+            'Quads + higher pair (three-pair rule): play the higher pair (' +
+            p[0].rank + p[0].rank + ') in the front; keep four ' +
+            q[0].rank + 's together in the back.');
+        }
+        /* Quads rank is higher → split the quads. One pair of the quads
+           goes to the front; the other pair joins the external pair +
+           singleton in the back. */
+        return build([q[2], q[3], ...p, ...singleton], [q[0], q[1]],
+          'Quads + lower pair (three-pair rule): split the quads — pair of ' +
+          q[0].rank + 's to the front (highest pair); other pair of ' +
+          q[0].rank + 's + ' + p[0].rank + p[0].rank + ' + ' +
+          singleton[0].rank + ' to the back.');
+      }
+
       if (qv <= 5) {
         /* Keep quads together. Lowest non-quad fills the 5th back slot;
            the two highest go to the front for the best low hand. */
@@ -1336,9 +1363,22 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
   }
   function tryQuads() {
     const quadRank = RANKS[Math.floor(Math.random()*RANKS.length)];
-    const otherRanks = pickN(RANKS.filter(r => r !== quadRank), 3);
     const cards = SUITS.map(s => makeCard(quadRank, s, false));
-    otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    /* ~40% of the time, fill the remaining 3 slots as a pair + singleton
+       (so the "3-pair" rule kicks in for quads + pair). The remainder of
+       the time, 3 distinct singletons (no pair). */
+    if (Math.random() < 0.4) {
+      const remainingRanks = RANKS.filter(r => r !== quadRank);
+      const pairRank = remainingRanks[Math.floor(Math.random() * remainingRanks.length)];
+      const singletonRank = pickN(RANKS.filter(r => r !== quadRank && r !== pairRank), 1)[0];
+      const pairSuits = pickN(SUITS, 2);
+      cards.push(makeCard(pairRank, pairSuits[0], false));
+      cards.push(makeCard(pairRank, pairSuits[1], false));
+      cards.push(makeCard(singletonRank, randSuit(), false));
+    } else {
+      const otherRanks = pickN(RANKS.filter(r => r !== quadRank), 3);
+      otherRanks.forEach(r => cards.push(makeCard(r, randSuit(), false)));
+    }
     return cards;
   }
   function tryStraight() {
