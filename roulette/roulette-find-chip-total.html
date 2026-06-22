@@ -1,0 +1,1126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette Find Chip Total</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 12s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.78);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-btn:hover {
+  transform: translateX(-2px);
+  border-color: rgba(139, 110, 247, 0.55);
+  background: rgba(20,22,32,0.92);
+  color: #fff;
+}
+.home-btn::before {
+  content: "\2190"; font-size: 14px; line-height: 1;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 600px; margin: 0 auto;
+  padding: 70px 18px 80px;
+}
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+h1 {
+  margin: 6px 0 0; font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.h1-row {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  margin-bottom: 18px;
+}
+.settings-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer; flex: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+  margin-bottom: 4px;
+}
+.settings-btn:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+  border-color: rgba(139,110,247,0.45);
+  transform: translateY(-1px);
+}
+
+.trainer {
+  background: rgba(15,17,24,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 18px 14px 22px;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+}
+
+.layout-wrap {
+  background: radial-gradient(ellipse at 50% 40%, #56439b, #43317a 80%);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.layout-wrap svg { display: block; width: 100%; height: auto; }
+
+/* Controls block above the layout — two slider groups (stacks + chips) */
+.controls {
+  display: flex; flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+}
+.ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+.ctrl-title {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.85);
+  margin-bottom: 3px;
+}
+.ctrl-title .range-display {
+  font: 800 11px/1 "JetBrains Mono", monospace;
+  color: #fde047;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.ctrl-row { display: flex; align-items: center; gap: 10px; }
+.ctrl-row .lbl {
+  flex: 0 0 32px;
+  font: 700 9.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+.ctrl-row input[type=range] {
+  flex: 1; min-width: 0;
+  -webkit-appearance: none; appearance: none;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(99,102,241,0.4), rgba(168,85,247,0.4));
+  border-radius: 2px;
+  outline: none; cursor: pointer;
+}
+.ctrl-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+.ctrl-row input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+.ctrl-row .val {
+  flex: 0 0 28px;
+  text-align: center;
+  font: 800 13px/1 "JetBrains Mono", monospace;
+  color: #c4b5fd;
+}
+
+.chip {
+  stroke: #052e16; stroke-width: 1.2;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55));
+}
+
+.answer-slot {
+  margin: 12px auto 12px;
+  min-height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: clamp(42px, 9vw, 60px);
+  line-height: 1;
+  color: #34d399;
+  background: rgba(0,0,0,0.32);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 14px 12px;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.answer-slot.empty { color: rgba(255,255,255,0.18); font-size: clamp(34px, 7vw, 46px); }
+.answer-slot.revealed {
+  border-style: solid;
+  border-color: rgba(52,211,153,0.45);
+  background: rgba(52,211,153,0.06);
+  animation: pop 0.25s ease;
+}
+@keyframes pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+/* Per-stack breakdown list, shown post-reveal */
+.bd-list {
+  display: flex; flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  min-height: 56px;
+}
+.bd-list.hidden-bd { visibility: hidden; }
+.bd-list .bd-line {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.025);
+  font: 600 12px/1.3 "Inter", sans-serif;
+  color: rgba(255,255,255,0.75);
+}
+.bd-list .bd-label {
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.bd-list .bd-math {
+  font: 800 12px/1 "JetBrains Mono", monospace;
+  color: #fde047;
+  white-space: nowrap;
+}
+.bd-list .bd-math b { color: #fff; font-weight: 800; }
+
+.btn-row { display: flex; justify-content: center; margin-top: 12px; }
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 12px;
+  padding: 14px 28px; font: 700 14px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: transform 0.12s, background 0.18s, opacity 0.18s;
+  min-width: 200px;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #7c7ff5, #4f46e5); }
+
+.beta-badge {
+  display: inline-block; margin-left: 10px;
+  padding: 3px 9px; border-radius: 999px;
+  font: 800 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: #fde047;
+  background: rgba(250, 204, 21, 0.10);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  vertical-align: middle;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(7,8,12,0.78);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.18s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  position: relative;
+  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
+  background: linear-gradient(180deg, rgba(20,22,32,0.97), rgba(15,17,24,0.97));
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 22px 22px 26px;
+  box-shadow: 0 28px 80px -20px rgba(0,0,0,0.9);
+}
+.modal h2 {
+  margin: 0 0 18px;
+  font: 800 22px/1 "Inter", sans-serif;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.modal h3 {
+  margin: 0 0 9px;
+  font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.modal section { margin-bottom: 22px; }
+.modal section:last-child { margin-bottom: 0; }
+.modal .hint {
+  margin: 8px 0 0;
+  font: 600 11px/1.45 "Inter", sans-serif;
+  color: rgba(255,255,255,0.42);
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px;
+  background: transparent; border: 0;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 22px/1 "Inter", sans-serif;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer; border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.modal-close:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.kind-list { display: flex; flex-direction: column; gap: 6px; }
+.kind-list label {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  font: 600 13px/1.2 "Inter", sans-serif;
+  color: rgba(255,255,255,0.85);
+  transition: background 0.15s, border-color 0.15s;
+}
+.kind-list label:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.16); }
+.kind-list input[type=checkbox] {
+  width: 16px; height: 16px; accent-color: #a855f7; cursor: pointer; flex: none;
+}
+.kind-list .ratio {
+  margin-left: auto;
+  font: 700 11px/1 "JetBrains Mono", monospace;
+  color: rgba(196,181,253,0.85);
+  letter-spacing: 0.04em;
+}
+
+/* Outside-bets toggle in the settings modal */
+.outside-toggle {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  font: 600 13px/1.2 "Inter", sans-serif;
+  color: rgba(255,255,255,0.85);
+  transition: background 0.15s, border-color 0.15s;
+}
+.outside-toggle:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.16); }
+.outside-toggle input[type=checkbox] {
+  width: 16px; height: 16px; accent-color: #a855f7; cursor: pointer; flex: none;
+}
+
+@media (max-width: 560px) {
+  .page { padding: 56px 10px 60px; }
+  h1 { font-size: 22px; }
+  .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
+  .trainer { padding: 14px 10px 18px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<a class="home-btn" href="roulette.html">Roulette</a>
+
+<div class="page">
+  <div class="greet">Roulette &middot; Dealer practice</div>
+  <div class="h1-row">
+    <h1>Find chip total</h1>
+    <button class="settings-btn" id="btn-settings" type="button">Settings</button>
+  </div>
+
+  <div class="trainer">
+    <div class="controls">
+      <div class="ctrl-group">
+        <div class="ctrl-title">Number of bets <span class="range-display" id="stacks-display">2 &ndash; 5</span></div>
+        <div class="ctrl-row"><span class="lbl">Min</span><input type="range" id="min-stacks" min="1" max="20" step="1"><span class="val" id="min-stacks-val">2</span></div>
+        <div class="ctrl-row"><span class="lbl">Max</span><input type="range" id="max-stacks" min="1" max="20" step="1"><span class="val" id="max-stacks-val">5</span></div>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-title">Chips per stack <span class="range-display" id="chips-display">1 &ndash; 3</span></div>
+        <div class="ctrl-row"><span class="lbl">Min</span><input type="range" id="min-chips" min="1" max="20" step="1"><span class="val" id="min-chips-val">1</span></div>
+        <div class="ctrl-row"><span class="lbl">Max</span><input type="range" id="max-chips" min="1" max="20" step="1"><span class="val" id="max-chips-val">3</span></div>
+      </div>
+    </div>
+    <div class="layout-wrap" id="layout-wrap"></div>
+
+    <div class="answer-slot empty" id="answer-slot">?</div>
+
+    <div class="bd-list hidden-bd" id="bd-list"></div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-show">Show payout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="modal-overlay" style="display:none">
+  <div class="modal" role="dialog" aria-label="Settings">
+    <button class="modal-close" id="modal-close" type="button" aria-label="Close">&times;</button>
+    <h2>Settings</h2>
+
+    <section>
+      <h3>Include bet types</h3>
+      <div class="kind-list" id="kind-list">
+        <label><input type="checkbox" data-kind="topline"> <span>Top line</span> <span class="ratio">6 : 1</span></label>
+        <label><input type="checkbox" data-kind="sixline"> <span>Six&#8209;line</span> <span class="ratio">5 : 1</span></label>
+        <label><input type="checkbox" data-kind="street"> <span>Street</span> <span class="ratio">11 : 1</span></label>
+        <label><input type="checkbox" data-kind="basket"> <span>Basket</span> <span class="ratio">11 : 1</span></label>
+      </div>
+      <p class="hint">Straight, split, and corner are always included.</p>
+    </section>
+
+    <section>
+      <h3>Outside bets</h3>
+      <label class="outside-toggle">
+        <input type="checkbox" id="include-outside">
+        <span>Include outside bets that win for the chosen number</span>
+      </label>
+      <p class="hint">Adds the winning even-money (1:1), dozen (2:1), and column (2:1) bets to the pool of possible stacks. Off by default.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ===== Geometry (matches the simulator) ===== */
+  const EMX=0, EMW=44, DZX=46, DZW=44, GX=92, CW=70, CH=52;
+  const GY0=2, ZH=52, GY=GY0+ZH;
+  const COLY=GY+12*CH+2, COLH=48;
+  const ZZ=100;  /* sentinel for "00" */
+  const RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const RED_FILL='#c0392b', BLK_FILL='#17171c', LINE='#e9e5d8';
+
+  function cellRect(n){
+    const col=(n-1)%3, row=Math.floor((n-1)/3);
+    return {x:GX+col*CW, y:GY+row*CH, w:CW, h:CH};
+  }
+  function cellCenter(n){
+    if(n===0)  return {x:GX+52.5,  y:GY0+ZH/2};
+    if(n===ZZ) return {x:GX+157.5, y:GY0+ZH/2};
+    const r=cellRect(n); return {x:r.x+r.w/2, y:r.y+r.h/2};
+  }
+
+  const PAY = {
+    straight: 35, split: 17, corner: 8,
+    street: 11, sixline: 5, topline: 6, basket: 11,
+    /* Outside bets — 1:1 for the six even-money props, 2:1 for dozens & columns. */
+    even1: 1, dozen: 2, column: 2,
+  };
+  const KIND_LABEL = {
+    straight: "Straight up", split: "Split",     corner:  "Corner",
+    street:   "Street",      sixline: "Six-line", topline: "Top line",
+    basket:   "Basket",
+    even1:    "Even-money",  dozen:   "Dozen",    column:  "Column",
+  };
+
+  /* For a given center, enumerate all adjacent picture spots. */
+  function adjacentSpots(n){
+    if(n<1||n>36) return [];
+    const col=(n-1)%3, row=Math.floor((n-1)/3);
+    const spots=[];
+    /* SPLITS (17:1) */
+    if(row>0)  spots.push({kind:"split",x:GX+col*CW+CW/2, y:GY+row*CH,        nums:[n,n-3]});
+    if(row<11) spots.push({kind:"split",x:GX+col*CW+CW/2, y:GY+(row+1)*CH,    nums:[n,n+3]});
+    if(col<2)  spots.push({kind:"split",x:GX+(col+1)*CW,  y:GY+row*CH+CH/2,   nums:[n,n+1]});
+    if(col>0)  spots.push({kind:"split",x:GX+col*CW,      y:GY+row*CH+CH/2,   nums:[n,n-1]});
+    /* CORNERS (8:1) */
+    if(row>0 && col<2)  spots.push({kind:"corner",x:GX+(col+1)*CW, y:GY+row*CH,     nums:[n-3,n-2,n,n+1]});
+    if(row>0 && col>0)  spots.push({kind:"corner",x:GX+col*CW,     y:GY+row*CH,     nums:[n-4,n-3,n-1,n]});
+    if(row<11 && col<2) spots.push({kind:"corner",x:GX+(col+1)*CW, y:GY+(row+1)*CH, nums:[n,n+1,n+3,n+4]});
+    if(row<11 && col>0) spots.push({kind:"corner",x:GX+col*CW,     y:GY+(row+1)*CH, nums:[n-1,n,n+2,n+3]});
+    /* STREET (11:1) */
+    {
+      const sn=row*3+1;
+      spots.push({kind:"street",x:GX, y:GY+row*CH+CH/2, nums:[sn,sn+1,sn+2]});
+    }
+    /* SIX-LINE (5:1) */
+    if(row>0)  spots.push({kind:"sixline",x:GX, y:GY+row*CH,     nums:[(row-1)*3+1,(row-1)*3+2,(row-1)*3+3,row*3+1,row*3+2,row*3+3]});
+    if(row<11) spots.push({kind:"sixline",x:GX, y:GY+(row+1)*CH, nums:[row*3+1,row*3+2,row*3+3,(row+1)*3+1,(row+1)*3+2,(row+1)*3+3]});
+    /* ROW-0 specials */
+    if(row===0){
+      spots.push({kind:"topline",x:GX, y:GY, nums:[0,ZZ,1,2,3]});
+      /* BASKETS (11:1) — each trio wins only for the inside numbers in
+         its nums list:
+           (0, 1, 2)   → n=1 (col 0) or n=2 (col 1)
+           (0, 00, 2)  → n=2 only  (col 1)
+           (00, 2, 3)  → n=2 (col 1) or n=3 (col 2)                       */
+      if(col===0 || col===1) spots.push({kind:"basket",x:GX+35,  y:GY, nums:[0,1,2]});
+      if(col===1)            spots.push({kind:"basket",x:GX+105, y:GY, nums:[0,ZZ,2]});
+      if(col===1 || col===2) spots.push({kind:"basket",x:GX+175, y:GY, nums:[ZZ,2,3]});
+      if(col===0) spots.push({kind:"split",x:GX+35,   y:GY, nums:[0,1]});
+      if(col===1) spots.push({kind:"split",x:GX+87.5, y:GY, nums:[0,2]});
+      if(col===1) spots.push({kind:"split",x:GX+122.5,y:GY, nums:[ZZ,2]});
+      if(col===2) spots.push({kind:"split",x:GX+175,  y:GY, nums:[ZZ,3]});
+    }
+    return spots;
+  }
+
+  /* For a given center number (1-36), return every OUTSIDE bet that wins
+     for it: even-money props (1:1), the right dozen (2:1), the right
+     column 2:1. Each spot carries a specific `label` like "Red" or
+     "1st 12" so the tooltip and breakdown can show which bet won. */
+  function outsideSpotsFor(n){
+    if(n < 1 || n > 36) return [];
+    const out = [];
+    const emCX = EMX + EMW/2;
+    /* Even-money column on the left — 6 rows, each 2*CH tall */
+    const emRows = [
+      {label: "1 to 18",  cy: GY + CH,    wins: n <= 18},
+      {label: "Even",     cy: GY + 3*CH,  wins: n % 2 === 0},
+      {label: "Red",      cy: GY + 5*CH,  wins: RED.has(n)},
+      {label: "Black",    cy: GY + 7*CH,  wins: !RED.has(n)},
+      {label: "Odd",      cy: GY + 9*CH,  wins: n % 2 === 1},
+      {label: "19 to 36", cy: GY + 11*CH, wins: n >= 19},
+    ];
+    for(const r of emRows){
+      if(r.wins) out.push({kind: "even1", x: emCX, y: r.cy, label: r.label});
+    }
+    /* Dozens — three rows in the inner column */
+    const dzCX = DZX + DZW/2;
+    const dz   = Math.floor((n - 1) / 12);   /* 0..2 */
+    const dzLabels = ["1st 12", "2nd 12", "3rd 12"];
+    out.push({kind: "dozen", x: dzCX, y: GY + dz*4*CH + 2*CH, label: dzLabels[dz]});
+    /* Column 2:1 buttons under the grid */
+    const colIdx    = (n - 1) % 3;
+    const colLabels = ["Column 1", "Column 2", "Column 3"];
+    out.push({kind: "column", x: GX + colIdx*CW + CW/2, y: COLY + COLH/2, label: colLabels[colIdx]});
+    return out;
+  }
+
+  /* ===== Persistent state ===== */
+  const STATE = (function(){
+    let s = {
+      excludedKinds: {},
+      minStacks: 2,
+      maxStacks: 5,
+      minChips: 1,
+      maxChips: 3,
+      includeOutsideBets: false,
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("roulette-find-chip-total") || "null");
+      if(saved) s = Object.assign(s, saved);
+      if(!s.excludedKinds || typeof s.excludedKinds !== "object") s.excludedKinds = {};
+      if(typeof s.minStacks !== "number" || s.minStacks < 1) s.minStacks = 2;
+      if(typeof s.maxStacks !== "number" || s.maxStacks < 1) s.maxStacks = 5;
+      if(s.maxStacks < s.minStacks) s.maxStacks = s.minStacks;
+      if(typeof s.minChips !== "number" || s.minChips < 1)   s.minChips = 1;
+      if(typeof s.maxChips !== "number" || s.maxChips < 1)   s.maxChips = 3;
+      if(s.maxChips < s.minChips) s.maxChips = s.minChips;
+      s.includeOutsideBets = !!s.includeOutsideBets;
+    } catch(e) {}
+    return s;
+  })();
+  function saveState(){
+    try { localStorage.setItem("roulette-find-chip-total", JSON.stringify(STATE)); } catch(e) {}
+  }
+
+  /* Random chip count within the configured slider range. */
+  function randomChipCount(){
+    const lo = Math.max(1, STATE.minChips|0);
+    const hi = Math.max(lo, STATE.maxChips|0);
+    return lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+
+  /* The largest stack count actually achievable under the current
+     settings (excludedKinds + includeOutsideBets). Walked over all 36
+     centers because corner / row-0 / row-11 numbers have fewer adjacent
+     spots than interior ones — we want the max across the board. */
+  function effectiveMaxStacks(){
+    let best = 0;
+    for(let n = 1; n <= 36; n++){
+      let count = adjacentSpots(n).filter(sp => !STATE.excludedKinds[sp.kind]).length;
+      /* Every non-zero number wins exactly 5 outside bets:
+         one of (low/high), one of (even/odd), one of (red/black),
+         one dozen, one column. */
+      if(STATE.includeOutsideBets) count += 5;
+      /* +1 for the optional center straight-up — pickNext may or may not
+         include it, but the cap should be the upper bound. */
+      count += 1;
+      if(count > best) best = count;
+    }
+    /* Floor of 1 — at worst there is always the center. */
+    return Math.max(1, best);
+  }
+
+  /* Update the stacks slider's max attribute + clamp STATE values down
+     when the achievable range shrinks (e.g. user turned off outside bets
+     while max-stacks was 17). Called on init and whenever exclusions or
+     the outside toggle change. */
+  function syncStackSliderRange(){
+    const cap = effectiveMaxStacks();
+    const $min = document.getElementById("min-stacks");
+    const $max = document.getElementById("max-stacks");
+    $min.max = cap;
+    $max.max = cap;
+    let changed = false;
+    if(STATE.maxStacks > cap){ STATE.maxStacks = cap; changed = true; }
+    if(STATE.minStacks > cap){ STATE.minStacks = cap; changed = true; }
+    if(STATE.minStacks > STATE.maxStacks){ STATE.minStacks = STATE.maxStacks; changed = true; }
+    $min.value = STATE.minStacks;
+    $max.value = STATE.maxStacks;
+    document.getElementById("min-stacks-val").textContent = STATE.minStacks;
+    document.getElementById("max-stacks-val").textContent = STATE.maxStacks;
+    document.getElementById("stacks-display").textContent =
+      STATE.minStacks + " – " + STATE.maxStacks;
+    if(changed) saveState();
+  }
+
+  /* ===== Generate a random picture ===== */
+  let current = null;
+  let revealed = false;
+
+  function pickNext(){
+    /* Defensive clamp: if STATE somehow holds an unreachable min/max
+       (e.g. loaded from an older localStorage), bring it back in range. */
+    const cap = effectiveMaxStacks();
+    if(STATE.maxStacks > cap) STATE.maxStacks = cap;
+    if(STATE.minStacks > cap) STATE.minStacks = cap;
+    if(STATE.minStacks > STATE.maxStacks) STATE.minStacks = STATE.maxStacks;
+
+    const minS = Math.max(1, STATE.minStacks | 0);
+    const maxS = Math.max(minS, STATE.maxStacks | 0);
+
+    /* Track the best near-miss so the fallback can at least show something
+       resembling the user's intent if no center can satisfy the exact range. */
+    let bestNearMiss = null;
+
+    for(let attempt = 0; attempt < 200; attempt++){
+      const center    = 1 + Math.floor(Math.random() * 36);
+      const hasCenter = Math.random() < 0.5;
+      let pool        = adjacentSpots(center).filter(sp => !STATE.excludedKinds[sp.kind]);
+      if(STATE.includeOutsideBets){
+        pool = pool.concat(outsideSpotsFor(center));
+      }
+      const baseAdj    = hasCenter ? 1 : 0;
+      const desiredMin = Math.max(0, minS - baseAdj);
+      const desiredMax = Math.min(pool.length, maxS - baseAdj);
+
+      if(desiredMax < desiredMin){
+        /* This center can't reach minS. Remember the largest near-miss
+           we've seen so far so the fallback has something to show. */
+        const reach = pool.length + baseAdj;
+        if(!bestNearMiss || reach > bestNearMiss.reach){
+          bestNearMiss = { center, hasCenter, pool, reach };
+        }
+        continue;
+      }
+      const adjCount = desiredMin + Math.floor(Math.random() * (desiredMax - desiredMin + 1));
+      const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+      const picked   = shuffled.slice(0, adjCount).map(sp =>
+        Object.assign({}, sp, { count: randomChipCount() })
+      );
+      if(picked.length + baseAdj < 1) continue;
+      current = {
+        center, hasCenter,
+        centerCount: hasCenter ? randomChipCount() : 0,
+        picked,
+      };
+      revealed = false;
+      return;
+    }
+
+    /* Fallback path: no center could satisfy [minS, maxS] within 200 tries.
+       Show the densest pool we found, with the center chip on. This keeps
+       the UI responsive even if the cap-sync somehow lagged behind. */
+    if(bestNearMiss){
+      const { center, pool } = bestNearMiss;
+      current = {
+        center,
+        hasCenter: true,
+        centerCount: randomChipCount(),
+        picked: pool.map(sp => Object.assign({}, sp, { count: randomChipCount() })),
+      };
+    } else {
+      /* Absolute last resort — just show a center chip on a random number. */
+      const center = 1 + Math.floor(Math.random() * 36);
+      current = {
+        center,
+        hasCenter: true,
+        centerCount: randomChipCount(),
+        picked: [],
+      };
+    }
+    revealed = false;
+  }
+
+  /* ===== SVG helpers ===== */
+  function svgEl(tag, attrs){
+    const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    if(attrs) for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function buildLayoutInto(svg){
+    const box=(x,y,w,h,sw)=>svg.appendChild(svgEl("rect",{x,y,width:w,height:h,fill:"none",stroke:LINE,"stroke-width":sw||2}));
+    const txt=(t,x,y,size,fill,rotate)=>{
+      const attrs={x,y,"font-size":size,fill:fill||LINE,"text-anchor":"middle","dominant-baseline":"central","font-weight":"700","font-family":"Georgia,serif"};
+      if(rotate) attrs.transform="rotate(" + rotate + " " + x + " " + y + ")";
+      const e=svgEl("text",attrs); e.textContent=t; svg.appendChild(e);
+    };
+    const frame=(cx,cy,w,h)=>{
+      svg.appendChild(svgEl("rect",{x:cx-w/2,y:cy-h/2,width:w,height:h,rx:7,fill:"none",stroke:LINE,"stroke-width":2}));
+      svg.appendChild(svgEl("rect",{x:cx-w/2+3.5,y:cy-h/2+3.5,width:w-7,height:h-7,rx:5,fill:"none",stroke:LINE,"stroke-width":1}));
+    };
+    /* Zeros row */
+    box(GX,GY0,105,ZH); box(GX+105,GY0,105,ZH);
+    svg.appendChild(svgEl("ellipse",{cx:GX+52.5,cy:GY0+ZH/2,rx:33,ry:19,fill:"none",stroke:LINE,"stroke-width":2.5}));
+    txt("0",GX+52.5,GY0+ZH/2,23,"#f2efe6");
+    svg.appendChild(svgEl("ellipse",{cx:GX+157.5,cy:GY0+ZH/2,rx:33,ry:19,fill:"none",stroke:LINE,"stroke-width":2.5}));
+    txt("00",GX+157.5,GY0+ZH/2,21,"#f2efe6");
+    /* Number cells */
+    for(let n=1;n<=36;n++){
+      const r=cellRect(n);
+      if(current && n === current.center){
+        svg.appendChild(svgEl("rect",{x:r.x+0.5,y:r.y+0.5,width:r.w-1,height:r.h-1,fill:"#f4eede"}));
+      }
+      box(r.x,r.y,r.w,r.h);
+      svg.appendChild(svgEl("ellipse",{cx:r.x+r.w/2,cy:r.y+r.h/2,rx:29,ry:20.5,fill:RED.has(n)?RED_FILL:BLK_FILL,stroke:LINE,"stroke-width":1.5}));
+      txt(String(n),r.x+r.w/2,r.y+r.h/2,22,"#f2efe6");
+    }
+    /* Dozens */
+    const dz=["1ST 12","2ND 12","3RD 12"];
+    for(let d=0;d<3;d++){
+      const cy=GY+d*4*CH+2*CH;
+      box(DZX,GY+d*4*CH,DZW,4*CH,1.5);
+      frame(DZX+DZW/2,cy,30,88);
+      txt(dz[d],DZX+DZW/2,cy,14,LINE,90);
+    }
+    /* Even-money */
+    const ems=["1 TO 18","EVEN","RED","BLACK","ODD","19 TO 36"];
+    for(let i=0;i<6;i++){
+      const cy=GY+i*2*CH+CH, cx=EMX+EMW/2;
+      box(EMX,GY+i*2*CH,EMW,2*CH,1.5);
+      if(ems[i]==="RED"||ems[i]==="BLACK"){
+        svg.appendChild(svgEl("rect",{x:cx-13,y:cy-37,width:26,height:74,rx:9,fill:ems[i]==="RED"?RED_FILL:BLK_FILL,stroke:LINE,"stroke-width":1.5}));
+      } else {
+        frame(cx,cy,30,80);
+        txt(ems[i],cx,cy,12.5,LINE,90);
+      }
+    }
+    /* Columns 2:1 */
+    for(let c=0;c<3;c++){
+      const cx=GX+c*CW+CW/2, cy=COLY+COLH/2;
+      box(GX+c*CW,COLY,CW,COLH,1.5);
+      frame(cx,cy,58,32);
+      txt("2 TO 1",cx,cy,13);
+    }
+  }
+
+  /* Chip — the label is the chip COUNT in that stack (not "1") */
+  function chipGroup(x, y, kind, count, customLabel){
+    const g = svgEl("g", { style:"cursor:pointer" });
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:13,fill:"url(#chipGreen)","class":"chip"}));
+    /* Bigger invisible hit target */
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:18,fill:"transparent"}));
+    /* Count label — readable on mobile.
+       - Bigger size for single-digit (most common case).
+       - Smaller for two-digit counts so they still fit inside the chip.
+       - Thin dark stroke under the white fill gives the digits a crisp
+         edge against the green chip without looking outlined. */
+    const fontSize = count >= 10 ? 13 : 16;
+    const t = svgEl("text", {
+      x, y: y+0.5,
+      "font-size": fontSize,
+      fill: "#f7fee7",
+      stroke: "#04241a",
+      "stroke-width": "0.45",
+      "paint-order": "stroke fill",
+      "text-anchor": "middle",
+      "dominant-baseline": "central",
+      "font-weight": "900",
+      "font-family": '"Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif'
+    });
+    t.textContent = String(count);
+    g.appendChild(t);
+    g.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showTooltip(x, y, kind, count, customLabel);
+    });
+    return g;
+  }
+
+  /* ===== Bet-info tooltip ===== */
+  const KIND_INFO = {
+    straight: { label: "Straight up", ratio: 35 },
+    split:    { label: "Split",       ratio: 17 },
+    corner:   { label: "Corner",      ratio:  8 },
+    street:   { label: "Street",      ratio: 11 },
+    sixline:  { label: "Six-line",    ratio:  5 },
+    topline:  { label: "Top line",    ratio:  6 },
+    basket:   { label: "Basket",      ratio: 11 },
+    even1:    { label: "Even-money",  ratio:  1 },
+    dozen:    { label: "Dozen",       ratio:  2 },
+    column:   { label: "Column",      ratio:  2 },
+  };
+  let activeTooltip = null;
+  function dismissTooltip(){
+    if(activeTooltip){ activeTooltip.remove(); activeTooltip = null; }
+  }
+  function showTooltip(x, y, kind, count, customLabel){
+    if(activeTooltip && activeTooltip.__chipX === x && activeTooltip.__chipY === y){
+      dismissTooltip();
+      return;
+    }
+    dismissTooltip();
+    const info = KIND_INFO[kind];
+    if(!info) return;
+    const svg = document.querySelector("#layout-wrap svg");
+    if(!svg) return;
+    const g = svgEl("g");
+    g.__chipX = x; g.__chipY = y;
+    /* For outside bets, the spot carries a specific label like "Red" or
+       "1st 12" — use it when present so the tooltip is helpful. */
+    const label = customLabel || info.label;
+    const math  = count + " × " + info.ratio + " = " + (count * info.ratio);
+    const labelLen = label.length, mathLen = math.length;
+    const charW = 5.6;
+    const padX = 9, gap = 7;
+    const w = padX*2 + labelLen*charW + gap + mathLen*charW + 6;
+    const h = 22;
+    const tx = Math.max(8, Math.min(x - w/2, 999));
+    const ty = y - 26;
+    g.appendChild(svgEl("rect", {
+      x: tx, y: ty - h/2, width: w, height: h, rx: 11,
+      fill: "rgba(15,17,24,0.94)",
+      stroke: "rgba(139,110,247,0.7)", "stroke-width": "1"
+    }));
+    g.insertBefore(svgEl("rect", {
+      x: tx + 1, y: ty - h/2 + 2, width: w, height: h, rx: 11,
+      fill: "rgba(0,0,0,0.45)",
+    }), g.firstChild);
+    const tailX = Math.max(tx + 10, Math.min(x, tx + w - 10));
+    g.appendChild(svgEl("path", {
+      d: "M " + (tailX - 4) + " " + (ty + h/2 - 1) +
+         " L " + tailX + " " + (ty + h/2 + 5) +
+         " L " + (tailX + 4) + " " + (ty + h/2 - 1) + " Z",
+      fill: "rgba(15,17,24,0.94)",
+      stroke: "rgba(139,110,247,0.7)", "stroke-width": "1"
+    }));
+    const labelEl = svgEl("text", {
+      x: tx + padX, y: ty + 0.5,
+      "font-size": "10",
+      fill: "#c4b5fd",
+      "font-weight": "700",
+      "font-family": "Inter, system-ui, sans-serif",
+      "dominant-baseline": "central",
+      "letter-spacing": "0.06em",
+    });
+    labelEl.textContent = label;
+    g.appendChild(labelEl);
+    const mathEl = svgEl("text", {
+      x: tx + w - padX, y: ty + 0.5,
+      "font-size": "10",
+      fill: "#fde047",
+      "font-weight": "800",
+      "font-family": "JetBrains Mono, Courier New, monospace",
+      "dominant-baseline": "central",
+      "text-anchor": "end",
+    });
+    mathEl.textContent = math;
+    g.appendChild(mathEl);
+    svg.appendChild(g);
+    activeTooltip = g;
+  }
+
+  function renderLayout(){
+    const row = Math.floor((current.center-1)/3);
+
+    /* Are any outside-bet chips placed? Those live on far rows of the
+       even-money column, the dozens column, or below the grid in the
+       column 2:1 buttons — none of which are inside the normal zoom
+       window. Switch to a full-table viewport so they're all visible. */
+    const hasOutsideChip = current.picked.some(sp =>
+      sp.kind === 'even1' || sp.kind === 'dozen' || sp.kind === 'column'
+    );
+
+    let topRow, botRow, includeZeros, vbBottom;
+    if(hasOutsideChip){
+      /* Full-table view: every row, the zeros row, and enough room below
+         for the column 2:1 buttons that "Column N" chips land on. */
+      topRow       = 0;
+      botRow       = 11;
+      includeZeros = true;
+      vbBottom     = COLY + COLH + 4;
+    } else {
+      /* Zoom window centered on the winning number. */
+      topRow = Math.max(0, row-2);
+      botRow = Math.min(11, row+2);
+      if(botRow - topRow + 1 < 5){
+        if(topRow === 0) botRow = Math.min(11, topRow+4);
+        else if(botRow === 11) topRow = Math.max(0, botRow-4);
+      }
+      includeZeros = row === 0;
+      vbBottom     = GY + (botRow+1) * CH + 4;
+    }
+    const vbX = EMX - 4;
+    const vbY = includeZeros ? GY0 - 4 : GY + topRow * CH - 4;
+    const vbW = (GX + 3*CW) - vbX + 8;
+    const vbH = vbBottom - vbY;
+
+    const svg = svgEl("svg", {
+      xmlns: "http://www.w3.org/2000/svg",
+      viewBox: vbX + " " + vbY + " " + vbW + " " + vbH,
+    });
+
+    const defs = svgEl("defs");
+    defs.innerHTML =
+      '<radialGradient id="chipGreen" cx="35%" cy="35%" r="65%">' +
+        '<stop offset="0%" stop-color="#0f7a4a"/>' +
+        '<stop offset="100%" stop-color="#053b25"/>' +
+      '</radialGradient>';
+    svg.appendChild(defs);
+
+    buildLayoutInto(svg);
+
+    if(current.hasCenter){
+      const cc = cellCenter(current.center);
+      svg.appendChild(chipGroup(cc.x, cc.y, "straight", current.centerCount));
+    }
+    for(const sp of current.picked){
+      svg.appendChild(chipGroup(sp.x, sp.y, sp.kind, sp.count, sp.label));
+    }
+    svg.addEventListener("click", () => dismissTooltip());
+
+    const wrap = document.getElementById("layout-wrap");
+    wrap.innerHTML = "";
+    wrap.appendChild(svg);
+  }
+
+  /* Compute the total payout + a list of per-stack rows for the breakdown. */
+  function computePayout(){
+    const stacks = [];
+    let total = 0;
+    if(current.hasCenter && current.centerCount > 0){
+      const payout = current.centerCount * PAY.straight;
+      total += payout;
+      stacks.push({ kind: "straight", count: current.centerCount, ratio: PAY.straight, payout });
+    }
+    for(const sp of current.picked){
+      const payout = sp.count * PAY[sp.kind];
+      total += payout;
+      stacks.push({ kind: sp.kind, count: sp.count, ratio: PAY[sp.kind], payout, label: sp.label });
+    }
+    return { stacks, total };
+  }
+
+  const $slot   = document.getElementById("answer-slot");
+  const $btn    = document.getElementById("btn-show");
+  const $bdList = document.getElementById("bd-list");
+
+  function newPrompt(){
+    pickNext();
+    activeTooltip = null;
+    renderLayout();
+    $slot.textContent = "?";
+    $slot.classList.add("empty");
+    $slot.classList.remove("revealed");
+    $bdList.classList.add("hidden-bd");
+    $btn.textContent = "Show payout";
+  }
+
+  function showAnswer(){
+    const { stacks, total } = computePayout();
+    $slot.textContent = total.toLocaleString();
+    $slot.classList.remove("empty");
+    $slot.classList.add("revealed");
+    $slot.style.animation = "none"; void $slot.offsetWidth; $slot.style.animation = "";
+
+    /* Per-stack rows, top → down in the order they appear in computePayout.
+       Outside bets carry a specific label (e.g. "Red", "1st 12") on the spot;
+       use that when present, otherwise fall back to the kind's display name. */
+    const html = stacks.map(s => {
+      const lbl = s.label || KIND_LABEL[s.kind];
+      return '<div class="bd-line">' +
+          '<span class="bd-label">' + lbl + '</span>' +
+          '<span class="bd-math"><b>' + s.count + '</b> × ' + s.ratio + ' = ' + s.payout.toLocaleString() + '</span>' +
+        '</div>';
+    }).join("");
+    $bdList.innerHTML = html;
+    $bdList.classList.remove("hidden-bd");
+    $btn.textContent = "Next";
+    revealed = true;
+  }
+
+  $btn.onclick = () => {
+    if(revealed) newPrompt();
+    else showAnswer();
+  };
+  document.addEventListener("keydown", (e) => {
+    if(e.key === " " || e.key === "Enter"){
+      const t = e.target;
+      if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      $btn.click();
+    }
+  });
+
+  /* ===== Sliders above the layout (stacks + chips) =====
+     Each slider pair clamps so min can't exceed max and vice-versa. The
+     pair display ("1 – 8") updates live as you drag. */
+  function bindSliderPair(opts){
+    const $min   = document.getElementById(opts.minId);
+    const $max   = document.getElementById(opts.maxId);
+    const $minV  = document.getElementById(opts.minId + "-val");
+    const $maxV  = document.getElementById(opts.maxId + "-val");
+    const $range = document.getElementById(opts.rangeId);
+    function syncDisplay(){
+      $minV.textContent = STATE[opts.minKey];
+      $maxV.textContent = STATE[opts.maxKey];
+      if($range) $range.textContent = STATE[opts.minKey] + " – " + STATE[opts.maxKey];
+    }
+    function init(){
+      $min.value = STATE[opts.minKey];
+      $max.value = STATE[opts.maxKey];
+      syncDisplay();
+    }
+    $min.oninput = () => {
+      let v = parseInt($min.value, 10);
+      if(isNaN(v)) v = 1;
+      STATE[opts.minKey] = v;
+      if(STATE[opts.maxKey] < v){
+        STATE[opts.maxKey] = v;
+        $max.value = v;
+      }
+      syncDisplay();
+      saveState();
+    };
+    $max.oninput = () => {
+      let v = parseInt($max.value, 10);
+      if(isNaN(v)) v = 1;
+      STATE[opts.maxKey] = v;
+      if(STATE[opts.minKey] > v){
+        STATE[opts.minKey] = v;
+        $min.value = v;
+      }
+      syncDisplay();
+      saveState();
+    };
+    init();
+  }
+  bindSliderPair({
+    minId: "min-stacks", maxId: "max-stacks", rangeId: "stacks-display",
+    minKey: "minStacks", maxKey: "maxStacks",
+  });
+  bindSliderPair({
+    minId: "min-chips", maxId: "max-chips", rangeId: "chips-display",
+    minKey: "minChips", maxKey: "maxChips",
+  });
+  /* Set the actual achievable max on the stacks sliders, and clamp any
+     stale localStorage values that exceed it. */
+  syncStackSliderRange();
+
+  /* ===== Settings modal ===== */
+  const $modalOverlay = document.getElementById("modal-overlay");
+
+  function openModal(){
+    renderKindCheckboxes();
+    renderOutsideToggle();
+    $modalOverlay.style.display = "";
+  }
+  function closeModal(){
+    $modalOverlay.style.display = "none";
+  }
+  document.getElementById("btn-settings").onclick = openModal;
+  document.getElementById("modal-close").onclick = closeModal;
+  $modalOverlay.addEventListener("click", (e) => {
+    if(e.target === $modalOverlay) closeModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape" && $modalOverlay.style.display !== "none") closeModal();
+  });
+
+  function renderKindCheckboxes(){
+    document.querySelectorAll("#kind-list input[type=checkbox]").forEach(cb => {
+      const kind = cb.dataset.kind;
+      cb.checked = !STATE.excludedKinds[kind];
+      cb.onchange = () => {
+        if(cb.checked) delete STATE.excludedKinds[kind];
+        else STATE.excludedKinds[kind] = true;
+        saveState();
+        /* Excluding kinds can lower the achievable stack cap. */
+        syncStackSliderRange();
+        if(current && current.picked.some(sp => STATE.excludedKinds[sp.kind])){
+          newPrompt();
+        }
+      };
+    });
+  }
+
+  function renderOutsideToggle(){
+    const cb = document.getElementById("include-outside");
+    cb.checked = !!STATE.includeOutsideBets;
+    cb.onchange = () => {
+      STATE.includeOutsideBets = cb.checked;
+      saveState();
+      /* Cap changes when outside bets are toggled — re-sync the slider. */
+      syncStackSliderRange();
+      /* If we just turned outside bets off, drop any currently-shown
+         outside stacks by regenerating the picture. */
+      if(!cb.checked && current && current.picked.some(sp =>
+        sp.kind === "even1" || sp.kind === "dozen" || sp.kind === "column"
+      )){
+        newPrompt();
+      }
+    };
+  }
+
+  newPrompt();
+})();
+</script>
+
+</body>
+</html>
