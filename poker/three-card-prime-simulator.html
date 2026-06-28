@@ -378,6 +378,32 @@ body {
    the cards because the .bet-stack-viz sits at z-index 6 and the
    tucked cards drop to z-index 0.
    ============================================================ */
+/* Collectable — applied to the current player's cards row during the
+   'collect-cards' subphase. Cards become clickable and lift on hover
+   to invite the click that advances the carousel. */
+.player .cards.collectable .card {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.player .cards.collectable:hover .card {
+  filter: brightness(1.08);
+}
+.player .cards.collectable .card:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6), 0 0 0 2px rgba(253,224,71,0.6);
+}
+/* When Help is on, the collectable cards softly pulse so the dealer
+   instantly sees they're waiting to be picked up. The pulse is applied
+   to the CARDS CONTAINER via filter: drop-shadow so every card glows
+   in unison (a single animation timer drives all of them) instead of
+   each card running its own out-of-phase animation. */
+@keyframes cardCollectPulse {
+  0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(253,224,71,0)); }
+  50%      { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 8px rgba(253,224,71,0.85)); }
+}
+body:not(.help-off) .player .cards.collectable {
+  animation: cardCollectPulse 2.4s ease-in-out infinite;
+}
 .player .cards.folded {
   position: absolute;
   /* North bias on Prime with overlap into the chip-stack area: the
@@ -1733,7 +1759,9 @@ body.new-round-curtain #new-round-overlay {
     const tuckedFolded = isFolded && !anteResolved;
 
     let cardsHTML;
-    if (!p.cards.length) {
+    if (!p.cards.length || p.cardsCollected) {
+      /* No cards yet OR they've been picked up after settlement —
+         render an empty card row. */
       cardsHTML = '';
     } else {
       const showFaceUp =
@@ -1743,6 +1771,13 @@ body.new-round-curtain #new-round-overlay {
          p.cards array stays in deal order so evaluation isn't affected. */
       cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, !showFaceUp)).join('');
     }
+    /* Visual hint when cards are awaiting collection — they get the
+       'collectable' class so CSS can show a pointer cursor + soft glow,
+       signalling to the dealer that clicking them advances the carousel. */
+    const collectable = (STATE.phase === 'settle'
+                       && STATE.subphase === 'collect-cards'
+                       && p.id === STATE.currentPlayerIdx
+                       && !p.cardsCollected) ? ' collectable' : '';
     let badge = '';
     if (p.decision === 'play') badge = '<div class="decision-badge play">Play</div>';
     else if (p.decision === 'fold') badge = '<div class="decision-badge fold">Fold</div>';
@@ -1854,7 +1889,7 @@ body.new-round-curtain #new-round-overlay {
         '</div>' +
       '</div>' +
       badge +
-      '<div class="cards' + (tuckedFolded ? ' folded' : '') + '">' +
+      '<div class="cards' + (tuckedFolded ? ' folded' : '') + collectable + '">' +
         (cardsHTML || '') +
       '</div>' +
     '</div>';
@@ -1939,6 +1974,8 @@ body.new-round-curtain #new-round-overlay {
           all6:'All 6', mini:'Mini-Royal', linked:'5-Card Linked'
         })[next] : '';
         phaseTxt = seat + ' — pay ' + (nextLbl || 'winners');
+      } else if (STATE.subphase === 'collect-cards') {
+        phaseTxt = seat + ' — click cards to collect';
       } else phaseTxt = seat;
     } else {
       const phaseLabels = {
@@ -2011,6 +2048,7 @@ body.new-round-curtain #new-round-overlay {
       p.bets = null;
       p.decision = null;
       p.settlement = null;
+      p.cardsCollected = false;
     }
     STATE.dealer.cards = [];
     STATE.outgoing = { chips: [], total: 0 };
@@ -2152,8 +2190,17 @@ body.new-round-curtain #new-round-overlay {
         STATE.subphase = 'pay-winners';
         return;
       }
-      /* This player is done — fall through to the next seat. */
+      /* All bets resolved. Require the dealer to click any of this
+         player's cards to "collect" them before the carousel advances
+         to the next seat. p.cardsCollected is cleared on each new
+         round in startRound. */
+      if (!p.cardsCollected) {
+        STATE.subphase = 'collect-cards';
+        return;
+      }
+      /* Cards collected — fall through to the next seat. */
       STATE.currentPlayerIdx--;
+      STATE.subphase = null;
     }
     /* All players resolved → round complete. Drop the "NEW ROUND"
        curtain immediately so the dealer doesn't see lights turning on,
@@ -2684,16 +2731,35 @@ body.new-round-curtain #new-round-overlay {
     startRound();
   };
 
-  /* Delegated click on the players row — dispatch by data-pid + data-betkey. */
+  /* Delegated click on the players row — dispatch by data-pid + data-betkey
+     for bet clicks, or by data-pid for card clicks during 'collect-cards'. */
   document.getElementById('players-row').addEventListener('click', (e) => {
+    /* Bet circle clicked? */
     const spotEl = e.target.closest('.spot[data-betkey]');
-    if (!spotEl) return;
-    const playerEl = spotEl.closest('.player[data-pid]');
-    if (!playerEl) return;
-    const pid = parseInt(playerEl.dataset.pid, 10);
-    const key = spotEl.dataset.betkey;
-    onBetClick(pid, key);
+    if (spotEl) {
+      const playerEl = spotEl.closest('.player[data-pid]');
+      if (!playerEl) return;
+      const pid = parseInt(playerEl.dataset.pid, 10);
+      const key = spotEl.dataset.betkey;
+      onBetClick(pid, key);
+      return;
+    }
+    /* Player card clicked during the collect-cards subphase? */
+    if (STATE.phase === 'settle' && STATE.subphase === 'collect-cards') {
+      const cardEl = e.target.closest('.player[data-pid] .card');
+      if (!cardEl) return;
+      const playerEl = cardEl.closest('.player[data-pid]');
+      const pid = parseInt(playerEl.dataset.pid, 10);
+      if (pid !== STATE.currentPlayerIdx) return;
+      onCardCollectClick(pid);
+    }
   });
+  function onCardCollectClick(playerIdx) {
+    const p = STATE.players[playerIdx];
+    if (!p || p.cardsCollected) return;
+    p.cardsCollected = true;
+    afterStep();
+  }
   /* Clicks on the chip tray — add a chip of that denom to the outgoing stack. */
   document.getElementById('chip-tray').addEventListener('click', (e) => {
     const col = e.target.closest('.chip-stack-tray');
