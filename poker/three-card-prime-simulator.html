@@ -849,27 +849,30 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
    so each cylinder still looks proportional inside the narrower
    column.
    ============================================================ */
+/* Mobile rack — slightly bigger now that we're down to 5 chip columns
+   ($2.50 pink dropped). Still fits comfortably with the outgoing box
+   on narrow phones. */
 @media (max-width: 560px) {
   .bottom-bar  { gap: 10px; padding: 4px 6px; }
-  .chip-tray   { gap: 3px; padding: 6px 6px; border-width: 2px; }
-  .chip-stack-tray { width: 44px; }
-  .chip-stack-tray .chip-edge  { height: 16px; }
-  .chip-stack-tray .chip-label { font-size: 0.55rem; }
-  .close-stack { width: 44px; }
-  .chip-stack-display { width: 44px; }
-  .chip-stack-display .chip-piece { left: 3px; right: 3px; height: 16px; }
+  .chip-tray   { gap: 4px; padding: 6px 8px; border-width: 2px; }
+  .chip-stack-tray { width: 52px; }
+  .chip-stack-tray .chip-edge  { height: 18px; }
+  .chip-stack-tray .chip-label { font-size: 0.6rem; }
+  .close-stack { width: 52px; }
+  .chip-stack-display { width: 52px; }
+  .chip-stack-display .chip-piece { left: 4px; right: 4px; height: 18px; }
   .tray-btn    { padding: 6px 11px; font-size: 0.72rem; }
   .tray-buttons { gap: 6px; }
 }
 @media (max-width: 420px) {
   .bottom-bar  { gap: 6px; padding: 4px 4px; }
-  .chip-tray   { gap: 2px; padding: 5px 5px; }
-  .chip-stack-tray { width: 36px; }
-  .chip-stack-tray .chip-edge  { height: 14px; }
-  .chip-stack-tray .chip-label { font-size: 0.5rem; letter-spacing: 0; }
-  .close-stack { width: 36px; }
-  .chip-stack-display { width: 36px; padding: 3px; }
-  .chip-stack-display .chip-piece { left: 2px; right: 2px; height: 14px; }
+  .chip-tray   { gap: 3px; padding: 5px 6px; }
+  .chip-stack-tray { width: 42px; }
+  .chip-stack-tray .chip-edge  { height: 16px; }
+  .chip-stack-tray .chip-label { font-size: 0.55rem; letter-spacing: 0; }
+  .close-stack { width: 42px; }
+  .chip-stack-display { width: 42px; padding: 3px; }
+  .chip-stack-display .chip-piece { left: 3px; right: 3px; height: 16px; }
   .tray-btn    { padding: 5px 8px; font-size: 0.68rem; }
 }
 
@@ -1029,6 +1032,40 @@ body.new-round-curtain #new-round-overlay {
   .modal-header h2 { font-size: 16px; }
   .modal-footer .tray-btn { padding: 6px 12px; font-size: 0.72rem; }
 }
+
+/* Payouts modal — sectioned paytable listing. */
+.modal-panel.payouts-panel { max-width: 520px; }
+.payout-section { margin-bottom: 18px; }
+.payout-section:last-child { margin-bottom: 0; }
+.payout-section h3 {
+  margin: 0 0 6px;
+  font: 800 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #facc15;
+}
+.payout-section .ps-note {
+  font: 600 11.5px/1.45 "Inter", sans-serif;
+  color: rgba(255,255,255,0.62);
+  margin: 4px 0 8px;
+}
+.payout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 600 12.5px/1.4 "Inter", sans-serif;
+}
+.payout-table td {
+  padding: 6px 8px 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+}
+.payout-table tr:last-child td { border-bottom: none; }
+.payout-table td:last-child {
+  text-align: right;
+  font: 800 12.5px/1.4 "JetBrains Mono", "Courier New", monospace;
+  color: #34d399;
+  padding-right: 0;
+}
 </style>
 </head>
 <body>
@@ -1070,6 +1107,7 @@ body.new-round-curtain #new-round-overlay {
       <div class="tray-buttons">
         <button class="tray-btn" id="btn-reset" type="button">Reset</button>
         <button class="tray-btn" id="btn-help"  type="button">Help: On</button>
+        <button class="tray-btn" id="btn-payouts" type="button">Payouts</button>
         <button class="tray-btn primary" id="btn-settings" type="button">Settings</button>
       </div>
     </div>
@@ -1096,6 +1134,96 @@ body.new-round-curtain #new-round-overlay {
     <div class="modal-footer">
       <button class="tray-btn" id="btn-settings-reset" type="button">Restore defaults</button>
       <button class="tray-btn primary" id="btn-settings-save" type="button">Save &amp; start round</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payouts modal — full paytable listing for all bets. -->
+<div id="payouts-overlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal-panel payouts-panel">
+    <div class="modal-header">
+      <h2>Payouts</h2>
+      <button class="modal-close" id="btn-payouts-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="modal-lede">All paytables for 3 Card Prime.</p>
+
+    <div class="payout-section">
+      <h3>Ante &amp; Play</h3>
+      <p class="ps-note">Player wins both → 1:1 on Ante and Play. Dealer doesn't qualify → Play pushes, Ante still plays.</p>
+      <table class="payout-table">
+        <tr><td>Win</td><td>1 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Ante Bonus</h3>
+      <p class="ps-note">Paid on the Ante regardless of dealer qualify or comparison — pure bonus on the player's 3 cards.</p>
+      <table class="payout-table">
+        <tr><td>Straight Flush</td><td>5 : 1</td></tr>
+        <tr><td>Three of a Kind</td><td>4 : 1</td></tr>
+        <tr><td>Straight</td><td>1 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Prime</h3>
+      <p class="ps-note">Player's 3 cards all the same color. Bumped to 4:1 if the dealer's 3 main cards are ALSO all the same color AND match the player's color.</p>
+      <table class="payout-table">
+        <tr><td>Player monochrome only</td><td>3 : 1</td></tr>
+        <tr><td>Player + dealer matching color</td><td>4 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Pair Bonus</h3>
+      <p class="ps-note">Player's 3 cards only.</p>
+      <table class="payout-table">
+        <tr><td>Straight Flush</td><td>40 : 1</td></tr>
+        <tr><td>Three of a Kind</td><td>30 : 1</td></tr>
+        <tr><td>Straight</td><td>6 : 1</td></tr>
+        <tr><td>Flush</td><td>3 : 1</td></tr>
+        <tr><td>Pair</td><td>1 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>All 6</h3>
+      <p class="ps-note">Best 5-card hand from the player's 3 + dealer's 3 main cards (6 total).</p>
+      <table class="payout-table">
+        <tr><td>Royal Flush</td><td>1,000 : 1</td></tr>
+        <tr><td>Straight Flush</td><td>200 : 1</td></tr>
+        <tr><td>Four of a Kind</td><td>100 : 1</td></tr>
+        <tr><td>Full House</td><td>20 : 1</td></tr>
+        <tr><td>Flush</td><td>15 : 1</td></tr>
+        <tr><td>Straight</td><td>10 : 1</td></tr>
+        <tr><td>Three of a Kind</td><td>7 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Mini-Royal ($1 progressive)</h3>
+      <p class="ps-note">Player's 3 cards only. Fixed-dollar payouts:</p>
+      <table class="payout-table">
+        <tr><td>Mini-Royal (lucky suit)</td><td>JACKPOT</td></tr>
+        <tr><td>Mini-Royal (other suit)</td><td>$500</td></tr>
+        <tr><td>Straight Flush</td><td>$70</td></tr>
+        <tr><td>Three of a Kind</td><td>$60</td></tr>
+        <tr><td>Straight</td><td>$6</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>5-Card Linked ($5 progressive)</h3>
+      <p class="ps-note">Best 5-card hand from the player's 3 + dealer's 2 linked cards. Fixed-dollar payouts:</p>
+      <table class="payout-table">
+        <tr><td>Royal Flush</td><td>100% JACKPOT</td></tr>
+        <tr><td>Straight Flush</td><td>10% JACKPOT</td></tr>
+        <tr><td>Four of a Kind</td><td>$1,500</td></tr>
+        <tr><td>Full House</td><td>$250</td></tr>
+        <tr><td>Flush</td><td>$200</td></tr>
+        <tr><td>Straight</td><td>$150</td></tr>
+        <tr><td>Three of a Kind</td><td>$45</td></tr>
+      </table>
     </div>
   </div>
 </div>
@@ -1553,12 +1681,12 @@ body.new-round-curtain #new-round-overlay {
   function renderChipTray() {
     const tray = document.getElementById('chip-tray');
     if (!tray) return;
+    /* No $2.50 pink chips — not used in 3 Card Prime. */
     const stacks = [
       { color: 'ce-purple', label: '$500', value: 500, count: 10 },
       { color: 'ce-black',  label: '$100', value: 100, count: 10 },
       { color: 'ce-green',  label: '$25',  value: 25,  count: 10 },
       { color: 'ce-red',    label: '$5',   value: 5,   count: 10 },
-      { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 10 },
       { color: 'ce-white',  label: '$1',   value: 1,   count: 10 },
     ];
     tray.innerHTML = '';
@@ -2498,6 +2626,12 @@ body.new-round-curtain #new-round-overlay {
   }
   document.getElementById('btn-settings').onclick = openSettings;
   document.getElementById('btn-settings-close').onclick = closeSettings;
+
+  /* Payouts modal — read-only paytable reference. */
+  const $payouts = document.getElementById('payouts-overlay');
+  document.getElementById('btn-payouts').onclick = () => $payouts.classList.add('open');
+  document.getElementById('btn-payouts-close').onclick = () => $payouts.classList.remove('open');
+  $payouts.addEventListener('click', (e) => { if (e.target === $payouts) $payouts.classList.remove('open'); });
   document.getElementById('settings-overlay').addEventListener('click', (e) => {
     /* click outside the panel closes */
     if (e.target.id === 'settings-overlay') closeSettings();
@@ -2516,10 +2650,26 @@ body.new-round-curtain #new-round-overlay {
     startRound();
   };
 
-  document.getElementById('btn-help').onclick = (e) => {
-    document.body.classList.toggle('help-off');
-    e.currentTarget.textContent =
-      document.body.classList.contains('help-off') ? 'Help: Off' : 'Help: On';
+  /* Help toggle — persists to localStorage so it survives reload.
+     Default is "on" (halos visible). Saved as the string 'off' when
+     disabled; absence of a saved value means on. */
+  const HELP_KEY = 'tcp-help';
+  function applyHelpState(off) {
+    document.body.classList.toggle('help-off', off);
+    document.getElementById('btn-help').textContent = off ? 'Help: Off' : 'Help: On';
+  }
+  function loadHelp() {
+    try { return localStorage.getItem(HELP_KEY) === 'off'; }
+    catch (e) { return false; }
+  }
+  function saveHelp(off) {
+    try { localStorage.setItem(HELP_KEY, off ? 'off' : 'on'); } catch (e) {}
+  }
+  applyHelpState(loadHelp());
+  document.getElementById('btn-help').onclick = () => {
+    const newOff = !document.body.classList.contains('help-off');
+    applyHelpState(newOff);
+    saveHelp(newOff);
   };
   /* Reset starts a fresh round straight away with the curtain — no more
      idle/click-Deal state. The user sees "NEW ROUND" briefly while the
