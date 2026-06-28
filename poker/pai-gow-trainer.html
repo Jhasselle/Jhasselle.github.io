@@ -142,6 +142,17 @@ h1 {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
 }
+/* Inline Beta tag — sits next to a tile title to flag works-in-progress. */
+.tile .badge-beta {
+  display: inline-block; margin-left: 8px;
+  padding: 2px 8px; border-radius: 999px;
+  font: 800 9.5px/1.4 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.10);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  vertical-align: middle;
+}
 @media (max-width: 560px) {
   .page { padding: 60px 16px 60px; }
   h1 { font-size: 30px; }
@@ -169,6 +180,11 @@ h1 {
       <span class="title">Side bets</span>
       <span class="desc">Drill all four side bets — Red Jackpot, Blue Jackpot, Pai Gow Insurance, Emperor’s Treasure. Flashcards or chip payouts.</span>
       <span class="meta">Open trainer</span>
+    </a>
+    <a class="tile" href="paigow-dealer-sim.html">
+      <span class="title">Dealer Simulator<span class="badge-beta">Beta</span></span>
+      <span class="desc">Full-table dealer-perspective simulator. 3 NPC players with main + Insurance + Emperor’s + Red/Blue Bonus Jackpot bets. Set the dealer's hand house-way, then settle each player's bets.</span>
+      <span class="meta">Open simulator</span>
     </a>
   </div>
 </div>
