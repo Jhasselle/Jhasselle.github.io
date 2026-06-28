@@ -142,6 +142,17 @@ h1 {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
 }
+/* Inline Beta tag — sits next to a tile title to flag works-in-progress. */
+.tile .badge-beta {
+  display: inline-block; margin-left: 8px;
+  padding: 2px 8px; border-radius: 999px;
+  font: 800 9.5px/1.4 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.10);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  vertical-align: middle;
+}
 @media (max-width: 560px) {
   .page { padding: 60px 16px 60px; }
   h1 { font-size: 30px; }
@@ -170,7 +181,7 @@ h1 {
       <span class="badge-soon">Coming soon</span>
     </div>
     <a class="tile" href="three-card-prime-simulator.html">
-      <span class="title">3 Card Prime</span>
+      <span class="title">3 Card Prime<span class="badge-beta">Beta</span></span>
       <span class="desc">Dealer-perspective simulator. 3 NPC players, 7 bet spots each (ante / play / prime / pair bonus / all 6 / mini-royal / 5-card linked). Single deck, dealer gets 3 + 2 linked cards.</span>
       <span class="meta">Open simulator</span>
     </a>
