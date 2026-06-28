@@ -161,15 +161,18 @@ body {
   letter-spacing: 0.22em; text-transform: uppercase;
   color: rgba(255,255,255,0.5); margin-bottom: 12px; text-align: center;
 }
-/* Layout mat — the white sheet with bet circles, replicating the physical card */
+/* Layout mat — purple/transparent so it blends with the page background
+   (no cream "physical card" sheet anymore). A faint border keeps the
+   mat outline readable; subtle inner shadow gives it depth without
+   re-introducing the white-sheet feel. */
 .mat {
-  background: #f3eee0;
+  background: rgba(99, 102, 241, 0.06);
   border-radius: 12px;
   padding: 14px 12px;
   display: grid;
   grid-template-rows: auto auto auto;
   gap: 14px;
-  box-shadow: 0 8px 28px -8px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(0,0,0,0.05);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 8px 28px -10px rgba(0,0,0,0.6);
   position: relative;
 }
 .mat .row-progressives { display: flex; justify-content: space-around; gap: 8px; }
@@ -178,42 +181,86 @@ body {
 .mat .main-stack       { display: flex; flex-direction: column; align-items: center; gap: 0; }
 
 .spot {
-  width: 80px; height: 80px;
+  width: 60px; height: 60px;
   border-radius: 50%;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   position: relative;
   text-align: center;
 }
+/* Diamond spots: keep the layout box square + unrotated so chips and
+   labels position normally. The diamond outline is drawn by an inscribed
+   ::before pseudo that's rotated 45° but sized to fit inside the box
+   (no more visual overlap into neighboring spots). */
 .spot.diamond {
-  width: 84px; height: 84px;
+  width: 64px; height: 64px;
   border-radius: 0;
-  transform: rotate(45deg);
   background: transparent;
 }
-.spot.diamond > * { transform: rotate(-45deg); }
+.spot.diamond::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;        /* 44 * sqrt(2) ≈ 62, fits in 64 */
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 5px solid var(--diamond-color, #5d5d5d);
+  border-radius: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+}
+/* Bet label — just white text directly on the bet color, no chrome.
+   text-shadow keeps it readable against the lighter/brighter spot colors
+   (yellow/lime in particular). */
 .spot .label {
-  background: #fff;
-  padding: 3px 8px;
-  font: 700 10px/1.1 "Inter", sans-serif;
+  background: transparent;
+  padding: 0;
+  font: 800 9px/1.1 "Inter", sans-serif;
   letter-spacing: 0.06em;
-  color: #1a1a1a;
-  border: 1px solid #1a1a1a;
-  border-radius: 3px;
+  color: #ffffff;
+  border: none;
   text-transform: uppercase;
   white-space: nowrap;
   z-index: 2;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 0 1px rgba(0,0,0,0.95);
 }
-/* Circle backgrounds — different colors per bet */
-.spot.linked  { background: #2c5d7a; border: 6px solid #1a3a4d; }
-.spot.mini    { background: #4a5a6a; border: 6px solid #2d3845; }
-.spot.prime   { background: #c2b8a8; border: 6px solid #8c8270; }
-.spot.pair    { background: #8a8a8a; border: 6px solid #5d5d5d; }
-.spot.all6    { background: #5d5d5d; border: 6px solid #3a3a3a; }
-.spot.ante    { border: 6px solid #5d5d5d; background: transparent; }
-.spot.play    { border: 6px solid #2c2c2c; background: transparent; }
-.spot.small   { width: 64px; height: 64px; border-width: 5px; }
-.spot.small.diamond { width: 70px; height: 70px; }
+/* Circle backgrounds — Prime / Pair Bonus / All 6 are "ring" style:
+   the bright color is the OUTER border and the inside is transparent
+   (the purple mat shows through). Linked + Mini stay solid because
+   they have to be readable as the active state when "placed". */
+.spot.linked  { background: #991b1b; border: 6px solid #450a0a; }  /* dark red  */
+.spot.mini    { background: #1e3a8a; border: 6px solid #0c1e5e; }  /* dark blue */
+.spot.prime   { background: transparent; border: 6px solid #facc15; }  /* yellow ring */
+.spot.pair    { background: transparent; border: 6px solid #f97316; }  /* orange ring */
+.spot.all6    { background: transparent; border: 6px solid #ec4899; }  /* pink ring   */
+/* Ante/Play don't have their own border — the diamond ::before draws it.
+   We just hand it the colour we want via a CSS variable. */
+.spot.ante    { background: transparent; --diamond-color: #84cc16; }  /* lime  */
+.spot.play    { background: transparent; --diamond-color: #dc2626; }  /* red   */
+
+/* =========================================================
+   Progressive bets — the chips are scooped into the rack
+   BEFORE the deal in real life, so we don't show a stack on
+   these spots. Instead, the circle lights up in a colour
+   matching the bet ($1 Mini-Royal → blue, $5 Linked → red)
+   when a wager has been placed and is still unresolved.
+   ========================================================= */
+.spot.mini.placed {
+  background: #1d4ed8;
+  border-color: #0a2470;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.85), 0 0 22px 8px rgba(59, 130, 246, 0.55);
+}
+.spot.linked.placed {
+  background: #dc2626;
+  border-color: #7f1d1d;
+  box-shadow: 0 0 0 3px rgba(252, 165, 165, 0.85), 0 0 22px 8px rgba(220, 38, 38, 0.55);
+}
+/* Progressive label keeps the white-on-color treatment when placed. The
+   pulsing glow does the work of saying "active"; no need for a chip
+   tag behind the dollar text. */
+.spot.placed .label { background: transparent; color: #ffffff; }
+.spot.small   { width: 48px; height: 48px; border-width: 4px; }
+.spot.small.diamond { width: 54px; height: 54px; }
 
 /* =========================================================
    Cylinder chip palette (matches blackjack dealing simulator).
@@ -285,9 +332,14 @@ body {
 .bet-stack-viz {
   position: absolute;
   left: 50%;
-  bottom: 70%;
+  /* Anchor the chip stack baseline ABOVE the spot's vertical center by
+     half a chip's height — that puts a 1-chip stack centered on the
+     bet circle, and taller stacks extend gently upward from there. */
+  bottom: calc(50% - 10px);
   transform: translateX(-50%);
-  width: 50px;
+  /* Same width + inset as the dealer's outgoing chip-stack-display so
+     the cheques look identical between rack, outgoing, and bets. */
+  width: 64px;
   height: 1px;
   pointer-events: none;
   /* Always render on top of the spot's settlement glow, neighboring
@@ -297,18 +349,14 @@ body {
 }
 .bet-stack-viz .bet-chip-piece {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 4px;
+  right: 4px;
   height: 20px;
   border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.45);
+  border: 1px solid rgba(0,0,0,0.5);
 }
-/* Diamond spots are rotated 45°, so counter-rotate the chip stack
-   so chips stay upright relative to the table. */
-.spot.diamond .bet-stack-viz {
-  transform: translateX(-50%) rotate(-45deg);
-  transform-origin: center bottom;
-}
+/* Diamonds use the same centered chip stack as regular spots — no
+   counter-rotation needed now that the spot's layout box isn't rotated. */
 
 /* Player cards row — below the mat */
 .player .cards {
@@ -325,7 +373,15 @@ body {
    ============================================================ */
 .player .cards.folded {
   position: absolute;
-  top: 230px;          /* aligns with the bonus row (Prime spot vertical) */
+  /* North bias on Prime with overlap into the chip-stack area: the
+     Prime spot sits roughly y=194-254 from the player top, and its
+     chip-stack-viz hugs the upper third of the circle (~y=202-234).
+     With cards 54px tall, top:180 puts the card bottoms at y=234,
+     which matches the chip-stack bottom — so the chip stack (z-index
+     100) fully covers the lower half of the cards (z-index 0). The
+     cards' top edge at y=180 still sits 14px above Prime's top, so
+     the "north bias / above the bet" feel reads at a glance. */
+  top: 180px;
   right: 22px;         /* right side = Prime spot in the rotated mat */
   margin-top: 0;
   min-height: 0;
@@ -333,7 +389,7 @@ body {
   z-index: 0;
   pointer-events: none;
   justify-content: flex-start;
-  transform-origin: top right;
+  transform-origin: bottom right;
 }
 .player .cards.folded .card {
   width: 38px;
@@ -452,7 +508,9 @@ body {
 .chip-stack-tray {
   position: relative;
   width: 64px;
-  height: 168px;
+  /* 10-chip stacks: top chip's top edge sits at LABEL_PAD(22) + 9*STEP(6)
+     + chip-edge(20) = 96px from the bottom. 102px gives ~6px of slack. */
+  height: 102px;
   cursor: default;
 }
 .chip-stack-tray .chip-edge {
@@ -495,21 +553,24 @@ body {
 .tray-btn.primary:hover { background: linear-gradient(135deg, #7dd3fc, #38bdf8); }
 
 /* Outgoing stack — sits next to the rack while the dealer builds a payout.
-   Height matches the chip-tray (168 chips + 8px padding + 3px borders ≈ 190px)
-   so the OUTGOING box visually aligns with the rack rather than dropping
-   below it. */
+   Height matches the shrunken 10-chip tray (102px column + 8px padding +
+   ~14px from the tray's border + label so the OUTGOING box visually
+   aligns with the rack rather than dropping below it. Max-height keeps
+   the dashed box from blowing past a reasonable size when the dealer
+   builds an unusually large payout (still grows past min-height as
+   chips are added, capped at 280px). */
 .close-stack {
   position: relative;
   flex: 0 0 auto;
   width: 64px;
-  height: 190px;
+  height: 126px;
 }
 .chip-stack-display {
   position: absolute;
   bottom: 0; left: 0;
   width: 64px;
-  min-height: 190px;
-  max-height: 320px;
+  min-height: 126px;
+  max-height: 280px;
   padding: 4px;
   border: 1px dashed rgba(255,255,255,0.28);
   border-radius: 8px;
@@ -587,52 +648,103 @@ body {
   box-shadow: 0 0 0 4px rgba(253, 224, 71, 0.10);
 }
 
-/* Settlement decoration on bet circles */
-.spot.settle-loss {
-  cursor: pointer;
-  animation: lossPulse 1.1s ease-in-out infinite;
-  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.95), 0 0 18px 6px rgba(248, 113, 113, 0.55) !important;
-  z-index: 10;
-}
-@keyframes lossPulse {
-  0%, 100% { filter: brightness(1.00); }
-  50%      { filter: brightness(1.25); }
-}
-.spot.settle-win-next {
-  cursor: pointer;
-  animation: winPulse 1.1s ease-in-out infinite;
-  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.95), 0 0 22px 6px rgba(52, 211, 153, 0.55) !important;
-  z-index: 10;
-}
-@keyframes winPulse {
-  0%, 100% { filter: brightness(1.00); }
-  50%      { filter: brightness(1.30); }
-}
-.spot.settle-win-wait {
-  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.45);
-  opacity: 0.85;
-}
+/* =========================================================
+   Settlement decoration — always a CIRCULAR halo, regardless
+   of whether the underlying spot is a circle or a diamond.
+   The halo is drawn by a ::after pseudo-element sized to the
+   spot's layout box and forced into a circle by border-radius.
+   ========================================================= */
+.spot.settle-loss,
+.spot.settle-win-next,
+.spot.settle-push,
 .spot.settle-jackpot {
   cursor: pointer;
-  animation: jpSparkle 1s ease-in-out infinite;
-  box-shadow: 0 0 0 3px #fde047, 0 0 28px 10px rgba(253, 224, 71, 0.7) !important;
-  z-index: 11;
+  z-index: 10;
+}
+.spot.settle-jackpot { z-index: 11; }
+/* Halo box extends OUTSIDE the spot's colored border so the pulsing
+   ring doesn't get visually buried under the yellow/orange/pink ring
+   underneath. `inset: -4px` pushes the ::after's border-box ~4px past
+   the 6px bet-circle border; the bright box-shadow ring then sits in
+   the clear dark space beyond the spot. With ~5px of bright ring +
+   ~4px inset, the halo extends ~9px past the bet — visible without
+   bleeding into the next bet on the row (8px row-bonuses gap × 2). */
+.spot.settle-loss::after,
+.spot.settle-win-next::after,
+.spot.settle-push::after,
+.spot.settle-jackpot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 5;
+}
+.spot.settle-loss::after {
+  box-shadow:
+    0 0 0 5px rgba(239, 68, 68, 1),
+    0 0 26px 10px rgba(248, 113, 113, 0.75);
+  animation: settlePulse 2.4s ease-in-out infinite;
+}
+.spot.settle-win-next::after {
+  box-shadow:
+    0 0 0 5px rgba(16, 185, 129, 1),
+    0 0 30px 12px rgba(52, 211, 153, 0.75);
+  animation: settlePulse 2.4s ease-in-out infinite;
+}
+.spot.settle-push::after {
+  box-shadow:
+    0 0 0 5px rgba(234, 179, 8, 1),
+    0 0 26px 10px rgba(253, 224, 71, 0.7);
+  animation: settlePulse 2.6s ease-in-out infinite;
+}
+.spot.settle-jackpot::after {
+  box-shadow:
+    0 0 0 6px #fde047,
+    0 0 38px 14px rgba(253, 224, 71, 0.9);
+  animation: jpSparkle 1.8s ease-in-out infinite;
+}
+@keyframes settlePulse {
+  0%, 100% { filter: brightness(1.00); transform: scale(1.00); }
+  50%      { filter: brightness(1.55); transform: scale(1.05); }
 }
 @keyframes jpSparkle {
   0%, 100% { filter: brightness(1.00) hue-rotate(0deg); }
   50%      { filter: brightness(1.4)  hue-rotate(-10deg); }
 }
-/* Push: chip stays on the spot; the dealer taps to acknowledge. Yellow
-   pulse so it's visually distinct from a regular winner (green). */
-.spot.settle-push {
-  cursor: pointer;
-  animation: pushPulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 0 3px rgba(253, 224, 71, 0.85), 0 0 18px 6px rgba(253, 224, 71, 0.45) !important;
-  z-index: 10;
+/* Help OFF — hide all pay/take visual cues (the dealer is on their own). */
+body.help-off .spot.settle-loss::after,
+body.help-off .spot.settle-win-next::after,
+body.help-off .spot.settle-push::after,
+body.help-off .spot.settle-jackpot::after {
+  display: none;
 }
-@keyframes pushPulse {
-  0%, 100% { filter: brightness(1.00); }
-  50%      { filter: brightness(1.25); }
+/* The pulse / cursor / z-index stay so the bets are still clickable. */
+body.help-off .tray-btn#btn-help { background: #7f1d1d; border-color: #b91c1c; color: #fee2e2; }
+
+/* PUSHED text overlay on the Play (or Ante) bet when the dealer doesn't
+   qualify. Auto-resolved, so the dealer takes no action — the overlay
+   just makes it visually obvious the bet stayed. Sits ABOVE the chip
+   stack on the bet circle; cleared by the next round's state reset.
+   Note: this is informational ("the bet pushed"), not a pay/take cue,
+   so it stays visible even with Help: Off. */
+.pushed-overlay {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font: 700 9px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fef3c7;
+  background: rgba(120, 53, 15, 0.92);
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+  padding: 3px 6px;
+  pointer-events: none;
+  z-index: 60;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 
 /* Chip tray columns become clickable during the pay-winners subphase. */
@@ -681,7 +793,7 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     display: block;
     position: relative;
     overflow: hidden;
-    min-height: 560px;          /* fits a typical player content + padding */
+    min-height: 480px;          /* tight against the player's content */
     padding: 0;
     gap: 0;
   }
@@ -698,20 +810,221 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
   .player.carousel-queued { transform: translateX(-115%); }
   .player.carousel-active { transform: translateX(0);     }
   .player.carousel-done   { transform: translateX(115%);  }
+  /* Used during the settle → new-round flip so the carousel snaps to
+     Seat 3 instead of sliding all three seats across the visible area. */
+  body.no-carousel-transition .player { transition: none !important; }
   /* Off-screen players shouldn't capture clicks even when transitioning. */
   .player.carousel-queued,
   .player.carousel-done {
     pointer-events: none;
   }
 }
+
+/* ============================================================
+   NARROW MOBILE — squeeze the dealer rack + outgoing stack
+   ------------------------------------------------------------
+   Default rack is 6 tray columns × 64px + outgoing 64px + gaps
+   ≈ 470px, which overflows phone-sized viewports. On narrow
+   screens we shrink each column's WIDTH (and gap) so the whole
+   bar fits without horizontal scroll. Heights stay the same —
+   chip-edge positions are set inline (bottom: 22 + i*6px) by
+   renderChipTray, so the column has to stay tall enough to
+   contain all 20 chips. Only the chip-edge height shrinks a bit
+   so each cylinder still looks proportional inside the narrower
+   column.
+   ============================================================ */
+@media (max-width: 560px) {
+  .bottom-bar  { gap: 10px; padding: 4px 6px; }
+  .chip-tray   { gap: 3px; padding: 6px 6px; border-width: 2px; }
+  .chip-stack-tray { width: 44px; }
+  .chip-stack-tray .chip-edge  { height: 16px; }
+  .chip-stack-tray .chip-label { font-size: 0.55rem; }
+  .close-stack { width: 44px; }
+  .chip-stack-display { width: 44px; }
+  .chip-stack-display .chip-piece { left: 3px; right: 3px; height: 16px; }
+  .tray-btn    { padding: 6px 11px; font-size: 0.72rem; }
+  .tray-buttons { gap: 6px; }
+}
+@media (max-width: 420px) {
+  .bottom-bar  { gap: 6px; padding: 4px 4px; }
+  .chip-tray   { gap: 2px; padding: 5px 5px; }
+  .chip-stack-tray { width: 36px; }
+  .chip-stack-tray .chip-edge  { height: 14px; }
+  .chip-stack-tray .chip-label { font-size: 0.5rem; letter-spacing: 0; }
+  .close-stack { width: 36px; }
+  .chip-stack-display { width: 36px; padding: 3px; }
+  .chip-stack-display .chip-piece { left: 2px; right: 2px; height: 14px; }
+  .tray-btn    { padding: 5px 8px; font-size: 0.68rem; }
+}
+
+/* ============================================================
+   NEW-ROUND CURTAIN
+   ------------------------------------------------------------
+   Sits on top of everything (z-index 500) while the engine
+   resets state, shuffles the deck, places NPC bets, deals, runs
+   NPC decisions, and reveals — none of which the dealer should
+   see as separate animations. Body class .new-round-curtain
+   fades it in; removing the class fades it back out, by which
+   point the table is already at the settle phase.
+   ============================================================ */
+#new-round-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0.18s;
+  background: rgba(7, 8, 12, 0.88);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+}
+body.new-round-curtain #new-round-overlay {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0s;
+}
+.new-round-text {
+  font: 800 38px/1 "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.55);
+}
+@media (max-width: 560px) {
+  .new-round-text { font-size: 28px; letter-spacing: 0.18em; }
+}
+
+/* ============================================================
+   SETTINGS MODAL
+   ------------------------------------------------------------
+   Sliders for each side-bet's "chance played per round". Values
+   are stored in localStorage (see SETTINGS in script) and read
+   by genBets() at the start of every round.
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 600;
+  background: rgba(7, 8, 12, 0.78);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0.18s;
+  padding: 20px;
+}
+.modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0s;
+}
+.modal-panel {
+  background: linear-gradient(180deg, #1a1830 0%, #0f1020 100%);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 22px 24px 20px;
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  color: #f4f4f5;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.modal-header h2 {
+  margin: 0; font: 700 18px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.02em;
+}
+.modal-close {
+  background: transparent; border: none; color: rgba(255,255,255,0.55);
+  font: 700 26px/1 system-ui; cursor: pointer; padding: 0 6px;
+  transition: color 0.12s;
+}
+.modal-close:hover { color: #fff; }
+.modal-lede {
+  margin: 4px 0 16px; font-size: 12.5px; color: rgba(255,255,255,0.6);
+  line-height: 1.45;
+}
+.settings-rows { display: flex; flex-direction: column; gap: 14px; }
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center; gap: 4px 12px;
+}
+.settings-row .row-label {
+  font: 700 12.5px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  grid-column: 1;
+}
+.settings-row .row-value {
+  font: 800 13px/1 "Inter", sans-serif;
+  color: #facc15;
+  min-width: 44px; text-align: right;
+  grid-column: 2;
+}
+.settings-row input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 2px 0 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  outline: none;
+  cursor: pointer;
+}
+.settings-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  border: 2px solid #f4f4f5;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.settings-row input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  border: 2px solid #f4f4f5;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 22px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+@media (max-width: 480px) {
+  .modal-panel { padding: 18px 18px 16px; }
+  .modal-header h2 { font-size: 16px; }
+  .modal-footer .tray-btn { padding: 6px 12px; font-size: 0.72rem; }
+}
 </style>
 </head>
 <body>
 
-<div class="top-strip"></div>
 <a class="home-btn" href="poker.html">Poker</a>
 
 <div id="announce"></div>
+
+<!-- Full-viewport curtain shown during the new-round setup. The dealer
+     just sees "NEW ROUND" while the engine resets state and shuffles;
+     when the curtain fades the table is already at the settle phase. -->
+<div id="new-round-overlay"><div class="new-round-text">New Round</div></div>
 
 <div class="felt">
 
@@ -740,7 +1053,8 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
       <div class="chip-tray" id="chip-tray"><!-- stacks injected by JS --></div>
       <div class="tray-buttons">
         <button class="tray-btn" id="btn-reset" type="button">Reset</button>
-        <button class="tray-btn primary" id="btn-deal"  type="button">Deal</button>
+        <button class="tray-btn" id="btn-help"  type="button">Help: On</button>
+        <button class="tray-btn primary" id="btn-settings" type="button">Settings</button>
       </div>
     </div>
     <div class="close-stack">
@@ -750,6 +1064,24 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
   </div>
 
 
+</div>
+
+<!-- Settings modal: per-side-bet probability sliders. Each round, the
+     NPC bet generator rolls Math.random() < probability for each side
+     bet. Settings persist to localStorage so they survive page reload. -->
+<div id="settings-overlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-labelledby="settings-title">
+    <div class="modal-header">
+      <h2 id="settings-title">Side-bet probabilities</h2>
+      <button class="modal-close" id="btn-settings-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="modal-lede">How often the NPC players take each side bet. 0% = never, 100% = every round.</p>
+    <div class="settings-rows" id="settings-rows"><!-- sliders injected by JS --></div>
+    <div class="modal-footer">
+      <button class="tray-btn" id="btn-settings-reset" type="button">Restore defaults</button>
+      <button class="tray-btn primary" id="btn-settings-save" type="button">Save &amp; start round</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -801,13 +1133,13 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     three_of_a_kind: 45,
   };
 
-  /* Bet limits — all non-progressives have a $15 minimum. */
+  /* Bet limits — all non-progressives have a $10 table minimum. */
   const LIMITS = {
-    ante:  { min: 15, max: 500 },
-    play:  { min: 15, max: 500 },        /* equals ante */
-    prime: { min: 15, max: 500 },
-    pair:  { min: 15, max: 500 },
-    all6:  { min: 15, max: 100 },
+    ante:  { min: 10, max: 500 },
+    play:  { min: 10, max: 500 },        /* equals ante */
+    prime: { min: 10, max: 500 },
+    pair:  { min: 10, max: 500 },
+    all6:  { min: 10, max: 100 },
     mini:  { min: 1,  max: 1   },        /* fixed $1 progressive */
     linked:{ min: 5,  max: 5   },        /* fixed $5 progressive */
   };
@@ -1004,6 +1336,25 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     return red || black;
   }
 
+  /* Sort cards for DISPLAY only — returns a shallow copy ordered
+     highest-rank-first, except any rank appearing 2+ times (a pair or
+     trips) is pushed to the front. Used by renderPlayer / renderDealer
+     so the dealer always sees the strongest cards on the left.
+     Never mutate the underlying arrays: dealer.cards index 0-2 is the
+     3 main cards and 3-4 is the linked add-on, and other evaluation
+     code depends on that positional split. */
+  function sortCardsForDisplay(cards) {
+    if (!cards || cards.length < 2) return cards ? cards.slice() : [];
+    const counts = {};
+    for (const c of cards) counts[c.rank] = (counts[c.rank] || 0) + 1;
+    return cards.slice().sort((a, b) => {
+      const ma = counts[a.rank] >= 2 ? 1 : 0;
+      const mb = counts[b.rank] >= 2 ? 1 : 0;
+      if (ma !== mb) return mb - ma;
+      return RANK_VAL[b.rank] - RANK_VAL[a.rank];
+    });
+  }
+
   /* Dealer qualifies: Queen-high or better (pair / straight / flush / SF / trip count too) */
   function dealerQualifies(cards) {
     const e = evalThree(cards);
@@ -1033,19 +1384,19 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
      NPC bet generation (varied)
      ============================================================ */
   function pickAnte() {
-    /* Bias toward smaller bets (more realistic). 15/25/50/100/...  */
+    /* Bias toward smaller bets (more realistic). 10/25/50/100/...  */
     const tiers = [
-      { v: 15, w: 5 }, { v: 25, w: 3 }, { v: 50, w: 2 },
+      { v: 10, w: 5 }, { v: 25, w: 3 }, { v: 50, w: 2 },
       { v: 100, w: 1.5 }, { v: 200, w: 0.6 }, { v: 500, w: 0.2 },
     ];
     return weightedPick(tiers);
   }
   function pickSideAmount(max) {
-    /* Side bets (Prime, Pair Bonus, All 6) have a $15 minimum — same as
+    /* Side bets (Prime, Pair Bonus, All 6) have a $10 minimum — same as
        the table's main minimum. Bias toward the smallest legal amount,
        with a long tail up to the bet's individual cap. */
     const tiers = [
-      { v: 15, w: 6 }, { v: 25, w: 3 }, { v: 50, w: 1.5 },
+      { v: 10, w: 6 }, { v: 25, w: 3 }, { v: 50, w: 1.5 },
       { v: 100, w: 0.6 }, { v: max, w: 0.2 },
     ].filter(t => t.v <= max);
     return weightedPick(tiers);
@@ -1056,16 +1407,48 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     for (const t of tiers) { r -= t.w; if (r <= 0) return t.v; }
     return tiers[tiers.length - 1].v;
   }
+  /* Per-side-bet probability that an NPC plays the bet on any given
+     round. Persisted to localStorage by the Settings modal; defaults
+     mirror the original hard-coded chances. */
+  const SETTINGS_DEFAULTS = {
+    prime:  0.55,
+    pair:   0.70,
+    all6:   0.45,
+    mini:   0.60,
+    linked: 0.40,
+  };
+  const SETTINGS_KEY = 'tcp-sidebet-chances-v1';
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...SETTINGS_DEFAULTS };
+      const parsed = JSON.parse(raw);
+      const out = { ...SETTINGS_DEFAULTS };
+      for (const k of Object.keys(SETTINGS_DEFAULTS)) {
+        if (typeof parsed[k] === 'number' && parsed[k] >= 0 && parsed[k] <= 1) {
+          out[k] = parsed[k];
+        }
+      }
+      return out;
+    } catch (e) {
+      return { ...SETTINGS_DEFAULTS };
+    }
+  }
+  function saveSettings(s) {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  const SETTINGS = loadSettings();
+
   function genBets() {
     const ante = pickAnte();
     return {
       ante:   ante,
       play:   0,   /* set after the play decision */
-      prime:  Math.random() < 0.55 ? pickSideAmount(LIMITS.prime.max) : 0,
-      pair:   Math.random() < 0.70 ? pickSideAmount(LIMITS.pair.max)  : 0,
-      all6:   Math.random() < 0.45 ? pickSideAmount(LIMITS.all6.max)  : 0,
-      mini:   Math.random() < 0.60 ? 1 : 0,
-      linked: Math.random() < 0.40 ? 5 : 0,
+      prime:  Math.random() < SETTINGS.prime  ? pickSideAmount(LIMITS.prime.max) : 0,
+      pair:   Math.random() < SETTINGS.pair   ? pickSideAmount(LIMITS.pair.max)  : 0,
+      all6:   Math.random() < SETTINGS.all6   ? pickSideAmount(LIMITS.all6.max)  : 0,
+      mini:   Math.random() < SETTINGS.mini   ? 1 : 0,
+      linked: Math.random() < SETTINGS.linked ? 5 : 0,
     };
   }
 
@@ -1155,12 +1538,12 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     const tray = document.getElementById('chip-tray');
     if (!tray) return;
     const stacks = [
-      { color: 'ce-purple', label: '$500', value: 500, count: 20 },
-      { color: 'ce-black',  label: '$100', value: 100, count: 20 },
-      { color: 'ce-green',  label: '$25',  value: 25,  count: 20 },
-      { color: 'ce-red',    label: '$5',   value: 5,   count: 20 },
-      { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 20 },
-      { color: 'ce-white',  label: '$1',   value: 1,   count: 20 },
+      { color: 'ce-purple', label: '$500', value: 500, count: 10 },
+      { color: 'ce-black',  label: '$100', value: 100, count: 10 },
+      { color: 'ce-green',  label: '$25',  value: 25,  count: 10 },
+      { color: 'ce-red',    label: '$5',   value: 5,   count: 10 },
+      { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 10 },
+      { color: 'ce-white',  label: '$1',   value: 1,   count: 10 },
     ];
     tray.innerHTML = '';
     const STEP = 6;
@@ -1212,7 +1595,9 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
       const showFaceUp =
         (STATE.phase === 'reveal' || STATE.phase === 'settle' || STATE.phase === 'complete')
         && (!isFolded || anteResolved);
-      cardsHTML = p.cards.map(c => cardHTML(c, !showFaceUp)).join('');
+      /* Display ordering only — see sortCardsForDisplay. The underlying
+         p.cards array stays in deal order so evaluation isn't affected. */
+      cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, !showFaceUp)).join('');
     }
     let badge = '';
     if (p.decision === 'play') badge = '<div class="decision-badge play">Play</div>';
@@ -1235,24 +1620,36 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
         return ' settle-loss';
       }
       if (STATE.subphase === 'pay-winners') {
-        const order = winnerBets(p);
-        if (order[0] === betKey) {
-          if (r.outcome === 'jackpot') return ' settle-jackpot';
-          if (r.outcome === 'push')    return ' settle-push';
-          return ' settle-win-next';
-        }
-        if (r.outcome === 'win' || r.outcome === 'jackpot' || r.outcome === 'push') return ' settle-win-wait';
+        /* Every unresolved settlement target glows at once — the dealer
+           can see all of them while building the grand-total in outgoing.
+           Click order is still enforced in the handler. */
+        if (r.outcome === 'jackpot') return ' settle-jackpot';
+        if (r.outcome === 'push')    return ' settle-push';
+        if (r.outcome === 'win')     return ' settle-win-next';
       }
       return '';
     }
     function spotChips(betKey) {
       const r = p.settlement && p.settlement[betKey];
       /* Once a bet is resolved, hide its chip stack — the chips have either
-         moved to the rack (collected) or paid out to the player. */
+         moved to the rack (collected) or paid out to the player. Pushes
+         skip this (the chip stays on the bet, dealer takes no action). */
       if (STATE.phase === 'settle' && r && r.resolved && (r.outcome === 'win' || r.outcome === 'loss')) {
         return '';
       }
       return renderBetStack(bets[betKey]);
+    }
+    /* PUSHED text overlay — appears on the bet circle during settlement
+       when the bet is a push (e.g. Play bet when dealer doesn't qualify).
+       Pushes auto-resolve, so the dealer never has to click the bet; the
+       overlay tells them at a glance that the bet stayed. Cleared in the
+       next round via state reset. */
+    function spotPushedLabel(betKey) {
+      const r = p.settlement && p.settlement[betKey];
+      if (STATE.phase === 'settle' && r && r.outcome === 'push') {
+        return '<span class="pushed-overlay">PUSHED</span>';
+      }
+      return '';
     }
 
     const cur = (STATE.phase === 'settle' && p.id === STATE.currentPlayerIdx) ? ' current' : '';
@@ -1289,8 +1686,8 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
       '<div class="mat">' +
         '<div class="row-main">' +
           '<div class="main-stack">' +
-            '<div class="spot diamond play' + spotState('play') + '" data-betkey="play">' + spotChips('play') + '<span class="label">Play</span></div>' +
-            '<div class="spot diamond ante' + spotState('ante') + '" data-betkey="ante">' + spotChips('ante') + '<span class="label">Ante</span></div>' +
+            '<div class="spot diamond play' + spotState('play') + '" data-betkey="play">' + spotChips('play') + spotPushedLabel('play') + '<span class="label">Play</span></div>' +
+            '<div class="spot diamond ante' + spotState('ante') + '" data-betkey="ante">' + spotChips('ante') + spotPushedLabel('ante') + '<span class="label">Ante</span></div>' +
           '</div>' +
         '</div>' +
         '<div class="row-bonuses">' +
@@ -1299,8 +1696,17 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
           '<div class="spot prime'  + spotState('prime') + '" data-betkey="prime">' + spotChips('prime') + '<span class="label">Prime</span></div>' +
         '</div>' +
         '<div class="row-progressives">' +
-          '<div class="spot mini'   + spotState('mini')   + '" data-betkey="mini">'   + spotChips('mini')   + '<span class="label">$1</span></div>' +
-          '<div class="spot linked' + spotState('linked') + '" data-betkey="linked">' + spotChips('linked') + '<span class="label">$5</span></div>' +
+          /* Progressive bets stay LIT for the entire round once a bet
+             was originally placed — even after the bet auto-resolves
+             as a loss. p.bets gets reset to null at the start of each
+             round in startRound, so the glow clears naturally then.
+             For losses the dealer still doesn't click (auto-resolved
+             via enterSettle; the click handler is a no-op on resolved
+             bets). spotState only paints a settle halo on unresolved
+             outcomes, so a lost progressive shows the placed glow but
+             no green/red "act on me" halo. */
+          '<div class="spot mini'   + (bets.mini   ? ' placed' : '') + spotState('mini')   + '" data-betkey="mini"><span class="label">$1</span></div>' +
+          '<div class="spot linked' + (bets.linked ? ' placed' : '') + spotState('linked') + '" data-betkey="linked"><span class="label">$5</span></div>' +
         '</div>' +
       '</div>' +
       badge +
@@ -1323,9 +1729,14 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
       $dealerM.innerHTML = '';
       return;
     }
-    $dealerC.innerHTML = cs.slice(3,5).map(c => cardHTML(c, false)).join('')
+    /* Display ordering: sort the linked 2 and the main 3 INDEPENDENTLY
+       so the main/linked visual split is preserved (linked block is the
+       2 cards rendered before the gap). */
+    const linkedDisp = sortCardsForDisplay(cs.slice(3,5));
+    const mainDisp   = sortCardsForDisplay(cs.slice(0,3));
+    $dealerC.innerHTML = linkedDisp.map(c => cardHTML(c, false)).join('')
       + '<div class="gap"></div>'
-      + cs.slice(0,3).map(c => cardHTML(c, false)).join('');
+      + mainDisp.map(c => cardHTML(c, false)).join('');
     const e3 = evalThree(cs.slice(0,3));
     const qualifies = dealerQualifies(cs.slice(0,3));
     $dealerM.innerHTML =
@@ -1411,7 +1822,13 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
           } else if (r.outcome === 'push') {
             $h.textContent = 'Push — tap the bet to acknowledge (chip stays)';
           } else {
-            $h.textContent = 'Pay $' + r.net + ' next — stack and click in order';
+            const totalLeft = winnerBets(p).reduce((sum, k) => {
+              const rr = p.settlement[k];
+              return sum + (rr && rr.outcome === 'win' ? rr.net : 0);
+            }, 0);
+            $h.textContent = (STATE.outgoing.total === totalLeft)
+              ? 'Pay $' + r.net + ' next — click bet'
+              : 'Build grand total $' + totalLeft + ' in outgoing';
           }
           $h.style.color = '';
           return;
@@ -1436,6 +1853,14 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
      Round flow
      ============================================================ */
   function startRound() {
+    /* Drop the curtain in front of everything BEFORE any state changes.
+       Idempotent — advanceSettlement already adds this class for round
+       flips; this covers page-load (first round) and any manual Deal
+       click where the class wasn't preset. The carousel transition is
+       also suppressed so seats don't visibly slide during the setup. */
+    document.body.classList.add('new-round-curtain');
+    document.body.classList.add('no-carousel-transition');
+
     /* Reset per-player state */
     for (const p of STATE.players) {
       p.cards = [];
@@ -1451,45 +1876,54 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     /* New shuffled deck */
     STATE.deck = shuffle(newDeck());
 
-    /* NPCs place bets */
+    /* Run the whole place-bets → deal → decisions → reveal sequence
+       SYNCHRONOUSLY. Nothing is rendered to the user between phases —
+       the curtain hides the table — so they never see the intermediate
+       states. We just compute final state and let the curtain drop. */
     STATE.phase = 'place-bets';
     for (const p of STATE.players) p.bets = genBets();
+
+    STATE.phase = 'deal';
+    for (let i = 0; i < 3; i++) {
+      for (const p of STATE.players) p.cards.push(STATE.deck.pop());
+    }
+    for (let i = 0; i < 5; i++) STATE.dealer.cards.push(STATE.deck.pop());
+
+    STATE.phase = 'decisions';
+    for (const p of STATE.players) {
+      if (shouldPlay(p.cards)) {
+        p.decision = 'play';
+        p.bets.play = p.bets.ante; /* play wager = ante */
+      } else {
+        p.decision = 'fold';
+        p.bets.play = 0;
+      }
+    }
+
+    STATE.phase = 'reveal';
+
+    /* Single render to land all the new-round visuals (bets placed,
+       cards dealt, NPCs decided, dealer revealed) under the curtain.
+       The user can't see this render — the curtain is opaque. */
     renderAll();
 
-    /* Deal cards: 3 to each player, then 5 to dealer (3 main + 2 linked) */
+    /* Brief curtain show — long enough to read "NEW ROUND", short
+       enough to feel snappy — then enter the settle phase and drop
+       the curtain. enterSettle's renderAll commits the final settle
+       state right before the curtain fades, so the table is already
+       interactive when it appears. */
     setTimeout(() => {
-      STATE.phase = 'deal';
-      for (let i = 0; i < 3; i++) {
-        for (const p of STATE.players) p.cards.push(STATE.deck.pop());
-      }
-      for (let i = 0; i < 5; i++) STATE.dealer.cards.push(STATE.deck.pop());
-      renderAll();
-
-      /* NPC decisions */
-      setTimeout(() => {
-        STATE.phase = 'decisions';
-        for (const p of STATE.players) {
-          if (shouldPlay(p.cards)) {
-            p.decision = 'play';
-            p.bets.play = p.bets.ante; /* play wager = ante */
-          } else {
-            p.decision = 'fold';
-            p.bets.play = 0;
-          }
-        }
-        renderAll();
-
-        /* Dealer reveal — then HAND OFF to the dealer (user) for settlement */
-        setTimeout(() => {
-          STATE.phase = 'reveal';
-          renderAll();
-
-          setTimeout(() => {
-            enterSettle();
-          }, 900);
-        }, 700);
-      }, 700);
-    }, 500);
+      enterSettle();
+      document.body.classList.remove('new-round-curtain');
+      /* Re-enable carousel transitions after the curtain has dropped
+         so any in-round settlement seat slides (Seat 3 → 2 → 1) still
+         animate normally. */
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.body.classList.remove('no-carousel-transition');
+        });
+      });
+    }, 550);
   }
 
   /* ============================================================
@@ -1516,15 +1950,23 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     STATE.phase = 'settle';
     /* Compute the settlement values for every bet (without resolving them). */
     settleAll();
-    /* Initialize resolved flags. Only zero-stake bets auto-resolve (nothing
-       on that spot to settle). Pushes are explicit interactions — the
-       dealer should tap the bet to acknowledge "this one is a push" before
-       moving on. */
+    /* Initialize resolved flags:
+       - Zero-stake bets auto-resolve (nothing to settle).
+       - Progressive LOSSES auto-resolve too — the Mini-Royal $1 and
+         5-Card Linked $5 cheques are taken into the rack BEFORE the
+         deal in real life, so when one of those bets loses there's no
+         action for the dealer.
+       - PUSHES auto-resolve. When the dealer doesn't qualify the Play
+         bet pushes; we show a "PUSHED" overlay on the bet circle and
+         skip past it. Dealer just goes straight to the ante. */
     for (const p of STATE.players) {
       for (const k of PAY_ORDER) {
         const r = p.settlement && p.settlement[k];
         if (!r) continue;
-        r.resolved = (r.staked === 0);
+        const isProgressiveLoss =
+          (k === 'mini' || k === 'linked') && r.outcome === 'loss';
+        const isPush = (r.outcome === 'push');
+        r.resolved = (r.staked === 0 || isProgressiveLoss || isPush);
       }
     }
     STATE.currentPlayerIdx = STATE.players.length - 1;   /* rightmost */
@@ -1540,14 +1982,14 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
       return r && !r.resolved && r.outcome === 'loss';
     });
   }
-  /* Returns the list of unresolved winning/push/jackpot bets in pay order.
-     Pushes go through the "winners" subphase too — the chip stays on the
-     spot and the dealer just taps to acknowledge. */
+  /* Returns the list of unresolved winning/jackpot bets in pay order.
+     Pushes auto-resolve in enterSettle (a "PUSHED" overlay is shown on
+     the bet circle), so they never enter the winners subphase. */
   function winnerBets(p) {
     if (!p.settlement) return [];
     return PAY_ORDER.filter(k => {
       const r = p.settlement[k];
-      return r && !r.resolved && (r.outcome === 'win' || r.outcome === 'jackpot' || r.outcome === 'push');
+      return r && !r.resolved && (r.outcome === 'win' || r.outcome === 'jackpot');
     });
   }
 
@@ -1569,17 +2011,21 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
       /* This player is done — fall through to the next seat. */
       STATE.currentPlayerIdx--;
     }
-    /* All players resolved → round complete. Auto-start the next round
-       after a brief pause so the dealer can register the final settlement
-       state and the carousel can finish any in-flight transitions. If
-       Reset is clicked during the pause, phase will no longer be
-       'complete' and the auto-deal is skipped. */
+    /* All players resolved → round complete. Drop the "NEW ROUND"
+       curtain immediately so the dealer doesn't see lights turning on,
+       cards face-down, NPC decisions, or the dealer reveal — those
+       phases all run synchronously underneath. The carousel transition
+       is also suppressed so the seats don't visibly zoom around during
+       the flip. startRound is what hides the curtain again, once the
+       table is at the settle phase. */
     STATE.subphase = null;
     STATE.phase = 'complete';
     STATE.round++;
+    document.body.classList.add('no-carousel-transition');
+    document.body.classList.add('new-round-curtain');
     setTimeout(() => {
       if (STATE.phase === 'complete') startRound();
-    }, 1400);
+    }, 50);
   }
 
   /* ---------- Click handlers ---------- */
@@ -1643,21 +2089,26 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
         afterStep();
         return;
       }
-      /* Normal winner — peel exactly the bet's expected payout off the
-         TOP of the outgoing stack. The dealer can pre-stack multiple
-         winners' payouts ahead of time, then click each winning bet and
-         the right chunk is peeled off. The peel works ONLY if the top
-         chips of the stack sum to the exact expected amount (i.e. the
-         payouts must be stacked in click order with each winner's chips
-         contiguous at the top). */
+      /* Normal winner. The dealer must put the GRAND TOTAL of all
+         still-unresolved winning bets into the outgoing stack BEFORE
+         clicking any winner — partial payments aren't allowed. Then
+         clicking each winning bet in order peels off just that bet's
+         worth of chips, leaving the rest for the next winner. */
       const expected = r.net;
+      const remainingWinningTotal = winnerBets(p).reduce((sum, k) => {
+        const rr = p.settlement[k];
+        return sum + (rr && rr.outcome === 'win' ? rr.net : 0);
+      }, 0);
+      if (STATE.outgoing.total !== remainingWinningTotal) {
+        flashHint(
+          'Build the grand total $' + remainingWinningTotal +
+          ' in outgoing first (now $' + STATE.outgoing.total + ').'
+        );
+        return;
+      }
       const peel = peelTopMatching(expected);
       if (!peel) {
-        flashHint(
-          STATE.outgoing.total < expected
-            ? 'Outgoing has only $' + STATE.outgoing.total + '; need $' + expected + '.'
-            : 'Outgoing missing the right chips for $' + expected + '.'
-        );
+        flashHint('Outgoing missing the right chips for $' + expected + '.');
         return;
       }
       flyOutgoingToBet(playerIdx, betKey, () => {
@@ -1715,7 +2166,16 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     const tgt = rectCenter(targetEl);
     const dx = tgt.x - src.x;
     const dy = tgt.y - src.y;
+    /* Clone first so the clone captures the chip visuals BEFORE we hide
+       the source. cloneNode copies inline styles by value, so hiding the
+       source after cloning does not affect the clone. */
     const clone = sourceEl.cloneNode(true);
+    /* Immediately hide the source — the visible chips at the bet circle
+       disappear right when the dealer clicks, instead of staying in
+       place while a duplicate flies away. The renderAll that follows
+       (from afterStep) will replace the source DOM anyway, at which
+       point the bet circle is empty (resolved + p.bets[k] = 0). */
+    sourceEl.style.visibility = 'hidden';
     clone.style.position = 'fixed';
     clone.style.left = (src.x - sourceEl.offsetWidth/2) + 'px';
     clone.style.top  = (src.y - sourceEl.offsetHeight/2) + 'px';
@@ -1778,22 +2238,46 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
     }, 580);
   }
 
-  /* Peel the canonical chip set for `expected` out of STATE.outgoing.chips.
-     Returns null if the outgoing doesn't contain a matching combination
-     (either not enough total or missing the right denominations). This is
-     what makes pre-stacking multiple winners' payouts work — the dealer
-     builds the chips for several winners in one stack, then clicks each
-     winning bet in order, and the right chip-combo is peeled off for
-     each one. */
+  /* Peel ANY subset of outgoing chips that sums to `expected` (any
+     combination of denominations is accepted — e.g., $45 can be paid
+     with 1 green + 4 red, or 9 red, etc., as long as the values add up
+     exactly). Returns null only when no subset matches.
+
+     This is what makes pre-stacking multiple winners' payouts work and
+     also gives the dealer freedom to use whatever cheques they grabbed.
+     Backtracking search; sorting chips by value descending makes it find
+     a solution quickly in practice. */
   function peelTopMatching(expected) {
-    const needed = chipStackForAmount(expected);
-    const remaining = STATE.outgoing.chips.slice();
-    for (const n of needed) {
-      const idx = remaining.findIndex(c => c.value === n.value);
-      if (idx < 0) return null;
-      remaining.splice(idx, 1);
-    }
+    const chips = STATE.outgoing.chips;
+    const pickedIdx = findSubsetSumming(chips, expected);
+    if (!pickedIdx) return null;
+    const set = new Set(pickedIdx);
+    const remaining = chips.filter((_, i) => !set.has(i));
     return { remaining };
+  }
+  function findSubsetSumming(chips, target) {
+    if (Math.abs(target) < 0.001) return [];
+    const n = chips.length;
+    /* Sort indices by chip value descending so the search hits the target
+       quickly when big denominations are involved. */
+    const order = chips.map((_, i) => i)
+      .sort((a, b) => chips[b].value - chips[a].value);
+    const picked = [];
+    function search(orderIdx, remaining) {
+      if (Math.abs(remaining) < 0.001) return picked.slice();
+      if (orderIdx >= n || remaining < -0.001) return null;
+      const v = chips[order[orderIdx]].value;
+      /* Try including this chip if it doesn't overshoot */
+      if (v <= remaining + 0.001) {
+        picked.push(order[orderIdx]);
+        const r = search(orderIdx + 1, remaining - v);
+        if (r) return r;
+        picked.pop();
+      }
+      /* Try excluding this chip */
+      return search(orderIdx + 1, remaining);
+    }
+    return search(0, target);
   }
 
   /* ---------- Outgoing stack rendering ---------- */
@@ -1876,12 +2360,26 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
         }
       }
 
-      /* ---------- PRIME ---------- */
+      /* ---------- PRIME ----------
+         3:1 when the player's 3 cards are all the same color.
+         4:1 when the dealer's 3 cards are ALSO all the same color AND
+         that color MATCHES the player's color (both all red, or both
+         all black). Mixed monochrome — player all red, dealer all black
+         — only gets 3:1. */
       if (b.prime > 0) {
         const pSame = allSameColor(p.cards);
-        if (!pSame) s.prime = { staked: b.prime, outcome: 'loss', net: -b.prime, detail: '-$' + b.prime };
-        else if (dealerSameColor) s.prime = { staked: b.prime, outcome: 'win', net: b.prime * PRIME_PAY.player_and_dealer, detail: '+$' + (b.prime * PRIME_PAY.player_and_dealer) + ' (4x)' };
-        else s.prime = { staked: b.prime, outcome: 'win', net: b.prime * PRIME_PAY.player_only, detail: '+$' + (b.prime * PRIME_PAY.player_only) + ' (3x)' };
+        if (!pSame) {
+          s.prime = { staked: b.prime, outcome: 'loss', net: -b.prime, detail: '-$' + b.prime };
+        } else {
+          const playerRed = RED.has(p.cards[0].suit);
+          const dealerRed = RED.has(dealerCards3[0].suit);
+          const colorsMatch = dealerSameColor && (playerRed === dealerRed);
+          if (colorsMatch) {
+            s.prime = { staked: b.prime, outcome: 'win', net: b.prime * PRIME_PAY.player_and_dealer, detail: '+$' + (b.prime * PRIME_PAY.player_and_dealer) + ' (4x)' };
+          } else {
+            s.prime = { staked: b.prime, outcome: 'win', net: b.prime * PRIME_PAY.player_only,      detail: '+$' + (b.prime * PRIME_PAY.player_only)      + ' (3x)' };
+          }
+        }
       }
 
       /* ---------- PAIR BONUS ---------- */
@@ -1938,22 +2436,86 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
   /* ============================================================
      Wire up
      ============================================================ */
-  document.getElementById('btn-deal').onclick = () => {
-    if (STATE.phase === 'idle' || STATE.phase === 'complete') {
-      startRound();
+  /* Settings modal: build the slider rows on demand from SETTINGS. The
+     slider's `input` event updates a local draft; on Save the draft is
+     copied to SETTINGS + persisted, and a fresh round starts so the
+     new probabilities take effect immediately. */
+  const SIDE_BET_LABELS = [
+    { key: 'prime',  label: 'Prime' },
+    { key: 'pair',   label: 'Pair Bonus' },
+    { key: 'all6',   label: 'All 6' },
+    { key: 'mini',   label: 'Mini Royal ($1)' },
+    { key: 'linked', label: '5-Card Linked ($5)' },
+  ];
+  function renderSettingsRows(draft) {
+    const root = document.getElementById('settings-rows');
+    root.innerHTML = '';
+    for (const { key, label } of SIDE_BET_LABELS) {
+      const pct = Math.round(draft[key] * 100);
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      row.innerHTML =
+        '<span class="row-label">' + label + '</span>' +
+        '<span class="row-value" data-key="' + key + '">' + pct + '%</span>' +
+        '<input type="range" min="0" max="100" step="5" value="' + pct + '" data-key="' + key + '">';
+      root.appendChild(row);
     }
+    root.querySelectorAll('input[type="range"]').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const k = e.currentTarget.dataset.key;
+        const pct = parseInt(e.currentTarget.value, 10);
+        draft[k] = pct / 100;
+        const v = root.querySelector('.row-value[data-key="' + k + '"]');
+        if (v) v.textContent = pct + '%';
+      });
+    });
+  }
+  let settingsDraft = null;
+  function openSettings() {
+    settingsDraft = { ...SETTINGS };
+    renderSettingsRows(settingsDraft);
+    document.getElementById('settings-overlay').classList.add('open');
+  }
+  function closeSettings() {
+    document.getElementById('settings-overlay').classList.remove('open');
+    settingsDraft = null;
+  }
+  document.getElementById('btn-settings').onclick = openSettings;
+  document.getElementById('btn-settings-close').onclick = closeSettings;
+  document.getElementById('settings-overlay').addEventListener('click', (e) => {
+    /* click outside the panel closes */
+    if (e.target.id === 'settings-overlay') closeSettings();
+  });
+  document.getElementById('btn-settings-reset').onclick = () => {
+    settingsDraft = { ...SETTINGS_DEFAULTS };
+    renderSettingsRows(settingsDraft);
   };
+  document.getElementById('btn-settings-save').onclick = () => {
+    if (settingsDraft) {
+      Object.assign(SETTINGS, settingsDraft);
+      saveSettings(SETTINGS);
+    }
+    closeSettings();
+    /* Apply immediately by starting a fresh round under the curtain */
+    startRound();
+  };
+
+  document.getElementById('btn-help').onclick = (e) => {
+    document.body.classList.toggle('help-off');
+    e.currentTarget.textContent =
+      document.body.classList.contains('help-off') ? 'Help: Off' : 'Help: On';
+  };
+  /* Reset starts a fresh round straight away with the curtain — no more
+     idle/click-Deal state. The user sees "NEW ROUND" briefly while the
+     engine resets, then the table is ready to settle. */
   document.getElementById('btn-reset').onclick = () => {
     STATE.round = 1;
-    STATE.phase = 'idle';
     STATE.subphase = null;
     STATE.currentPlayerIdx = -1;
     STATE.outgoing = { chips: [], total: 0 };
     STATE.luckySuit = SUITS[Math.floor(Math.random() * 4)];
-    for (const p of STATE.players) { p.cards = []; p.bets = null; p.decision = null; p.settlement = null; }
-    STATE.dealer.cards = [];
-    renderAll();
     renderOutgoing();
+    startRound();
   };
 
   /* Delegated click on the players row — dispatch by data-pid + data-betkey. */
@@ -1979,6 +2541,8 @@ body.paying .chip-stack-tray:active { transform: translateY(1px); }
   /* Initial render */
   renderChipTray();
   renderAll();
+  /* Auto-start the first round on page load — no need to click Deal. */
+  startRound();
 })();
 </script>
 
