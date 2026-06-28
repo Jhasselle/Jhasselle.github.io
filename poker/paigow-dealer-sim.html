@@ -228,13 +228,19 @@ a.home-btn::before {
   left: 50%;
   bottom: calc(50% - 10px);   /* one chip-half above spot center */
   transform: translateX(-50%);
-  width: 56px; height: 1px;
+  /* Match the dealer rack column width (64px) so the wager cheques
+     are the same physical size as the chips in the rack. Slightly
+     overflows the 54px bet circle, which is OK and reads as a real
+     stack sitting on top of the bet. */
+  width: 64px; height: 1px;
   pointer-events: none;
   z-index: 100;
 }
 .bet .bet-chip-piece {
   position: absolute;
-  left: 4px; right: 4px;
+  /* No side inset — chips fill the .bchips container edge-to-edge, the
+     same look as the dealer rack columns. */
+  left: 0; right: 0;
   height: 20px;
   border-radius: 50%;
   border: 1px solid rgba(0,0,0,0.5);
@@ -315,6 +321,30 @@ body.help-off .bet.settle-jackpot::after { display: none; }
 .hands {
   display: flex; flex-direction: column; gap: 4px;
   align-items: center;
+}
+/* Collectable — applied to the current player's hands row during the
+   'collect-cards' subphase. Cards become clickable and lift on hover
+   to invite the click that advances the carousel. */
+.hands.collectable .pcard {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.hands.collectable:hover .pcard { filter: brightness(1.08); }
+.hands.collectable .pcard:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6), 0 0 0 2px rgba(253,224,71,0.6);
+}
+/* When Help is on, the collectable cards softly pulse so the dealer
+   instantly sees they're waiting to be picked up. The pulse is applied
+   to the HANDS CONTAINER via filter: drop-shadow so every card glows
+   in unison (a single animation timer drives all of them) instead of
+   each card running its own out-of-phase animation. */
+@keyframes cardCollectPulse {
+  0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(253,224,71,0)); }
+  50%      { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 8px rgba(253,224,71,0.85)); }
+}
+body:not(.help-off) .hands.collectable {
+  animation: cardCollectPulse 2.4s ease-in-out infinite;
 }
 .handrow {
   display: flex; gap: 4px;
@@ -569,6 +599,24 @@ body.help-on .rank-note { display: block; }
   border-color: rgba(255,255,255,0.35);
   color: #fff;
 }
+/* House Way button — auto-sets the dealer's hand to houseWay(dealer7).
+   Amber-tinted ghost button so it visually reads as "the help option". */
+.build-actions .build-auto {
+  background: transparent;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #fde047;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font: 700 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.build-actions .build-auto:hover {
+  background: rgba(250, 204, 21, 0.08);
+  border-color: rgba(250, 204, 21, 0.7);
+  color: #fef08a;
+}
 
 /* House-way result panel — shown beneath the build area when the
    submitted hand doesn't match house way. Lists the correct Low + High
@@ -720,7 +768,9 @@ body:not([data-phase="build"]) .build-area { display: none; }
 .chip-stack-display:empty { opacity: 0.45; }
 .chip-stack-display .chip-piece {
   position: absolute;
-  left: 4px; right: 4px;
+  /* No side inset — chips fill the outgoing box edge-to-edge, same
+     dimensions as the dealer rack column chips. */
+  left: 0; right: 0;
   height: 20px;
   border-radius: 50%;
   border: 1px solid rgba(0,0,0,0.5);
@@ -1097,7 +1147,7 @@ body.new-round-curtain #new-round-overlay {
   .chip-stack-tray .chip-label { font-size: 0.6rem; }
   .close-stack { width: 52px; }
   .chip-stack-display { width: 52px; }
-  .chip-stack-display .chip-piece { left: 4px; right: 4px; height: 18px; }
+  .chip-stack-display .chip-piece { left: 0; right: 0; height: 18px; }
   .tray-btn { padding: 6px 11px; font-size: 0.72rem; }
   .tray-buttons { gap: 6px; }
   .new-round-text { font-size: 28px; letter-spacing: 0.18em; }
@@ -1110,7 +1160,7 @@ body.new-round-curtain #new-round-overlay {
   .chip-stack-tray .chip-label { font-size: 0.55rem; letter-spacing: 0; }
   .close-stack { width: 42px; }
   .chip-stack-display { width: 42px; padding: 3px; }
-  .chip-stack-display .chip-piece { left: 3px; right: 3px; height: 16px; }
+  .chip-stack-display .chip-piece { left: 0; right: 0; height: 16px; }
   .tray-btn { padding: 5px 8px; font-size: 0.68rem; }
 }
 </style>
@@ -1159,6 +1209,7 @@ body.new-round-curtain #new-round-overlay {
     <div class="build-actions">
       <span class="build-msg" id="build-msg"></span>
       <button class="build-reset" id="build-reset" type="button">Reset</button>
+      <button class="build-auto"  id="build-auto"  type="button">House Way</button>
       <button class="build-submit" id="build-submit" type="button" disabled>Set Hands</button>
     </div>
     <!-- Shown if the dealer's submitted hand doesn't match the house
@@ -1214,6 +1265,36 @@ body.new-round-curtain #new-round-overlay {
         <span class="row-value" id="max-side-val">$25</span>
         <input type="range" id="max-side" min="5" max="100" step="5" value="25">
       </div>
+      <div class="settings-section-head" style="margin-top: 10px;">NPC side-bet chances</div>
+      <div class="settings-row">
+        <span class="row-label">Bonus Jackpot Red ($5)</span>
+        <span class="row-value" id="p-red-val">50%</span>
+        <input type="range" id="p-red" min="0" max="100" step="5" value="50">
+      </div>
+      <div class="settings-row">
+        <span class="row-label">Bonus Jackpot Blue ($1)</span>
+        <span class="row-value" id="p-blue-val">50%</span>
+        <input type="range" id="p-blue" min="0" max="100" step="5" value="50">
+      </div>
+      <div class="settings-row">
+        <span class="row-label">Pai Gow Insurance</span>
+        <span class="row-value" id="p-ins-val">45%</span>
+        <input type="range" id="p-ins" min="0" max="100" step="5" value="45">
+      </div>
+      <div class="settings-row">
+        <span class="row-label">…on the dealer's hand</span>
+        <span class="row-value" id="p-ins-dealer-val">30%</span>
+        <input type="range" id="p-ins-dealer" min="0" max="100" step="5" value="30">
+        <p class="settings-note" style="grid-column: 1 / -1; margin: 4px 0 0;">
+          Of insurance bets that are placed, what share is on the dealer's hand instead of the player's own.
+        </p>
+      </div>
+      <div class="settings-row">
+        <span class="row-label">Emperor's Treasure</span>
+        <span class="row-value" id="p-emp-val">60%</span>
+        <input type="range" id="p-emp" min="0" max="100" step="5" value="60">
+      </div>
+      <div class="settings-section-head" style="margin-top: 10px;">Rigging</div>
       <div class="settings-row">
         <span class="row-label">Give side-bet winning hands</span>
         <span class="row-value" id="boost-val">Off</span>
@@ -2427,13 +2508,13 @@ function dealRound(settings) {
   }
   const players = playerHands.map((seven, idx) => {
     const bets = { main: pickMainBet(settings.maxMain) };
-    if (Math.random() < 0.5)  bets.red = 5;
-    if (Math.random() < 0.5)  bets.blue = 1;
-    if (Math.random() < 0.45) {
+    if (Math.random() < settings.pRed)  bets.red = 5;
+    if (Math.random() < settings.pBlue) bets.blue = 1;
+    if (Math.random() < settings.pIns) {
       bets.ins = pickWeighted(validSideBets(settings.maxSide));
-      bets.insOnDealer = Math.random() < 0.3;
+      bets.insOnDealer = Math.random() < settings.pInsOnDealer;
     }
-    if (Math.random() < 0.6)  bets.emp = pickWeighted(validSideBets(settings.maxSide));
+    if (Math.random() < settings.pEmp)  bets.emp = pickWeighted(validSideBets(settings.maxSide));
     return { idx, seven, bets };
   });
   return { dealer7, players };
@@ -2479,7 +2560,12 @@ function finalizeRound(round_data, dealerFront, dealerBack) {
     if (p.bets.emp != null) {
       const ei = emperorIndex(p.seven);
       const own = ei >= 0 ? p.bets.emp * EMP_TABLE[ei].mult : 0;
-      spec.emp = { trigger: own > 0, own, envy: 0, envyDetails: [] };
+      /* envyTier flags hands at Four of a Kind or above — those tiers
+         pay envy to other $5+ Emperor's bettors. The card-collect step
+         is skipped for these players so their cards stay on the table
+         for the envy phase. */
+      const envyTier = (ei >= 0 && !!EMP_TABLE[ei].envy);
+      spec.emp = { trigger: own > 0, envyTier, own, envy: 0, envyDetails: [] };
     }
     p.spec = spec;
   }
@@ -2513,10 +2599,16 @@ function fmt(n) { return '$' + n.toLocaleString(); }
 /* ============================================================
    SETTINGS persistence
    ============================================================ */
-const SETTINGS_KEY = 'paigow-dealer-sim-settings-v5';
+const SETTINGS_KEY = 'paigow-dealer-sim-settings-v6';
 const SETTINGS_DEFAULTS = {
   maxMain: 100,
   maxSide: 25,
+  /* Per-NPC chance of playing each side bet (read by dealRound). */
+  pRed:         0.50,
+  pBlue:        0.50,
+  pIns:         0.45,
+  pInsOnDealer: 0.30,  /* given that Ins is played */
+  pEmp:         0.60,
   /* "Give side-bet winning hands" — 0 Off (default), 1 Some, 2 Lots.
      Applies to each NPC's hand (per-player probability roll). */
   boost: 0,
@@ -2690,8 +2782,9 @@ function betSettleClass(p, key) {
     if (spec.pay)  return 'settle-win';
     return '';
   }
-  /* emp own (during settle) — own > 0 → win */
-  if (spec.own > 0) return 'settle-jackpot';
+  /* emp own (during settle) — own > 0 → win (green like the other
+     winning side bets, no longer the gold jackpot halo). */
+  if (spec.own > 0) return 'settle-win';
   return 'settle-loss';
 }
 function betPushedOverlay(p, key) {
@@ -2783,10 +2876,17 @@ function renderPlayer(p) {
 
   /* Cards. During the dealer's build phase, the player hands are hidden
      (face-down placeholders) so the dealer can't see them while setting
-     their own hand. "L" = Low (2 cards), "H" = High (5 cards). */
+     their own hand. After settlement, if the cards have been collected,
+     they're cleared (no cards rendered). "L" = Low (2 cards), "H" = High
+     (5 cards). */
   const hidden = STATE.phase === 'build' || STATE.phase === 'idle';
+  const collected = STATE.phase === 'settle' && player.cardsCollected;
   let frontHTML, backHTML, note;
-  if (hidden) {
+  if (collected) {
+    frontHTML = '<div class="handrow"><div class="hlbl">L</div></div>';
+    backHTML  = '<div class="handrow"><div class="hlbl">H</div></div>';
+    note = '<div class="rank-note">Cards collected</div>';
+  } else if (hidden) {
     const fd = '<div class="pcard face-down"></div>';
     frontHTML = '<div class="handrow"><div class="hlbl">L</div>' + fd.repeat(2) + '</div>';
     backHTML  = '<div class="handrow"><div class="hlbl">H</div>' + fd.repeat(5) + '</div>';
@@ -2799,11 +2899,17 @@ function renderPlayer(p) {
     note = '<div class="rank-note">Low: ' + evalTwo(player.front).label +
            ' · High: ' + evalFive(player.back).label + '</div>';
   }
+  /* Cards-row clickable cue when this is the current player in the
+     'collect-cards' subphase: cursor + glow on hover, click advances. */
+  const collectable = (STATE.phase === 'settle'
+                    && STATE.subphase === 'collect-cards'
+                    && p === currentPlayer()
+                    && !player.cardsCollected) ? ' collectable' : '';
 
   return '<div class="player' + cur + dim + done + carousel + '" data-pid="' + p + '">' +
     '<div class="seat-label">Player ' + (p + 1) + '</div>' +
     '<div class="bets-row">' + betsHTML + '</div>' +
-    '<div class="hands">' + frontHTML + backHTML + '</div>' +
+    '<div class="hands' + collectable + '">' + frontHTML + backHTML + '</div>' +
     note +
   '</div>';
 }
@@ -2860,7 +2966,13 @@ function renderAll() {
   renderOutgoing();
   $roundNo.textContent = STATE.round;
   if      (STATE.phase === 'build')    $phase.textContent = 'Dealer setting hands';
-  else if (STATE.phase === 'settle')   $phase.textContent = 'Settle Player ' + (currentPlayer() + 1);
+  else if (STATE.phase === 'settle') {
+    if (STATE.subphase === 'collect-cards') {
+      $phase.textContent = 'Player ' + (currentPlayer() + 1) + ' — click cards to collect';
+    } else {
+      $phase.textContent = 'Settle Player ' + (currentPlayer() + 1);
+    }
+  }
   else if (STATE.phase === 'envy')     $phase.textContent = 'Envy phase';
   else if (STATE.phase === 'complete') $phase.textContent = 'Round complete';
   else                                  $phase.textContent = '—';
@@ -2868,7 +2980,10 @@ function renderAll() {
     STATE.phase === 'settle' && hasUnpaidWinners(currentPlayer()));
 }
 function setHint(msg, bad) {
-  $hint.textContent = msg || '';
+  /* Bet labels include <br> tags so they wrap onto two lines inside
+     the bet circle (innerHTML). When the same labels appear in a text
+     hint they need to read as plain text, so swap <br> for a space. */
+  $hint.textContent = msg ? msg.replace(/<br\s*\/?>/gi, ' ') : '';
   $hint.classList.toggle('bad', !!bad);
 }
 
@@ -2950,9 +3065,23 @@ function advanceSettlement() {
       }
     }
     if (allBetsResolved(p)) {
+      /* Card-collect step — require the dealer to click any of this
+         player's cards to clear them off the table before the carousel
+         advances. EXCEPTION: if the player's Emperor's hand qualifies
+         for an envy-paying tier (Quads+), the cards must remain so
+         everyone can see what triggered the envy payouts in the next
+         phase. In that case skip the collect step entirely. */
+      const player = STATE.round_data.players[p];
+      const triggersEnvy = !!(player.spec.emp && player.spec.emp.envyTier);
+      if (!triggersEnvy && !player.cardsCollected) {
+        STATE.subphase = 'collect-cards';
+        return;
+      }
       STATE.settlePos++;
+      STATE.subphase = null;
       continue;
     }
+    STATE.subphase = null;  /* still resolving bets — no collect needed yet */
     return; /* still work to do on this player */
   }
   /* Normal settle done — check envy */
@@ -2961,13 +3090,10 @@ function advanceSettlement() {
 function enterEnvy() {
   setPhase('envy');
   STATE.envyPos = 0;
+  /* renderEnvy() handles the "no envy owed → completeRound()" early-out
+     itself, so we don't need a duplicate check here. */
   renderEnvy();
   renderAll();
-  /* If no envy owed by anyone, complete immediately. */
-  if (envyOwedTotal() === 0 && envyEligibleCount() === 0) {
-    completeRound();
-    return;
-  }
 }
 function envyEligibleCount() {
   /* Players with Emperor's $5+ — these are the rows we cycle through. */
@@ -2991,10 +3117,13 @@ function renderEnvy() {
     $envyBar.classList.remove('show');
     return;
   }
-  /* Only show if at least one player has Emperor's $5+ AND any envy was triggered. */
+  /* Only show envy phase if there's actual envy to pay. Categories
+     below Four of a Kind (Full House, Flush, Trips, Straight) DO win
+     the trigger's own multiplier, but pay $0 envy — so no other player
+     is owed anything. If no envy is owed, skip the phase entirely. */
   const eligible = STATE.round_data.players.filter(p => p.bets.emp != null && p.bets.emp >= 5);
-  const anyTriggered = STATE.round_data.players.some(p => p.spec.emp && p.spec.emp.trigger);
-  if (eligible.length === 0 || !anyTriggered) {
+  const anyEnvyOwed = STATE.round_data.players.some(p => p.spec.emp && p.spec.emp.envy > 0);
+  if (eligible.length === 0 || !anyEnvyOwed) {
     $envyBar.classList.remove('show');
     completeRound();
     return;
@@ -3260,14 +3389,33 @@ document.getElementById('chip-stack-display').addEventListener('click', () => {
   renderOutgoing();
 });
 $row.addEventListener('click', (e) => {
+  /* Bet click — dispatch by data-pid + data-betkey. */
   const betEl = e.target.closest('.bet[data-betkey]');
-  if (!betEl) return;
-  const playerEl = betEl.closest('.player[data-pid]');
-  if (!playerEl) return;
-  const pid = parseInt(playerEl.dataset.pid, 10);
-  const key = betEl.dataset.betkey;
-  onBetClick(pid, key);
+  if (betEl) {
+    const playerEl = betEl.closest('.player[data-pid]');
+    if (!playerEl) return;
+    const pid = parseInt(playerEl.dataset.pid, 10);
+    const key = betEl.dataset.betkey;
+    onBetClick(pid, key);
+    return;
+  }
+  /* Card click during 'collect-cards' subphase — advances to the next
+     seat. Only the current player's cards are clickable. */
+  if (STATE.phase === 'settle' && STATE.subphase === 'collect-cards') {
+    const cardEl = e.target.closest('.player[data-pid] .pcard');
+    if (!cardEl) return;
+    const playerEl = cardEl.closest('.player[data-pid]');
+    const pid = parseInt(playerEl.dataset.pid, 10);
+    if (pid !== currentPlayer()) return;
+    onCardCollectClick(pid);
+  }
 });
+function onCardCollectClick(playerIdx) {
+  const player = STATE.round_data && STATE.round_data.players[playerIdx];
+  if (!player || player.cardsCollected) return;
+  player.cardsCollected = true;
+  afterStep();
+}
 
 /* ---------- BUILD PHASE — drag-drop port from house-way-trainer ----- */
 /* STATE.build = { cardById: {id: card}, low: [ids], high: [ids] } */
@@ -3598,6 +3746,19 @@ function onBuildReset() {
   renderBuild();
 }
 
+/* House Way button — auto-sets the dealer's hand to whatever houseWay()
+   returns for the 7 dealer cards. Puts the 2 'front' card ids into the
+   Low zone and the 5 'back' card ids into the High zone, then clears
+   any prior result panel. Submit will then validate cleanly. */
+function onBuildAuto() {
+  if (STATE.phase !== 'build' || !STATE.build || !STATE.round_data) return;
+  const hw = houseWay(STATE.round_data.dealer7);
+  STATE.build.low  = hw.front.map(c => c.id);
+  STATE.build.high = hw.back.map(c => c.id);
+  hideBuildResult();
+  renderBuild();
+}
+
 /* ---------- round lifecycle ---------- */
 function startRound() {
   document.body.classList.add('new-round-curtain');
@@ -3636,6 +3797,7 @@ function startRound() {
 }
 document.getElementById('build-submit').onclick = onBuildSubmit;
 document.getElementById('build-reset').onclick  = onBuildReset;
+document.getElementById('build-auto').onclick   = onBuildAuto;
 
 /* ---------- buttons ---------- */
 document.getElementById('btn-reset').onclick = () => startRound();
@@ -3669,6 +3831,18 @@ function openSettings() {
   document.getElementById('max-main-val').textContent = fmt(SETTINGS.maxMain);
   document.getElementById('max-side').value = SETTINGS.maxSide;
   document.getElementById('max-side-val').textContent = fmt(SETTINGS.maxSide);
+  /* Side-bet probability sliders. SETTINGS values are 0-1 fractions;
+     UI is 0-100% integers (step 5). */
+  function pctSync(slider, label, key) {
+    const pct = Math.round(SETTINGS[key] * 100);
+    document.getElementById(slider).value = pct;
+    document.getElementById(label).textContent = pct + '%';
+  }
+  pctSync('p-red',        'p-red-val',        'pRed');
+  pctSync('p-blue',       'p-blue-val',       'pBlue');
+  pctSync('p-ins',        'p-ins-val',        'pIns');
+  pctSync('p-ins-dealer', 'p-ins-dealer-val', 'pInsOnDealer');
+  pctSync('p-emp',        'p-emp-val',        'pEmp');
   renderBoostPicker();
   /* Sync rare-category checkboxes to the persisted SETTINGS state. */
   document.getElementById('cat-royal').checked    = !!SETTINGS.catRoyal;
@@ -3713,6 +3887,20 @@ document.getElementById('max-side').oninput = (e) => {
   SETTINGS.maxSide = +e.target.value;
   document.getElementById('max-side-val').textContent = fmt(SETTINGS.maxSide);
 };
+/* Side-bet probability sliders — convert UI percentage (0..100) to
+   the 0..1 fraction stored in SETTINGS. */
+function wirePct(slider, label, key) {
+  document.getElementById(slider).oninput = (e) => {
+    const pct = +e.target.value;
+    SETTINGS[key] = pct / 100;
+    document.getElementById(label).textContent = pct + '%';
+  };
+}
+wirePct('p-red',        'p-red-val',        'pRed');
+wirePct('p-blue',       'p-blue-val',       'pBlue');
+wirePct('p-ins',        'p-ins-val',        'pIns');
+wirePct('p-ins-dealer', 'p-ins-dealer-val', 'pInsOnDealer');
+wirePct('p-emp',        'p-emp-val',        'pEmp');
 /* Rare-category checkboxes — each toggle flips SETTINGS in place. They
    take effect at the next round (saveSettings + startRound on save). */
 document.getElementById('cat-royal').onchange    = (e) => { SETTINGS.catRoyal    = e.target.checked; };
