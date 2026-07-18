@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dealer School · Baccarat</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+body{
+  min-height:100vh;display:flex;flex-direction:column;
+  background:#1d1230;color:#f3ecda;
+  font-family:'IBM Plex Sans',sans-serif;
+}
+
+/* rail */
+.rail{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 20px;background:#140b22;border-bottom:2px solid #c9a24b;
+  flex-wrap:wrap;
+}
+.rail h1{font-family:'Fraunces',serif;font-weight:700;font-size:1.25rem;letter-spacing:.02em}
+.rail h1 span{color:#c9a24b;font-weight:500}
+.tallies{display:flex;align-items:center;gap:14px}
+.tally{text-align:center;font-family:'IBM Plex Mono',monospace}
+.tally label{display:block;font-size:.6rem;text-transform:uppercase;letter-spacing:.15em;color:#b3a6c8}
+.tally strong{font-size:1.3rem}
+.tally.err strong{color:#e08a7a}
+.rules-btn{
+  background:none;border:1px solid #c9a24b;color:#c9a24b;border-radius:4px;
+  padding:7px 12px;font-family:'IBM Plex Mono',monospace;font-size:.72rem;cursor:pointer;
+}
+.rules-btn:hover,.rules-btn:focus-visible{background:#c9a24b;color:#140b22}
+
+/* felt */
+.felt{
+  flex:1;display:flex;flex-direction:column;justify-content:center;
+  padding:26px 12px;
+  background:radial-gradient(ellipse at 50% 30%, #52307c 0%, #3a2059 70%, #1d1230 100%);
+}
+.layout{
+  display:flex;justify-content:space-evenly;align-items:flex-start;gap:12px;
+  width:100%;max-width:760px;margin:0 auto;
+}
+.hand{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1}
+.hand h2{
+  font-family:'Fraunces',serif;font-size:.9rem;font-weight:500;
+  text-transform:uppercase;letter-spacing:.35em;color:#d8cfae;
+}
+.cards{display:flex;align-items:center;gap:7px;min-height:90px}
+
+/* reserved slot — third card lies sideways here; row never shifts */
+.third-slot{position:relative;width:90px;height:64px;flex:none}
+.pcard3d.horizontal{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) rotate(90deg);
+  animation:dealInH .28s ease-out;
+}
+@keyframes dealInH{
+  from{transform:translate(-50%,-72%) rotate(76deg);opacity:0}
+  to{transform:translate(-50%,-50%) rotate(90deg);opacity:1}
+}
+
+.call{
+  font-family:'Fraunces',serif;font-size:1.02rem;color:#f3ecda;
+  opacity:0;transform:translateY(6px);transition:opacity .32s ease,transform .32s ease;
+}
+.call strong{color:#c9a24b;font-size:1.15rem}
+.call.shown{opacity:1;transform:none}
+
+/* 3D flip cards */
+.pcard3d{width:62px;height:88px;perspective:640px}
+.pcard3d.dealt{animation:dealIn .28s ease-out}
+@keyframes dealIn{from{transform:translateY(-26px) rotate(-4deg);opacity:0}to{transform:none;opacity:1}}
+.inner{
+  position:relative;width:100%;height:100%;
+  transform-style:preserve-3d;
+  transform:rotateY(180deg);
+  transition:transform .44s cubic-bezier(.4,.1,.3,1);
+}
+.inner.up{transform:rotateY(0)}
+.face{
+  position:absolute;inset:0;border-radius:7px;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  box-shadow:0 3px 8px rgba(0,0,0,.45);
+}
+.face.front{
+  background:#faf6ec;color:#1b1b18;
+  display:flex;align-items:center;justify-content:center;
+}
+.face.back{
+  transform:rotateY(180deg);
+  background:#7c1f28;padding:6px;
+}
+.backpat{
+  width:100%;height:100%;border-radius:4px;border:1px solid #c9a24b;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 5px, rgba(201,162,75,.35) 5px 6px),
+    repeating-linear-gradient(-45deg, transparent 0 5px, rgba(201,162,75,.35) 5px 6px);
+}
+@media (prefers-reduced-motion: reduce){
+  .pcard3d.dealt,.pcard3d.horizontal{animation:none}
+  .inner{transition:none}
+  .call{transition:none}
+}
+
+.corner{
+  position:absolute;top:5px;left:7px;font-family:'IBM Plex Mono',monospace;
+  font-weight:600;font-size:.8rem;line-height:1;text-align:center;
+}
+.corner em{display:block;font-style:normal;font-size:.75rem}
+.corner.flip-c{top:auto;left:auto;bottom:5px;right:7px;transform:rotate(180deg)}
+.pip{font-size:1.7rem}
+.red{color:#b33a3a}
+
+.empty{text-align:center;max-width:440px;margin:0 auto}
+.empty p{font-family:'Fraunces',serif;font-size:1.15rem}
+.empty .sub{font-family:'IBM Plex Sans',sans-serif;font-size:.88rem;color:#c3b8d6;margin-top:10px}
+.empty .deal{margin-top:22px}
+
+/* strip */
+.strip{padding:18px 20px 26px;background:#140b22;border-top:1px solid #3a2a55;min-height:130px}
+.dealing{
+  text-align:center;font-family:'Fraunces',serif;font-size:1rem;color:#b3a6c8;
+  padding-top:16px;letter-spacing:.06em;
+}
+.question p.q-prompt{
+  text-align:center;font-family:'Fraunces',serif;font-size:1.05rem;margin-bottom:14px;
+}
+.options{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.options button{
+  background:#3a2059;color:#f3ecda;border:1px solid #5f4788;border-radius:8px;
+  padding:13px 18px;font-family:'IBM Plex Sans',sans-serif;font-size:.95rem;cursor:pointer;
+  min-width:140px;
+}
+.options button:hover,.options button:focus-visible{border-color:#c9a24b;background:#47306b}
+
+.deal{
+  background:#c9a24b;color:#1d1230;border:none;border-radius:8px;
+  padding:13px 34px;font-family:'Fraunces',serif;font-weight:700;font-size:1rem;
+  cursor:pointer;letter-spacing:.04em;
+}
+.deal:hover,.deal:focus-visible{background:#dcb75f}
+
+.feedback{max-width:520px;margin:0 auto;text-align:center;border-radius:10px;padding:14px 16px}
+.feedback.ok{animation:flashGreen .7s ease-out forwards}
+@keyframes flashGreen{
+  0%{background:rgba(110,200,140,.55)}
+  100%{background:rgba(110,200,140,.14)}
+}
+.feedback.ok strong{font-family:'Fraunces',serif;font-size:1.1rem;color:#8fd0a5}
+
+.wrong-note{
+  max-width:520px;margin:14px auto 0;text-align:center;
+  border-radius:10px;padding:11px 14px;font-size:.9rem;color:#f4ded8;
+  background:rgba(224,110,95,.14);
+  animation:flashRed .7s ease-out;
+}
+@keyframes flashRed{
+  0%{background:rgba(224,110,95,.55)}
+  100%{background:rgba(224,110,95,.14)}
+}
+@media (prefers-reduced-motion: reduce){
+  .feedback.ok{animation:none;background:rgba(110,200,140,.14)}
+  .wrong-note{animation:none}
+}
+
+.result{display:flex;flex-direction:column;align-items:center;gap:8px}
+.result strong{font-family:'Fraunces',serif;font-size:1.4rem;color:#c9a24b}
+.result span{font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:#b3a6c8}
+.result .deal{margin-top:8px}
+
+/* crib sheet */
+.sheet{
+  position:fixed;inset:0;background:rgba(12,7,20,.65);
+  display:none;align-items:center;justify-content:center;padding:20px;z-index:10;
+}
+.sheet.open{display:flex}
+.paper{
+  background:#f7f3e6;color:#1b1b18;max-width:380px;width:100%;
+  padding:22px 24px;border-radius:2px;transform:rotate(-1.2deg);
+  box-shadow:0 12px 30px rgba(0,0,0,.5);
+  font-size:.88rem;line-height:1.5;
+}
+.paper h3{font-family:'Fraunces',serif;margin-bottom:10px;font-size:1.05rem}
+.paper .line{margin:7px 0}
+.paper table{width:100%;border-collapse:collapse;margin:10px 0;font-family:'IBM Plex Mono',monospace;font-size:.8rem}
+.paper th,.paper td{border:1px solid #b9b19a;padding:5px 8px;text-align:left}
+.paper th{background:#eae4d2;font-weight:600}
+
+@media (max-width:480px){
+  .pcard3d{width:46px;height:66px}
+  .third-slot{width:68px;height:48px}
+  .cards{gap:5px;min-height:68px}
+  .pip{font-size:1.25rem}
+  .corner{font-size:.65rem;top:3px;left:4px}
+  .corner em{font-size:.6rem}
+  .corner.flip-c{bottom:3px;right:4px}
+  .options button{min-width:0;flex:1}
+  .layout{gap:6px}
+}
+</style>
+</head>
+<body>
+
+<!-- Rail -->
+<header class="rail">
+  <h1>Dealer School <span>· Baccarat</span></h1>
+  <div class="tallies">
+    <div class="tally"><label>Score</label><strong id="score">0</strong></div>
+    <div class="tally err"><label>Errors</label><strong id="errors">0</strong></div>
+    <button class="rules-btn" id="rulesBtn">House sheet</button>
+  </div>
+</header>
+
+<!-- Felt -->
+<main class="felt" id="felt"></main>
+
+<!-- Decision strip -->
+<footer class="strip" id="strip"></footer>
+
+<!-- Crib sheet -->
+<aside class="sheet" id="sheet">
+  <div class="paper" id="paper">
+    <h3>Third-card rules</h3>
+    <p class="line">Cards count face value; 10s and face cards count 0; only the last digit of the total matters.</p>
+    <p class="line"><b>Naturals:</b> either hand showing 8 or 9 on the first two cards — both stand.</p>
+    <p class="line"><b>Player</b> hits on 0–5, stands on 6–7.</p>
+    <p class="line"><b>Banker</b> hits on 0–2 no matter what.</p>
+    <table>
+      <thead><tr><th>Banker has</th><th>vs Player's 3rd card</th></tr></thead>
+      <tbody>
+        <tr><td>3</td><td>hit — but don't hit on 8</td></tr>
+        <tr><td>4</td><td>hit on 2–7</td></tr>
+        <tr><td>5</td><td>hit on 4–7</td></tr>
+        <tr><td>6</td><td>hit on 6–7</td></tr>
+        <tr><td>7</td><td>always stand</td></tr>
+      </tbody>
+    </table>
+    <p class="line"><b>No third card on the Player hand?</b> Banker hits 0–5, stands 6–7.</p>
+  </div>
+</aside>
+
+<script>
+"use strict";
+
+/* ── Deck helpers ─────────────────────────────────────────── */
+const SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"]; // ♠ ♥ ♦ ♣
+const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+
+function buildShoe(decks = 8) {
+  const shoe = [];
+  for (let d = 0; d < decks; d++)
+    for (const s of SUITS)
+      for (const r of RANKS) shoe.push({ rank: r, suit: s });
+  for (let i = shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+  return shoe;
+}
+
+const cardValue = (c) =>
+  c.rank === "A" ? 1 : ["10","J","Q","K"].includes(c.rank) ? 0 : parseInt(c.rank, 10);
+
+const total = (cards) => cards.reduce((t, c) => t + cardValue(c), 0) % 10;
+
+/* ── Drawing rules (from the crib sheet) ──────────────────── */
+function playerAction(pT, bT) {
+  if (pT >= 8 || bT >= 8) return "natural";
+  return pT <= 5 ? "draw" : "stand";
+}
+
+function bankerDraws(bT, playerDrew, p3) {
+  if (!playerDrew) return bT <= 5; // no third card on Player hand → Banker hits 0-5
+  if (bT <= 2) return true;
+  if (bT === 3) return p3 !== 8;
+  if (bT === 4) return p3 >= 2 && p3 <= 7;
+  if (bT === 5) return p3 >= 4 && p3 <= 7;
+  if (bT === 6) return p3 >= 6 && p3 <= 7;
+  return false; // 7 stands
+}
+
+/* ── State ────────────────────────────────────────────────── */
+const S = {
+  shoe: buildShoe(),
+  player: [],
+  banker: [],
+  phase: "idle",      // idle | reveal | qPlayer | qBanker | qWinner | result
+  playerDrew: false,
+  wrongCount: 0,
+  score: 0,
+  errors: 0,
+};
+let timers = [];
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
+const $ = (id) => document.getElementById(id);
+const pT = () => total(S.player);
+const bT = () => total(S.banker);
+
+/* ── Card element ─────────────────────────────────────────── */
+function cardEl(card, { faceUp = false, horizontal = false, delay = 0 } = {}) {
+  const red = card.suit === "\u2665" || card.suit === "\u2666";
+  const el = document.createElement("div");
+  el.className = "pcard3d " + (horizontal ? "horizontal" : "dealt");
+  el.innerHTML =
+    '<div class="inner' + (faceUp ? " up" : "") + '" style="transition-delay:' + delay + 'ms">' +
+      '<div class="face back"><div class="backpat"></div></div>' +
+      '<div class="face front">' +
+        '<span class="corner' + (red ? " red" : "") + '">' + card.rank + "<em>" + card.suit + "</em></span>" +
+        '<span class="pip' + (red ? " red" : "") + '">' + card.suit + "</span>" +
+        '<span class="corner flip-c' + (red ? " red" : "") + '">' + card.rank + "<em>" + card.suit + "</em></span>" +
+      "</div>" +
+    "</div>";
+  return el;
+}
+
+/* ── Felt rendering ───────────────────────────────────────── */
+function renderIdle() {
+  $("felt").innerHTML =
+    '<div class="empty">' +
+      "<p>Fresh shoe on the table \u2014 " + S.shoe.length + " cards.</p>" +
+      '<p class="sub">You\u2019re the dealer. Each hand, make three calls: the Player hand, the Banker hand, then the winner. The table always plays out correctly, even if your call was wrong.</p>' +
+      '<button class="deal" id="dealBtn">Deal</button>' +
+    "</div>";
+  $("dealBtn").addEventListener("click", deal);
+}
+
+function renderTable() {
+  // Banker (left): reserved third-card slot on the LEFT · Player (right): slot on the RIGHT
+  $("felt").innerHTML =
+    '<div class="layout">' +
+      '<section class="hand">' +
+        "<h2>Banker</h2>" +
+        '<div class="cards"><div class="third-slot" id="bSlot"></div><div id="bCards" style="display:flex;gap:inherit"></div></div>' +
+        '<p class="call" id="bCall">Banker has <strong id="bTotal"></strong></p>' +
+      "</section>" +
+      '<section class="hand">' +
+        "<h2>Player</h2>" +
+        '<div class="cards"><div id="pCards" style="display:flex;gap:inherit"></div><div class="third-slot" id="pSlot"></div></div>' +
+        '<p class="call" id="pCall">Player shows <strong id="pTotal"></strong></p>' +
+      "</section>" +
+    "</div>";
+
+  for (let i = 0; i < 2; i++) {
+    $("bCards").appendChild(cardEl(S.banker[i], { delay: i === 1 ? 112 : 0 }));
+    $("pCards").appendChild(cardEl(S.player[i], { delay: i === 1 ? 112 : 0 }));
+  }
+}
+
+function reveal(hand) { // "player" | "banker"
+  const cardsBox = hand === "player" ? $("pCards") : $("bCards");
+  cardsBox.querySelectorAll(".inner").forEach((el) => el.classList.add("up"));
+  if (hand === "player") {
+    $("pTotal").textContent = pT();
+    $("pCall").classList.add("shown");
+  } else {
+    $("bTotal").textContent = bT();
+    $("bCall").classList.add("shown");
+  }
+}
+
+function placeThirdCard(hand, card, prevTotal) {
+  const slot = hand === "player" ? $("pSlot") : $("bSlot");
+  slot.appendChild(cardEl(card, { faceUp: true, horizontal: true }));
+  const now = hand === "player" ? pT() : bT();
+  const verb = now < prevTotal ? "reduces to" : now > prevTotal ? "improves to" : "remains at";
+  const name = hand === "player" ? "Player" : "Banker";
+  const totalId = hand === "player" ? "pTotal" : "bTotal";
+  $(hand === "player" ? "pCall" : "bCall").innerHTML =
+    name + " " + verb + ' <strong id="' + totalId + '">' + now + "</strong>";
+}
+
+/* ── Strip rendering ──────────────────────────────────────── */
+function showDealing() {
+  $("strip").innerHTML = '<p class="dealing">Dealing\u2026</p>';
+}
+
+function showGreen() {
+  $("strip").innerHTML = '<div class="feedback ok"><strong>Correct</strong></div>';
+}
+
+function showQuestion() {
+  let prompt, options;
+  if (S.phase === "qPlayer") {
+    prompt = "Both hands are face up. What\u2019s the call?";
+    options = [
+      { key: "natural", label: "Natural \u2014 both stand" },
+      { key: "draw", label: "Player draws" },
+      { key: "stand", label: "Player stands" },
+    ];
+  } else if (S.phase === "qBanker") {
+    prompt = "Does the Banker take a card?";
+    options = [
+      { key: "draw", label: "Banker draws" },
+      { key: "stand", label: "Banker stands" },
+    ];
+  } else { // qWinner
+    prompt = "Call the hand.";
+    options = [
+      { key: "player", label: "Player wins" },
+      { key: "banker", label: "Banker wins" },
+      { key: "tie", label: "Tie" },
+    ];
+  }
+  const box = document.createElement("div");
+  box.className = "question";
+  const p = document.createElement("p");
+  p.className = "q-prompt";
+  p.textContent = prompt;
+  const opts = document.createElement("div");
+  opts.className = "options";
+  options.forEach((o) => {
+    const b = document.createElement("button");
+    b.textContent = o.label;
+    b.addEventListener("click", () => answer(o.key));
+    opts.appendChild(b);
+  });
+  box.appendChild(p);
+  box.appendChild(opts);
+  $("strip").innerHTML = "";
+  $("strip").appendChild(box);
+}
+
+function showWrongNote(text) {
+  const box = $("strip").querySelector(".question");
+  if (!box) return;
+  const old = box.querySelector(".wrong-note");
+  if (old) old.remove(); // remove + re-add so the red flash restarts
+  const note = document.createElement("div");
+  note.className = "wrong-note";
+  note.textContent = text + " Try again.";
+  box.appendChild(note);
+}
+
+function showResult() {
+  const p = pT(), b = bT();
+  const winner =
+    p > b ? "Player wins " + p + " over " + b
+    : b > p ? "Banker wins " + b + " over " + p
+    : "Tie";
+  $("strip").innerHTML =
+    '<div class="result">' +
+      "<strong>" + winner + "</strong>" +
+      "<span>Player shows " + p + " \u00b7 Banker has " + b + "</span>" +
+      '<button class="deal" id="nextBtn">Next hand</button>' +
+    "</div>";
+  $("nextBtn").addEventListener("click", deal);
+}
+
+/* ── Game flow ────────────────────────────────────────────── */
+function drawFrom(n) {
+  if (S.shoe.length < 20) S.shoe = buildShoe();
+  return S.shoe.splice(0, n);
+}
+
+function deal() {
+  clearTimers();
+  const cards = drawFrom(4);
+  S.player = [cards[0], cards[2]];
+  S.banker = [cards[1], cards[3]];
+  S.playerDrew = false;
+  S.phase = "reveal";
+  renderTable();
+  showDealing();
+
+  // Cards land face down, then: Player reveals → half-second pause → Banker reveals
+  later(() => reveal("player"), 640);
+  later(() => reveal("banker"), 1520);
+  later(() => { S.phase = "qPlayer"; showQuestion(); }, 2160);
+}
+
+function gradeOk(next) {
+  S.score++;
+  $("score").textContent = S.score;
+  showGreen();
+  later(() => advanceTo(next), 900); // green flash, tiny pause, then move on
+}
+
+function gradeWrong(text) {
+  S.errors++;
+  $("errors").textContent = S.errors;
+  showWrongNote(text); // red note under the options, try again
+}
+
+function answer(choice) {
+  if (S.phase === "qPlayer") answerPlayer(choice);
+  else if (S.phase === "qBanker") answerBanker(choice);
+  else if (S.phase === "qWinner") answerWinner(choice);
+}
+
+/* Q1 — player hand */
+function answerPlayer(choice) {
+  const correct = playerAction(pT(), bT());
+  if (choice === correct) {
+    gradeOk(correct === "natural" ? "qWinner" : "qBanker");
+    return;
+  }
+  let why;
+  if (correct === "natural")
+    why = "There\u2019s a natural on the table \u2014 a hand of 8 or 9 stands, and no third cards are drawn.";
+  else if (choice === "natural") why = "Neither hand shows 8 or 9, so there\u2019s no natural.";
+  else if (correct === "draw") why = "Player shows " + pT() + " \u2014 Player stands only on 6\u20137.";
+  else why = "Player shows " + pT() + " \u2014 Player draws only on 0\u20135.";
+  gradeWrong(why);
+}
+
+/* Q2 — banker hand */
+function answerBanker(choice) {
+  const p3 = S.playerDrew ? cardValue(S.player[2]) : null;
+  const shouldDraw = bankerDraws(bT(), S.playerDrew, p3);
+  if ((choice === "draw") === shouldDraw) {
+    gradeOk("qWinner");
+    return;
+  }
+  let why;
+  if (!S.playerDrew)
+    why = "Player stood pat, so Banker plays by the Player\u2019s rule \u2014 hit 0\u20135, stand 6\u20137. Banker has " + bT() + ".";
+  else if (bT() <= 2) why = "Banker always hits 0\u20132, and Banker has " + bT() + ".";
+  else if (bT() >= 7) why = "Banker always stands on 7.";
+  else {
+    const table = {
+      3: "hits unless the Player\u2019s third card is 8",
+      4: "hits when the Player\u2019s third card is 2\u20137",
+      5: "hits when the Player\u2019s third card is 4\u20137",
+      6: "hits when the Player\u2019s third card is 6\u20137",
+    };
+    why = "Banker has " + bT() + " and the Player\u2019s third card is worth " + p3 + " \u2014 on " + bT() + ", Banker " + table[bT()] + ".";
+  }
+  gradeWrong(why);
+}
+
+/* Q3 — call the winner */
+function answerWinner(choice) {
+  const p = pT(), b = bT();
+  const winner = p > b ? "player" : b > p ? "banker" : "tie";
+  if (choice === winner) {
+    gradeOk("result");
+    return;
+  }
+  gradeWrong(
+    p === b
+      ? "Player shows " + p + " and Banker has " + b + " \u2014 equal totals are a tie."
+      : "Player shows " + p + ", Banker has " + b + " \u2014 the hand closer to 9 wins."
+  );
+}
+
+/* Continue — apply the correct action and move on */
+function advanceTo(next) {
+  if (next === "qBanker") {
+    const correct = playerAction(pT(), bT());
+    if (correct === "draw") {
+      const prev = pT();
+      const c = drawFrom(1)[0];
+      S.player.push(c);
+      S.playerDrew = true;
+      placeThirdCard("player", c, prev);
+    }
+    S.phase = "qBanker";
+    showQuestion();
+  } else if (next === "qWinner") {
+    if (S.phase === "qBanker") {
+      const p3 = S.playerDrew ? cardValue(S.player[2]) : null;
+      if (bankerDraws(bT(), S.playerDrew, p3)) {
+        const prev = bT();
+        const c = drawFrom(1)[0];
+        S.banker.push(c);
+        placeThirdCard("banker", c, prev);
+      }
+    }
+    S.phase = "qWinner";
+    showQuestion();
+  } else {
+    S.phase = "result";
+    showResult();
+  }
+}
+
+/* ── Crib sheet ───────────────────────────────────────────── */
+$("rulesBtn").addEventListener("click", () => {
+  const open = $("sheet").classList.toggle("open");
+  $("rulesBtn").textContent = open ? "Hide sheet" : "House sheet";
+});
+$("sheet").addEventListener("click", () => {
+  $("sheet").classList.remove("open");
+  $("rulesBtn").textContent = "House sheet";
+});
+$("paper").addEventListener("click", (e) => e.stopPropagation());
+
+/* ── Boot ─────────────────────────────────────────────────── */
+renderIdle();
+</script>
+</body>
+</html>
