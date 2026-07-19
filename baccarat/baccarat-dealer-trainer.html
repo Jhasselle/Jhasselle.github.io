@@ -3,15 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dealer School · Baccarat</title>
+<title>Baccarat Practice</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0}
+html,body{height:100%}
 body{
-  min-height:100vh;display:flex;flex-direction:column;
+  height:100vh;height:100dvh;overflow:hidden;
+  display:flex;flex-direction:column;
   background:#1d1230;color:#f3ecda;
   font-family:'IBM Plex Sans',sans-serif;
 }
+
+/* help toggle: hide all state/total helper text */
+body.no-help .call{display:none}
+body.no-help .q-prompt{display:none}
+body.no-help .dealing{visibility:hidden}
+body.no-help .result .totals{display:none}
 
 /* rail */
 .rail{
@@ -34,8 +42,9 @@ body{
 
 /* felt */
 .felt{
-  flex:1;display:flex;flex-direction:column;justify-content:center;
-  padding:26px 12px;
+  flex:1;min-height:0;overflow:auto;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:16px 12px;
   background:radial-gradient(ellipse at 50% 30%, #52307c 0%, #3a2059 70%, #1d1230 100%);
 }
 .layout{
@@ -189,6 +198,10 @@ body{
 .paper th{background:#eae4d2;font-weight:600}
 
 @media (max-width:480px){
+  .rail{padding:8px 14px}
+  .rail h1{font-size:1.05rem}
+  .tally strong{font-size:1.1rem}
+  .strip{padding:12px 12px 16px;min-height:112px}
   .pcard3d{width:46px;height:66px}
   .third-slot{width:68px;height:48px}
   .cards{gap:5px;min-height:68px}
@@ -209,6 +222,7 @@ body{
   <div class="tallies">
     <div class="tally"><label>Score</label><strong id="score">0</strong></div>
     <div class="tally err"><label>Errors</label><strong id="errors">0</strong></div>
+    <button class="rules-btn" id="helpBtn">Help: On</button>
     <button class="rules-btn" id="rulesBtn">House sheet</button>
   </div>
 </header>
@@ -291,7 +305,9 @@ const S = {
   wrongCount: 0,
   score: 0,
   errors: 0,
+  help: true,         // on by default; persisted in localStorage
 };
+try { S.help = localStorage.getItem("baccarat-help") !== "0"; } catch (e) {}
 let timers = [];
 const later = (fn, ms) => timers.push(setTimeout(fn, ms));
 const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
@@ -431,20 +447,24 @@ function showWrongNote(text) {
   if (old) old.remove(); // remove + re-add so the red flash restarts
   const note = document.createElement("div");
   note.className = "wrong-note";
-  note.textContent = text + " Try again.";
+  note.textContent = S.help ? text + " Try again." : "Try again.";
   box.appendChild(note);
 }
 
 function showResult() {
   const p = pT(), b = bT();
+  // a natural can only happen with two cards each and a total of 8 or 9
+  const natural = S.player.length === 2 && S.banker.length === 2 && (p >= 8 || b >= 8);
+  const nat = natural ? "natural " : "";
   const winner =
-    p > b ? "Player wins " + p + " over " + b
-    : b > p ? "Banker wins " + b + " over " + p
+    p > b ? "Player wins " + nat + p + " over " + b
+    : b > p ? "Banker wins " + nat + b + " over " + p
+    : natural ? "Tie \u2014 natural " + p
     : "Tie";
   $("strip").innerHTML =
     '<div class="result">' +
       "<strong>" + winner + "</strong>" +
-      "<span>Player shows " + p + " \u00b7 Banker has " + b + "</span>" +
+      '<span class="totals">Player shows ' + p + " \u00b7 Banker has " + b + "</span>" +
       '<button class="deal" id="nextBtn">Next hand</button>' +
     "</div>";
   $("nextBtn").addEventListener("click", deal);
@@ -578,6 +598,17 @@ function advanceTo(next) {
   }
 }
 
+/* ── Help toggle ──────────────────────────────────────────── */
+function applyHelp() {
+  document.body.classList.toggle("no-help", !S.help);
+  $("helpBtn").textContent = S.help ? "Help: On" : "Help: Off";
+}
+$("helpBtn").addEventListener("click", () => {
+  S.help = !S.help;
+  try { localStorage.setItem("baccarat-help", S.help ? "1" : "0"); } catch (e) {}
+  applyHelp();
+});
+
 /* ── Crib sheet ───────────────────────────────────────────── */
 $("rulesBtn").addEventListener("click", () => {
   const open = $("sheet").classList.toggle("open");
@@ -590,6 +621,7 @@ $("sheet").addEventListener("click", () => {
 $("paper").addEventListener("click", (e) => e.stopPropagation());
 
 /* ── Boot ─────────────────────────────────────────────────── */
+applyHelp();
 renderIdle();
 </script>
 </body>
