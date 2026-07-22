@@ -11,10 +11,12 @@ body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   color: #f4f4f5;
   -webkit-font-smoothing: antialiased;
+  /* Saturated casino-purple felt — same background as the pai gow
+     dealing simulator. */
   background:
-    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
-    #07080c;
+    radial-gradient(900px 500px at 50% 0%,   rgba(192,132,252,0.45), transparent 60%),
+    radial-gradient(900px 500px at 50% 100%, rgba(0,0,0,0.55),      transparent 60%),
+    linear-gradient(180deg, #4a1d8a 0%, #3b1573 50%, #2a0d5e 100%);
   background-attachment: fixed;
   position: relative; overflow-x: hidden;
 }
@@ -23,7 +25,7 @@ body {
   height: 6px; z-index: 100;
   background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
   background-size: 200% 100%;
-  animation: stripSlide 12s linear infinite;
+  animation: stripSlide 60s linear infinite;
 }
 @keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
 .home-btn {
@@ -43,8 +45,7 @@ body {
 
 .felt {
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse at 50% 35%, #5e2a6b 0%, #4a1f57 40%, #2c1233 100%);
+  /* Background now lives on <body> (matches the pai gow simulator). */
   padding: 56px 14px 28px;
   position: relative;
 }
@@ -721,52 +722,86 @@ body:not(.help-off) .player .cards.collectable {
 }
 .spot.settle-loss::after {
   box-shadow:
-    0 0 0 5px rgba(239, 68, 68, 1),
-    0 0 26px 10px rgba(248, 113, 113, 0.75);
-  animation: settlePulse 2.4s ease-in-out infinite;
+    0 0 0 3px rgba(239, 68, 68, 0.85),
+    0 0 12px 3px rgba(248, 113, 113, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
 }
 .spot.settle-win-next::after {
   box-shadow:
-    0 0 0 5px rgba(16, 185, 129, 1),
-    0 0 30px 12px rgba(52, 211, 153, 0.75);
-  animation: settlePulse 2.4s ease-in-out infinite;
+    0 0 0 3px rgba(16, 185, 129, 0.85),
+    0 0 12px 3px rgba(52, 211, 153, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
 }
 .spot.settle-push::after {
   box-shadow:
-    0 0 0 5px rgba(234, 179, 8, 1),
-    0 0 26px 10px rgba(253, 224, 71, 0.7);
-  animation: settlePulse 2.6s ease-in-out infinite;
+    0 0 0 3px rgba(234, 179, 8, 0.85),
+    0 0 12px 3px rgba(253, 224, 71, 0.3);
+  animation: settlePulse 3s ease-in-out infinite;
 }
 .spot.settle-jackpot::after {
   box-shadow:
-    0 0 0 6px #fde047,
-    0 0 38px 14px rgba(253, 224, 71, 0.9);
+    0 0 0 4px #fde047,
+    0 0 18px 6px rgba(253, 224, 71, 0.5);
   animation: jpSparkle 1.8s ease-in-out infinite;
 }
 @keyframes settlePulse {
-  0%, 100% { filter: brightness(1.00); transform: scale(1.00); }
-  50%      { filter: brightness(1.55); transform: scale(1.05); }
+  0%, 100% { filter: brightness(1.00); }
+  50%      { filter: brightness(1.25); }
 }
 @keyframes jpSparkle {
   0%, 100% { filter: brightness(1.00) hue-rotate(0deg); }
-  50%      { filter: brightness(1.4)  hue-rotate(-10deg); }
+  50%      { filter: brightness(1.25) hue-rotate(-10deg); }
+}
+/* When the two stacked diamonds (Play over Ante) both carry the SAME
+   settle state, hide their individual circles and draw ONE merged
+   capsule around the pair — no more overlapping rings. The .merged
+   class (plus the shared settle-* class) is added to .main-stack by
+   renderPlayer. */
+.main-stack.merged .spot::after { display: none; }
+.main-stack.merged { position: relative; }
+.main-stack.merged::after {
+  content: '';
+  position: absolute;
+  inset: -3px 1px;              /* hug the inscribed diamonds */
+  border-radius: 999px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: -1;
+}
+.main-stack.merged.settle-win-next::after {
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.85),
+    0 0 12px 3px rgba(52, 211, 153, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
+}
+.main-stack.merged.settle-loss::after {
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.85),
+    0 0 12px 3px rgba(248, 113, 113, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
+}
+.main-stack.merged.settle-push::after {
+  box-shadow:
+    0 0 0 3px rgba(234, 179, 8, 0.85),
+    0 0 12px 3px rgba(253, 224, 71, 0.3);
+  animation: settlePulse 3s ease-in-out infinite;
 }
 /* Help OFF — hide all pay/take visual cues (the dealer is on their own). */
 body.help-off .spot.settle-loss::after,
 body.help-off .spot.settle-win-next::after,
 body.help-off .spot.settle-push::after,
-body.help-off .spot.settle-jackpot::after {
+body.help-off .spot.settle-jackpot::after,
+body.help-off .main-stack.merged::after {
   display: none;
 }
 /* The pulse / cursor / z-index stay so the bets are still clickable. */
 body.help-off .tray-btn#btn-help { background: #7f1d1d; border-color: #b91c1c; color: #fee2e2; }
 
 /* PUSHED text overlay on the Play (or Ante) bet when the dealer doesn't
-   qualify. Auto-resolved, so the dealer takes no action — the overlay
-   just makes it visually obvious the bet stayed. Sits ABOVE the chip
-   stack on the bet circle; cleared by the next round's state reset.
-   Note: this is informational ("the bet pushed"), not a pay/take cue,
-   so it stays visible even with Help: Off. */
+   qualify. Appears only AFTER the dealer clicks the pushed bet to
+   acknowledge it (the click also clears the chips back to the player).
+   Cleared by the next round's state reset. Note: once shown it's
+   informational, so it stays visible even with Help: Off. */
 .pushed-overlay {
   position: absolute;
   top: 50%; left: 50%;
@@ -1533,8 +1568,10 @@ body.new-round-curtain #new-round-overlay {
     return RANK_VAL[cards.slice().sort((a,b) => RANK_VAL[b.rank] - RANK_VAL[a.rank])[0].rank] >= 12;
   }
 
-  /* NPC play/fold rule — strict Q-6-4 or better → play */
-  function shouldPlay(cards) {
+  /* NPC play/fold rule — Q-6-4 or better always plays. Hands below
+     that are only a 50/50 fold: like real players, NPCs sometimes
+     play a hand basic strategy says to throw away. */
+  function meetsQ64(cards) {
     const e = evalThree(cards);
     if (e.cat >= 4) return true;  /* pair or better */
     const sorted = cards.slice().sort((a,b) => RANK_VAL[b.rank] - RANK_VAL[a.rank]);
@@ -1548,6 +1585,10 @@ body.new-round-curtain #new-round-overlay {
     if (v1 < 6) return false;
     /* v1 = 6 */
     return v2 >= 4;
+  }
+  function shouldPlay(cards) {
+    if (meetsQ64(cards)) return true;
+    return Math.random() < 0.5;
   }
 
   /* ============================================================
@@ -1810,22 +1851,22 @@ body.new-round-curtain #new-round-overlay {
     }
     function spotChips(betKey) {
       const r = p.settlement && p.settlement[betKey];
-      /* Once a bet is resolved, hide its chip stack — the chips have either
-         moved to the rack (collected) or paid out to the player. Pushes
-         skip this (the chip stays on the bet, dealer takes no action). */
-      if (STATE.phase === 'settle' && r && r.resolved && (r.outcome === 'win' || r.outcome === 'loss')) {
+      /* Once a bet is resolved, hide its chip stack — the chips have
+         moved to the rack (collected), paid out to the player, or been
+         pushed back to the player (push, after the dealer clicks it). */
+      if (STATE.phase === 'settle' && r && r.resolved &&
+          (r.outcome === 'win' || r.outcome === 'loss' || r.outcome === 'push')) {
         return '';
       }
       return renderBetStack(bets[betKey]);
     }
     /* PUSHED text overlay — appears on the bet circle during settlement
-       when the bet is a push (e.g. Play bet when dealer doesn't qualify).
-       Pushes auto-resolve, so the dealer never has to click the bet; the
-       overlay tells them at a glance that the bet stayed. Cleared in the
-       next round via state reset. */
+       when the bet is a push (e.g. Play bet when dealer doesn't qualify),
+       but only AFTER the dealer has clicked the bet to acknowledge it.
+       Cleared in the next round via state reset. */
     function spotPushedLabel(betKey) {
       const r = p.settlement && p.settlement[betKey];
-      if (STATE.phase === 'settle' && r && r.outcome === 'push') {
+      if (STATE.phase === 'settle' && r && r.outcome === 'push' && r.resolved) {
         return '<span class="pushed-overlay">PUSHED</span>';
       }
       return '';
@@ -1860,11 +1901,17 @@ body.new-round-curtain #new-round-overlay {
        order is also reversed because the dealer mirrors the player's view.
        Labels stay upright (more useful than the upside-down labels a real
        dealer sees in person). */
+    /* When Play and Ante share the same unresolved settle state, mark the
+       stack so CSS draws one merged capsule instead of two overlapping
+       circles. */
+    const playSt = spotState('play');
+    const anteSt = spotState('ante');
+    const stackMerge = (playSt && playSt === anteSt) ? ' merged' + playSt : '';
     return '<div class="player' + cur + dim + foldDim + carousel + '" data-pid="' + p.id + '">' +
       '<div class="seat-label">Seat ' + (p.id + 1) + '</div>' +
       '<div class="mat">' +
         '<div class="row-main">' +
-          '<div class="main-stack">' +
+          '<div class="main-stack' + stackMerge + '">' +
             '<div class="spot diamond play' + spotState('play') + '" data-betkey="play">' + spotChips('play') + spotPushedLabel('play') + '<span class="label">Play</span></div>' +
             '<div class="spot diamond ante' + spotState('ante') + '" data-betkey="ante">' + spotChips('ante') + spotPushedLabel('ante') + '<span class="label">Ante</span></div>' +
           '</div>' +
@@ -2138,17 +2185,16 @@ body.new-round-curtain #new-round-overlay {
          5-Card Linked $5 cheques are taken into the rack BEFORE the
          deal in real life, so when one of those bets loses there's no
          action for the dealer.
-       - PUSHES auto-resolve. When the dealer doesn't qualify the Play
-         bet pushes; we show a "PUSHED" overlay on the bet circle and
-         skip past it. Dealer just goes straight to the ante. */
+       - PUSHES do NOT auto-resolve: the dealer must click the pushed
+         bet (e.g. Play when the dealer doesn't qualify) to acknowledge
+         it. The "PUSHED" overlay only appears after that click. */
     for (const p of STATE.players) {
       for (const k of PAY_ORDER) {
         const r = p.settlement && p.settlement[k];
         if (!r) continue;
         const isProgressiveLoss =
           (k === 'mini' || k === 'linked') && r.outcome === 'loss';
-        const isPush = (r.outcome === 'push');
-        r.resolved = (r.staked === 0 || isProgressiveLoss || isPush);
+        r.resolved = (r.staked === 0 || isProgressiveLoss);
       }
     }
     STATE.currentPlayerIdx = STATE.players.length - 1;   /* rightmost */
@@ -2164,14 +2210,15 @@ body.new-round-curtain #new-round-overlay {
       return r && !r.resolved && r.outcome === 'loss';
     });
   }
-  /* Returns the list of unresolved winning/jackpot bets in pay order.
-     Pushes auto-resolve in enterSettle (a "PUSHED" overlay is shown on
-     the bet circle), so they never enter the winners subphase. */
+  /* Returns the list of unresolved winning/jackpot/push bets in pay
+     order. Pushes ride through this subphase too: the dealer clicks
+     the pushed bet to acknowledge it (no chips move), and only then
+     does the "PUSHED" overlay appear. */
   function winnerBets(p) {
     if (!p.settlement) return [];
     return PAY_ORDER.filter(k => {
       const r = p.settlement[k];
-      return r && !r.resolved && (r.outcome === 'win' || r.outcome === 'jackpot');
+      return r && !r.resolved && (r.outcome === 'win' || r.outcome === 'jackpot' || r.outcome === 'push');
     });
   }
 
