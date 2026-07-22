@@ -44,7 +44,7 @@ body::after {
   height: 6px; z-index: 100;
   background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
   background-size: 200% 100%;
-  animation: stripSlide 12s linear infinite;
+  animation: stripSlide 60s linear infinite;
 }
 @keyframes stripSlide {
   from { background-position: 0% 0; }
@@ -126,6 +126,48 @@ h1 {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
 }
+/* Terms of use — collapsible footer */
+.terms {
+  margin-top: 40px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 18px;
+}
+.terms summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  transition: color 0.15s;
+  user-select: none;
+}
+.terms summary::-webkit-details-marker { display: none; }
+.terms summary::after { content: "▾"; transition: transform 0.2s ease; }
+.terms[open] summary::after { transform: rotate(180deg); }
+.terms summary:hover { color: rgba(255,255,255,0.75); }
+.terms-body {
+  margin-top: 14px;
+  padding: 18px 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  font-size: 13px; line-height: 1.6;
+  color: rgba(255,255,255,0.65);
+}
+.terms-body p { margin: 0 0 12px; }
+.terms-body p:last-child { margin-bottom: 0; }
+.terms-body b { color: rgba(255,255,255,0.88); }
+.terms-body .fine {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 11.5px; color: rgba(255,255,255,0.4);
+}
+.terms-body .copyright {
+  margin-top: 10px; padding-top: 0; border-top: none;
+  font-weight: 600; color: rgba(255,255,255,0.55);
+  letter-spacing: 0.02em;
+}
 @media (max-width: 560px) {
   .page { padding: 60px 16px 60px; }
   h1 { font-size: 30px; }
@@ -151,20 +193,34 @@ h1 {
       <span class="desc">Pai Gow · Heads-Up Hold'em · 3 Card Prime · Deuces Wild.</span>
       <span class="meta">Choose a variant</span>
     </a>
-    <a class="tile" href="baccarat/baccarat-dealer-trainer.html">
+    <a class="tile" href="baccarat/baccarat.html">
       <span class="title">Baccarat</span>
-      <span class="meta"></span>
+      <span class="desc">Player vs. Banker. Call both hands, apply the third-card rules, name the winner.</span>
+      <span class="meta">Choose a mode</span>
     </a>
     <a class="tile" href="roulette/roulette.html">
       <span class="title">Roulette</span>
       <span class="desc">Wheel math, payout tables, multiplication drills.</span>
       <span class="meta">Open Trainer</span>
     </a>
-    <div class="tile disabled">
-      <span class="title">Craps</span>
-      <span class="badge-soon">Coming soon</span>
-    </div>
+    <a class="tile" href="blackjack/cheque-money-exchange.html">
+      <span class="title">Cheque &amp; Money Exchange</span>
+      <span class="desc">Single-station drill. Color coming in, cheque change, and money changing — build the outgoing stack from the chip tray.</span>
+      <span class="meta">Open trainer</span>
+    </a>
   </div>
+
+  <details class="terms">
+    <summary>Terms of use</summary>
+    <div class="terms-body">
+      <p><b>This site is free — and it stays free.</b> Everything here (the trainers, simulators, text, graphics, and code) is offered at no cost, for anyone learning or teaching table games.</p>
+      <p><b>You may</b> use, copy, download, and share anything on this site for personal use, and change or adapt any part of it for educational purposes — dealer training, classes, study groups, your own practice — as long as whatever you make with it also stays completely free.</p>
+      <p><b>You may not</b> sell any part of this site or anything made from it. That includes charging for access, putting it behind a paywall, bundling it into a paid product, course, or service, or otherwise making money from it — whether in its original form or modified.</p>
+      <p>In short: <b>use it, share it, remake it, teach with it — just never charge for it.</b></p>
+      <p class="fine">These terms apply to everything derived from this site. Payouts, procedures, and house rules vary by casino — always follow the rules of the house you deal for. Provided as-is, with no warranty.</p>
+      <p class="fine copyright">© 2026 Jason Hasselle · All rights reserved except as granted above.</p>
+    </div>
+  </details>
 </div>
 
 </body>
