@@ -35,7 +35,7 @@ body::after {
   height: 6px; z-index: 100;
   background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
   background-size: 200% 100%;
-  animation: stripSlide 12s linear infinite;
+  animation: stripSlide 60s linear infinite;
 }
 @keyframes stripSlide {
   from { background-position: 0% 0; }
@@ -176,10 +176,11 @@ h1 {
       <span class="desc">Seven-card hand split into a 5-card high and a 2-card low. House way, copy rules, banker setup.</span>
       <span class="meta">Open trainer</span>
     </a>
-    <div class="tile disabled">
-      <span class="title">Heads-Up Hold'em</span>
-      <span class="badge-soon">Coming soon</span>
-    </div>
+    <a class="tile" href="heads-up-holdem-simulator.html">
+      <span class="title">Heads-Up Hold'em<span class="badge-beta">Beta</span></span>
+      <span class="desc">Dealer-perspective simulator. 3 NPC players, 7 bet spots each (ante / odds / raise / trips plus / pocket bonus / red &amp; blue jackpots). Community board, one-raise structure, dealer discard drill.</span>
+      <span class="meta">Open simulator</span>
+    </a>
     <a class="tile" href="three-card-prime-simulator.html">
       <span class="title">3 Card Prime<span class="badge-beta">Beta</span></span>
       <span class="desc">Dealer-perspective simulator. 3 NPC players, 7 bet spots each (ante / play / prime / pair bonus / all 6 / mini-royal / 5-card linked). Single deck, dealer gets 3 + 2 linked cards.</span>
