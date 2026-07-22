@@ -35,7 +35,7 @@ body::after {
   height: 6px; z-index: 100;
   background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
   background-size: 200% 100%;
-  animation: stripSlide 12s linear infinite;
+  animation: stripSlide 60s linear infinite;
 }
 @keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
 .home-btn {
@@ -255,17 +255,12 @@ h1 {
   color: #fde047;
 }
 .wager-stack {
-  margin-top: 10px;
-  display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
-  min-height: 38px;
-}
-.wager-stack .chip {
-  width: 38px; height: 38px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  font: 800 11px/1 "JetBrains Mono", "Courier New", monospace;
+  margin: 12px auto 0;
   position: relative;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+  height: 56px;
+  /* width set in JS based on chip count */
 }
+.wager-stack .chip { position: absolute; top: 0; }
 
 /* Build slot */
 .build-row {
@@ -325,66 +320,63 @@ h1 {
   border-color: rgba(255,255,255,0.28);
 }
 
-/* Chip stack visualization — the chips the user has added */
+/* Chip stack visualization — the chips the user has added.
+   Horizontal overlapping fan, largest chip leftmost — same as the
+   blackjack chip payout practice. */
 .stack {
-  min-height: 64px;
-  margin: 8px 0 16px;
-  padding: 8px 4px;
-  display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end;
+  position: relative;
+  height: 56px;
+  margin: 10px auto 18px;
+  /* width set in JS based on chip count */
 }
 .stack .placeholder {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 240px;
+  text-align: center;
   color: rgba(255,255,255,0.25);
-  font: 600 12px/1 "Inter", system-ui, sans-serif;
+  font: 600 12px/1.3 "Inter", system-ui, sans-serif;
   letter-spacing: 0.06em;
-  padding: 20px 8px;
+  pointer-events: none;
 }
-.stack .chip {
-  width: 38px; height: 38px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  font: 800 11px/1 "JetBrains Mono", "Courier New", monospace;
-  cursor: pointer;
-  position: relative;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
-  transition: transform 0.12s;
-}
+.stack .chip { position: absolute; top: 0; cursor: pointer; }
 .stack .chip:hover { transform: translateY(-2px); }
-.stack .chip .v { position: relative; z-index: 2; }
 
-/* Chip palette — the buttons to add chips */
+/* Chip palette — the buttons to add chips (flat row, largest left) */
 .chip-palette {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-bottom: 14px;
 }
-.chip-btn {
-  background: transparent; border: 0; padding: 0; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center;
-}
-.chip-btn .chip {
+
+/* Base chip — matches the blackjack chip payout practice */
+.chip {
   width: 56px; height: 56px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  font: 800 13px/1 "JetBrains Mono", "Courier New", monospace;
-  position: relative;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.45);
-  transition: transform 0.12s;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 800; font-size: 0.78rem; line-height: 1;
+  padding: 0;
+  color: #fff;
+  border: 3px dashed rgba(255,255,255,0.85);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45);
+  flex: 0 0 auto;
+  transition: box-shadow 0.1s, transform 0.12s;
 }
-.chip-btn:hover .chip { transform: translateY(-2px); }
-.chip-btn:active .chip { transform: translateY(0); }
-.chip-btn .label {
-  font: 700 10px/1 "Inter", system-ui, sans-serif;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-  margin-top: 6px;
-}
+button.chip { cursor: pointer; }
+button.chip:hover  { box-shadow: 0 4px 10px rgba(0,0,0,0.55); transform: translateY(-2px); }
+button.chip:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.45); }
 
-/* Chip color treatments — standard casino colors */
-.chip.c1    { background: radial-gradient(circle at 30% 30%, #f9fafb, #d1d5db); color: #1f2937; border: 2px solid #1f2937; }
-.chip.c5    { background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c); color: #fff7ed; border: 2px solid #7f1d1d; }
-.chip.c25   { background: radial-gradient(circle at 30% 30%, #34d399, #047857); color: #ecfdf5; border: 2px solid #065f46; }
-.chip.c100  { background: radial-gradient(circle at 30% 30%, #4b5563, #111827); color: #f3f4f6; border: 2px solid #030712; }
-.chip.c500  { background: radial-gradient(circle at 30% 30%, #c084fc, #6b21a8); color: #fdf4ff; border: 2px solid #581c87; }
-.chip.c1000 { background: radial-gradient(circle at 30% 30%, #fb923c, #c2410c); color: #fff7ed; border: 2px solid #7c2d12; }
+/* Chip colors — standard casino colors, same as blackjack.
+   No pink $2.50: that chip is only used in blackjack, not pai gow. */
+.chip.c1    { background: #f1f5f9; color: #0f172a; border-color: #475569; }
+.chip.c5    { background: #dc2626; border-color: #fee2e2; }
+.chip.c25   { background: #16a34a; border-color: #dcfce7; }
+.chip.c100  { background: #111827; border-color: #6b7280; }
+.chip.c500  { background: #9333ea; border-color: #f3e8ff; }
+.chip.c1000 { background: #ea580c; border-color: #ffedd5; }
 
 /* Bottom row of action buttons */
 .btn-row {
@@ -560,9 +552,9 @@ h1 {
   h1 { font-size: 24px; }
   .home-btn { top: 10px; left: 12px; padding: 7px 14px 7px 10px; font-size: 11px; }
   .trainer { padding: 22px 16px 18px; }
-  .chip-palette { grid-template-columns: repeat(3, 1fr); }
-  .chip-btn .chip { width: 52px; height: 52px; font-size: 12px; }
-  .stack .chip { width: 32px; height: 32px; font-size: 10px; }
+  .chip-palette { gap: 6px; }
+  .chip { width: 48px; height: 48px; font-size: 0.7rem; border-width: 2px; }
+  .wager-stack, .stack { height: 48px; }
 }
 </style>
 </head>
@@ -652,14 +644,15 @@ h1 {
 
 <script>
 (function() {
-  /* ===== Chip denominations (standard casino, no pink $2.50) ===== */
+  /* ===== Chip denominations (standard casino, no pink $2.50 —
+         that chip is only used in blackjack, not pai gow) ===== */
   const CHIPS = [
-    { v: 1,    cls: "c1",    label: "$1"     },
-    { v: 5,    cls: "c5",    label: "$5"     },
-    { v: 25,   cls: "c25",   label: "$25"    },
-    { v: 100,  cls: "c100",  label: "$100"   },
-    { v: 500,  cls: "c500",  label: "$500"   },
-    { v: 1000, cls: "c1000", label: "$1,000" },
+    { v: 1,    cls: "c1",    label: "$1",     display: "$1"    },
+    { v: 5,    cls: "c5",    label: "$5",     display: "$5"    },
+    { v: 25,   cls: "c25",   label: "$25",    display: "$25"   },
+    { v: 100,  cls: "c100",  label: "$100",   display: "$100"  },
+    { v: 500,  cls: "c500",  label: "$500",   display: "$500"  },
+    { v: 1000, cls: "c1000", label: "$1,000", display: "$1000" },
   ];
 
   /* ===== Paytables. Each "hand" entry has a payout type:
@@ -854,14 +847,38 @@ h1 {
     }
     return out;
   }
+  /* Chip size / fan overlap — same numbers as the blackjack chip practice. */
+  function chipW() { return (window.innerWidth <= 560) ? 48 : 56; }
+
+  /* Render an array of chip values as a horizontal overlapping fan.
+     values[0] sits leftmost; subsequent chips overlap to the right with
+     higher z-index. Callers pass values sorted largest-first. */
+  function renderFan(container, values, onChipClick) {
+    const w = chipW();
+    const offsetX = Math.round(w * 0.55);
+    container.innerHTML = "";
+    if (!values.length) { container.style.width = "240px"; return; }
+    container.style.width = (w + (values.length - 1) * offsetX) + "px";
+    values.forEach((v, i) => {
+      const c = CHIPS.find(x => x.v === v);
+      const el = document.createElement(onChipClick ? "button" : "span");
+      if (onChipClick) el.type = "button";
+      el.className = "chip " + c.cls;
+      el.style.left = (i * offsetX) + "px";
+      el.style.zIndex = i + 1;
+      el.textContent = c.display;
+      if (onChipClick) el.onclick = () => onChipClick(v);
+      container.appendChild(el);
+    });
+  }
+
   function renderPalette() {
     $palette.innerHTML = "";
     CHIPS.slice().reverse().forEach(c => {
       const btn = document.createElement("button");
-      btn.className = "chip-btn";
-      btn.innerHTML =
-        '<span class="chip ' + c.cls + '"><span class="v">' + c.label.replace("$","").replace(",","") + '</span></span>' +
-        '<span class="label">' + c.label + '</span>';
+      btn.type = "button";
+      btn.className = "chip " + c.cls;
+      btn.textContent = c.display;
       btn.onclick = () => {
         if (solved) return;
         stack.push(c.v);
@@ -873,27 +890,17 @@ h1 {
   }
 
   function renderStack() {
-    $stack.innerHTML = "";
     if (!stack.length) {
-      const ph = document.createElement("div");
-      ph.className = "placeholder";
-      ph.textContent = "Tap chips below to build the payout";
-      $stack.appendChild(ph);
+      $stack.innerHTML = '<div class="placeholder">Tap chips below to build the payout</div>';
+      $stack.style.width = "240px";
     } else {
-      stack.slice().sort((a,b) => b - a).forEach(v => {
-        const c = CHIPS.find(x => x.v === v);
-        const el = document.createElement("span");
-        el.className = "chip " + c.cls;
-        el.innerHTML = '<span class="v">' + c.label.replace("$","").replace(",","") + '</span>';
-        el.onclick = () => {
-          if (solved) return;
-          /* Click stack chip to remove the matching value (one occurrence). */
-          const idx = stack.indexOf(v);
-          if (idx >= 0) stack.splice(idx, 1);
-          renderStack();
-          $buildRow.classList.remove("wrong");
-        };
-        $stack.appendChild(el);
+      renderFan($stack, stack.slice().sort((a,b) => b - a), (v) => {
+        if (solved) return;
+        /* Click stack chip to remove the matching value (one occurrence). */
+        const idx = stack.indexOf(v);
+        if (idx >= 0) stack.splice(idx, 1);
+        renderStack();
+        $buildRow.classList.remove("wrong");
       });
     }
     $buildAmt.textContent = fmt(stackTotal());
@@ -936,16 +943,8 @@ h1 {
       } else {
         $wager.style.display = "none";
       }
-      /* Visualise the wager as chips (greedy high-to-low). */
-      const wagerChips = chipBreakdown(current.wager);
-      $wagerStack.innerHTML = "";
-      wagerChips.forEach(v => {
-        const c = CHIPS.find(x => x.v === v);
-        const el = document.createElement("span");
-        el.className = "chip " + c.cls;
-        el.innerHTML = '<span class="v">' + c.label.replace("$","").replace(",","") + '</span>';
-        $wagerStack.appendChild(el);
-      });
+      /* Visualise the wager as chips (greedy high-to-low), fanned like blackjack. */
+      renderFan($wagerStack, chipBreakdown(current.wager), null);
     }
 
     /* Reset build area */
@@ -1176,6 +1175,14 @@ h1 {
       $body.appendChild(wrap);
     });
   }
+
+  /* Re-layout chip fans if the window crosses the mobile breakpoint */
+  window.addEventListener("resize", () => {
+    if (current && !current.isEnvy) {
+      renderFan(document.getElementById("wager-stack"), chipBreakdown(current.wager), null);
+    }
+    renderStack();
+  });
 
   /* Boot */
   renderPalette();
