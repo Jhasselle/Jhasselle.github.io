@@ -300,10 +300,18 @@
     font-size: 1rem;
     font-weight: 600;
     color: #fef3c7;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    /* Slight black outline so the text stays readable over cards */
+    text-shadow:
+      -1px -1px 0 rgba(0,0,0,0.85), 1px -1px 0 rgba(0,0,0,0.85),
+      -1px  1px 0 rgba(0,0,0,0.85), 1px  1px 0 rgba(0,0,0,0.85),
+      0 2px 5px rgba(0,0,0,0.7);
     margin: 4px 0 12px;
     letter-spacing: 0.5px;
     transition: opacity 0.2s;
+    /* Render above the cards, but never block clicks on them */
+    position: relative;
+    z-index: 60;
+    pointer-events: none;
   }
   .house-rules {
     text-align: center;
@@ -1268,7 +1276,7 @@ body::before, body::after {
   pointer-events: none;
   background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
   background-size: 200% 100%;
-  animation: tdt-strip-slide 12s linear infinite;
+  animation: tdt-strip-slide 60s linear infinite;
 }
 body::before { top: 0; }
 body::after  { bottom: 0; animation-direction: reverse; }
