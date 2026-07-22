@@ -1,0 +1,2654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heads-Up Hold'em — Dealer Simulator</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  /* Saturated casino-purple felt — same background as the 3 Card Prime
+     dealing simulator. */
+  background:
+    radial-gradient(900px 500px at 50% 0%,   rgba(192,132,252,0.45), transparent 60%),
+    radial-gradient(900px 500px at 50% 100%, rgba(0,0,0,0.55),      transparent 60%),
+    linear-gradient(180deg, #4a1d8a 0%, #3b1573 50%, #2a0d5e 100%);
+  background-attachment: fixed;
+  position: relative; overflow-x: hidden;
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 60s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 16px; left: 16px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(15,17,24,0.85);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+.home-btn::before { content: "\2190"; font-size: 14px; line-height: 1; }
+.home-btn:hover { background: rgba(20,22,32,0.95); color: #fff; }
+
+.felt {
+  min-height: 100vh;
+  padding: 56px 14px 28px;
+  position: relative;
+}
+
+/* Static status bar — sits above the players carousel. Three inline
+   segments: round counter, phase / next-action, hint. */
+#status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  max-width: 1200px;
+  margin: 0 auto 14px;
+  padding: 10px 14px;
+  background: rgba(15,17,24,0.85);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  font: 700 12px/1.35 "Inter", sans-serif;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.9);
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,0.7);
+}
+#status .round {
+  color: rgba(255,255,255,0.55);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  flex: 0 0 auto;
+}
+#status .round #round-no {
+  color: #f4f4f5;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+#status .phase {
+  color: #fde047;
+  font-weight: 800;
+  font-size: 13px;
+  flex: 1 1 auto;
+  text-align: center;
+}
+#status .hint {
+  color: rgba(196,181,253,0.85);
+  font-weight: 600;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+@media (max-width: 560px) {
+  #status .phase { font-size: 12px; }
+  #status .round, #status .hint { font-size: 10px; }
+}
+
+#announce {
+  position: fixed; top: 50%; left: 50%; z-index: 300;
+  transform: translate(-50%, -50%) scale(0.7);
+  background: linear-gradient(135deg, #fde047, #f59e0b, #fde047);
+  background-size: 200% 200%;
+  animation: jackpotShimmer 1.5s linear infinite;
+  color: #1f1100;
+  padding: 22px 36px;
+  border-radius: 18px;
+  font: 900 26px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  text-align: center;
+  box-shadow: 0 30px 80px -20px rgba(253,224,71,0.6), 0 0 0 3px #fde047, 0 0 80px 8px rgba(253,224,71,0.4);
+  display: none;
+  pointer-events: none;
+  max-width: 88vw;
+}
+#announce.show {
+  display: block; animation: jackpotShimmer 1.5s linear infinite, jackpotPop 0.4s ease forwards;
+}
+@keyframes jackpotPop {
+  from { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+@keyframes jackpotShimmer {
+  from { background-position: 0% 0%; }
+  to   { background-position: 200% 200%; }
+}
+#announce .sub {
+  display: block; font: 700 12px/1.3 "Inter", sans-serif;
+  letter-spacing: 0.2em; margin-top: 8px; color: #4a2300;
+}
+
+/* Layout — 3 player areas across the top, dealer in middle, rack at bottom */
+.players-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+  max-width: 1200px; margin: 0 auto 8px;
+}
+.player {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+    radial-gradient(ellipse at center top, rgba(168,85,247,0.10), transparent 70%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 16px 14px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.player .cards:not(.folded) {
+  margin-top: auto;
+}
+.player .seat-label {
+  font: 700 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); margin-bottom: 12px; text-align: center;
+}
+/* Layout mat — purple/transparent so it blends with the page background.
+   `isolation: isolate` makes the mat its own stacking context so the
+   settle-halo ::afters (z-index -1) render behind every spot in the mat
+   but in front of the mat itself. */
+.mat {
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 12px;
+  padding: 14px 12px;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 8px 28px -10px rgba(0,0,0,0.6);
+  position: relative;
+  isolation: isolate;
+}
+.mat .row-progressives { display: flex; justify-content: space-around; gap: 8px; }
+.mat .row-bonuses      { display: flex; justify-content: space-around; gap: 8px; }
+.mat .row-main         { display: flex; justify-content: center; align-items: center; gap: 10px; }
+/* Main column: RAISE diamond on top, ANTE = ODDS pair beneath. */
+.mat .main-stack       { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ante-odds-pair {
+  display: flex; align-items: center; gap: 0;
+  position: relative;
+}
+.ante-odds-pair .eq {
+  font: 800 15px/1 "Inter", sans-serif;
+  color: rgba(255,255,255,0.6);
+  margin: 0 1px;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.spot {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative;
+  text-align: center;
+}
+/* Diamond spots: layout box stays square + unrotated so chips and labels
+   position normally; an inscribed rotated ::before draws the outline. */
+.spot.diamond {
+  width: 64px; height: 64px;
+  border-radius: 0;
+  background: transparent;
+}
+.spot.diamond::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;        /* 44 * sqrt(2) ≈ 62, fits in 64 */
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 5px solid var(--diamond-color, #5d5d5d);
+  border-radius: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+}
+.spot .label {
+  background: transparent;
+  padding: 0;
+  font: 800 9px/1.1 "Inter", sans-serif;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  border: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 0 1px rgba(0,0,0,0.95);
+}
+/* Spot colours — Heads-Up Hold'em layout:
+   RAISE diamond (red/orange), ANTE diamond (green), ODDS diamond (pink),
+   Trips Plus (orange ring), Pocket Bonus (light-blue ring), Red Bonus
+   Jackpot (dark red circle) and Blue Bonus Jackpot (dark blue circle). */
+.spot.raise   { background: transparent; --diamond-color: #ef4444; }  /* red/orange */
+.spot.ante    { background: transparent; --diamond-color: #22c55e; }  /* green */
+.spot.odds    { background: transparent; --diamond-color: #ec4899; }  /* pink  */
+.spot.trips   { background: transparent; border: 6px solid #f97316; } /* orange ring */
+.spot.pocket  { background: transparent; border: 6px solid #38bdf8; } /* light-blue ring */
+.spot.red     { background: #7f1d1d; border: 6px solid #450a0a; }     /* dark, red accent  */
+.spot.blue    { background: #1e3a8a; border: 6px solid #0c1e5e; }     /* dark, blue accent */
+
+/* =========================================================
+   Progressive bets — chips are scooped into the rack BEFORE
+   the deal, so no stack renders on these spots. The circle
+   lights up while a wager is live / unresolved.
+   ========================================================= */
+.spot.blue.placed {
+  background: #1d4ed8;
+  border-color: #0a2470;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.85), 0 0 22px 8px rgba(59, 130, 246, 0.55);
+}
+.spot.red.placed {
+  background: #dc2626;
+  border-color: #7f1d1d;
+  box-shadow: 0 0 0 3px rgba(252, 165, 165, 0.85), 0 0 22px 8px rgba(220, 38, 38, 0.55);
+}
+.spot.placed .label { background: transparent; color: #ffffff; }
+.spot.small   { width: 48px; height: 48px; border-width: 4px; }
+.spot.small.diamond { width: 54px; height: 54px; }
+
+/* =========================================================
+   Cylinder chip palette (matches blackjack dealing simulator).
+   ========================================================= */
+.ce-white,  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
+.ce-pink,   .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); }
+.ce-red,    .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
+.ce-green,  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
+.ce-black,  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
+.ce-purple, .cp-purple { --chip-base: #8b5cf6; --chip-stripe: rgba(255,255,255,0.92); }
+
+.ce-white, .ce-pink, .ce-red, .ce-green, .ce-black, .ce-purple,
+.cp-white, .cp-pink, .cp-red, .cp-green, .cp-black, .cp-purple {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+/* CYLINDER BODY (rim) */
+.ce-white::after, .ce-pink::after, .ce-red::after, .ce-green::after, .ce-black::after, .ce-purple::after,
+.cp-white::after, .cp-pink::after, .cp-red::after, .cp-green::after, .cp-black::after, .cp-purple::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 18%;
+  bottom: 0;
+  background-color: var(--chip-base);
+  background-image:
+    repeating-linear-gradient(90deg,
+      transparent 0, transparent 8px,
+      var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+  background-position: var(--stripe-offset, 0) 0;
+  border-left: 1px solid rgba(0,0,0,0.65);
+  border-right: 1px solid rgba(0,0,0,0.65);
+  border-bottom: 1.5px solid rgba(0,0,0,0.85);
+  border-radius: 0 0 50% 50% / 0 0 55% 55%;
+  z-index: 1;
+  box-sizing: border-box;
+}
+/* TOP FACE */
+.ce-white::before, .ce-pink::before, .ce-red::before, .ce-green::before, .ce-black::before, .ce-purple::before,
+.cp-white::before, .cp-pink::before, .cp-red::before, .cp-green::before, .cp-black::before, .cp-purple::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 0;
+  height: 62%;
+  border-radius: 50%;
+  background-color: var(--chip-base);
+  background-image:
+    radial-gradient(ellipse at 50% 50%,
+      rgba(255,255,255,0.94) 0%,
+      rgba(255,255,255,0.94) 28%,
+      transparent 32%);
+  background-repeat: no-repeat;
+  border: 1px solid rgba(0,0,0,0.65);
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   Bet-spot chip stack — centered ABOVE the bet circle, grows up.
+   ========================================================= */
+.bet-stack-viz {
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% - 10px);
+  transform: translateX(-50%);
+  width: 64px;
+  height: 1px;
+  pointer-events: none;
+  z-index: 100;
+}
+.bet-stack-viz .bet-chip-piece {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.5);
+}
+
+/* Player cards row — below the mat */
+.player .cards {
+  display: flex; justify-content: center; gap: 6px; margin-top: 14px;
+  min-height: 92px;
+  transition: transform 0.35s cubic-bezier(.5,.05,.5,1.0);
+}
+/* Collectable — the current player's cards during 'collect-cards'. */
+.player .cards.collectable .card {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.player .cards.collectable:hover .card {
+  filter: brightness(1.08);
+}
+.player .cards.collectable .card:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6), 0 0 0 2px rgba(253,224,71,0.6);
+}
+@keyframes cardCollectPulse {
+  0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(253,224,71,0)); }
+  50%      { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 8px rgba(253,224,71,0.85)); }
+}
+body:not(.help-off) .player .cards.collectable {
+  animation: cardCollectPulse 2.4s ease-in-out infinite;
+}
+/* ============================================================
+   FOLDED HAND — the player's 2 hole cards tuck face-down near
+   the Trips Plus spot (left circle of the bonus row) until the
+   Ante + Odds losses are collected, then they reveal so the
+   still-live side bets can be settled.
+   ============================================================ */
+.player .cards.folded {
+  position: absolute;
+  /* Bonus row starts ≈194px from the player top (padding 16 + label 22
+     + main column 130 + row gaps 28). Cards 54px tall at top:184 put
+     their bottoms into the Trips chip-stack area, so the stack
+     (z-index 100) overlaps the card bottoms — "tucked under the bet". */
+  top: 184px;
+  left: calc(25% - 26px);      /* Trips = left spot of the bonus row */
+  margin-top: 0;
+  min-height: 0;
+  gap: 0;
+  z-index: 0;
+  pointer-events: none;
+  justify-content: flex-start;
+  transform-origin: bottom left;
+}
+.player .cards.folded .card {
+  width: 38px;
+  height: 54px;
+  margin-left: -14px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.player .cards.folded .card:first-child { margin-left: 0; }
+.player .cards.folded .card:nth-child(1) { transform: rotate(-9deg); }
+.player .cards.folded .card:nth-child(2) { transform: rotate(  7deg); }
+.card {
+  width: 60px; height: 86px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.2);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  position: relative;
+  font-family: "Georgia", "Bookman Old Style", serif;
+  font-weight: 800;
+}
+.card.face-down {
+  background: repeating-linear-gradient(
+    45deg, #b91c1c 0, #b91c1c 6px, #7f1d1d 6px, #7f1d1d 12px
+  );
+  border: 2px solid #fef3c7 !important;
+  outline: 1px solid #450a0a;
+}
+.card.face-down::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(255,255,255,0.45);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.card .corner {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  font-size: 16px; line-height: 1;
+}
+.card .corner.tl { top: 4px; left: 5px; }
+.card .corner.br {
+  bottom: 4px; right: 5px;
+  transform: rotate(180deg);
+}
+.card .corner .suit { font-size: 14px; line-height: 1; }
+.card .pip {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px; line-height: 1;
+}
+.card.red  { color: #c0392b; }
+.card.black{ color: #17171c; }
+
+/* Dealer area — holds the 7-card row (2 hole + 5 community) and the
+   discard-drill interaction. */
+.dealer-area {
+  max-width: 900px; margin: 4px auto 6px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+    radial-gradient(ellipse at center, rgba(99,102,241,0.10), transparent 70%);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 6px 12px 8px;
+  text-align: center;
+}
+.dealer-area .label {
+  font: 700 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); margin-bottom: 4px;
+}
+.dealer-cards {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px;
+}
+.dealer-cards .dc-row {
+  display: flex; justify-content: center; align-items: center;
+  gap: 8px;
+  min-height: 88px;
+}
+.dealer-cards .dc-lbl {
+  font: 700 10px/1 "Inter", sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  margin-top: 2px;
+}
+.dealer-cards .gap { width: 28px; flex: 0 0 auto; }
+/* Discard drill — 7 cards; the user clicks the 2 NOT in the best five.
+   Selected / confirmed discards slant ~45° and dim. */
+.dealer-cards .card { transition: transform 0.25s ease, opacity 0.25s ease, box-shadow 0.18s ease; }
+.dealer-cards .card.selectable { cursor: pointer; }
+body:not(.help-off) .dealer-cards .card.selectable:not(.slant):hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6), 0 0 0 2px rgba(253,224,71,0.6);
+}
+.dealer-cards .card.slant {
+  transform: rotate(45deg) scale(0.9);
+}
+.dealer-cards.shake { animation: shakeX 0.4s ease; }
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(9px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+.dealer-meta {
+  margin-top: 4px;
+  font: 700 11px/1.3 "Inter", sans-serif;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.75);
+}
+.dealer-meta .qualify  { color: #34d399; }
+.dealer-meta .no-qual  { color: #f87171; }
+
+/* Narrow screens — ALL cards (seats, board, dealer) shrink together so
+   every card on the table stays the same size. */
+@media (max-width: 560px) {
+  .card { width: 52px; height: 75px; }
+  .card .corner { font-size: 14px; }
+  .card .corner .suit { font-size: 12px; }
+  .card .pip { font-size: 27px; }
+  .dealer-cards .dc-row { gap: 4px; min-height: 78px; }
+  .dealer-cards .gap { width: 14px; }
+  .dealer-area { padding: 6px 6px 8px; }
+}
+@media (max-width: 420px) {
+  .card { width: 46px; height: 66px; }
+  .card .corner { font-size: 12px; }
+  .card .corner .suit { font-size: 11px; }
+  .card .pip { font-size: 23px; }
+  .dealer-cards .dc-row { gap: 3px; min-height: 70px; }
+  .dealer-cards .gap { width: 10px; }
+}
+
+/* =========================================================
+   Dealer rack + outgoing stack — identical to the sibling sims.
+   ========================================================= */
+.bottom-bar {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; justify-content: center; align-items: flex-start;
+  gap: 18px;
+  padding: 4px 12px 4px;
+}
+.chip-tray-wrap {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;
+}
+.chip-tray {
+  background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
+  border: 3px solid #000;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  gap: 6px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5);
+}
+.chip-stack-tray {
+  position: relative;
+  width: 64px;
+  height: 102px;
+  cursor: default;
+}
+.chip-stack-tray .chip-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.45);
+}
+.chip-stack-tray .chip-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255,255,255,0.65);
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+}
+.tray-buttons { display: flex; gap: 10px; }
+.tray-btn {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tray-btn:hover { background: #273449; color: #fff; }
+.tray-btn.primary {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  color: #0b1220; border-color: #38bdf8;
+}
+.tray-btn.primary:hover { background: linear-gradient(135deg, #7dd3fc, #38bdf8); }
+
+.close-stack {
+  position: relative;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 126px;
+}
+.chip-stack-display {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 64px;
+  min-height: 126px;
+  max-height: 280px;
+  padding: 4px;
+  border: 1px dashed rgba(255,255,255,0.28);
+  border-radius: 8px;
+  box-sizing: border-box;
+  background: rgba(0,0,0,0.32);
+  z-index: 40;
+}
+.chip-stack-display:empty {
+  opacity: 0.45;
+}
+.chip-stack-display .chip-piece {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.5);
+}
+.close-stack-label {
+  position: absolute;
+  top: -22px; left: 0; right: 0;
+  text-align: center;
+  font: 700 9.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+}
+.btn {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff; border: 0; border-radius: 10px;
+  padding: 11px 18px;
+  font: 800 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.18s;
+}
+.btn:hover { transform: translateY(-1px); background: linear-gradient(135deg, #818cf8, #4f46e5); }
+
+/* Decision badges (RAISE 3×/2×/1× / FOLD) above player cards */
+.decision-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: 800 9.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.decision-badge.play { background: rgba(52, 211, 153, 0.18); color: #34d399; border: 1px solid rgba(52,211,153,0.55); }
+.decision-badge.fold { background: rgba(248, 113, 113, 0.18); color: #f87171; border: 1px solid rgba(248,113,113,0.55); }
+
+.player.dim     { opacity: 0.45; pointer-events: none; }
+.player.current {
+  outline: 2px solid rgba(253, 224, 71, 0.7);
+  outline-offset: 4px;
+  border-radius: 18px;
+  box-shadow: 0 0 0 4px rgba(253, 224, 71, 0.10);
+}
+
+/* =========================================================
+   Settlement decoration — toned-down circular halo (3px ring
+   + small glow, gentle brightness pulse), same as 3 Card Prime.
+   ========================================================= */
+.spot.settle-loss,
+.spot.settle-win-next,
+.spot.settle-push,
+.spot.settle-jackpot {
+  cursor: pointer;
+  z-index: 10;
+}
+.spot.settle-jackpot { z-index: 11; }
+.spot.settle-loss::after,
+.spot.settle-win-next::after,
+.spot.settle-push::after,
+.spot.settle-jackpot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: -1;
+}
+.spot.settle-loss::after {
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.85),
+    0 0 12px 3px rgba(248, 113, 113, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
+}
+.spot.settle-win-next::after {
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.85),
+    0 0 12px 3px rgba(52, 211, 153, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
+}
+.spot.settle-push::after {
+  box-shadow:
+    0 0 0 3px rgba(234, 179, 8, 0.85),
+    0 0 12px 3px rgba(253, 224, 71, 0.3);
+  animation: settlePulse 3s ease-in-out infinite;
+}
+.spot.settle-jackpot::after {
+  box-shadow:
+    0 0 0 4px #fde047,
+    0 0 18px 6px rgba(253, 224, 71, 0.5);
+  animation: jpSparkle 1.8s ease-in-out infinite;
+}
+@keyframes settlePulse {
+  0%, 100% { filter: brightness(1.00); }
+  50%      { filter: brightness(1.25); }
+}
+@keyframes jpSparkle {
+  0%, 100% { filter: brightness(1.00) hue-rotate(0deg); }
+  50%      { filter: brightness(1.25) hue-rotate(-10deg); }
+}
+/* MERGED CAPSULE — when the side-by-side ANTE + ODDS diamonds share the
+   same settle state, their individual halos hide and ONE horizontal
+   capsule is drawn on the pair container instead. */
+.ante-odds-pair.merged .spot::after { display: none; }
+.ante-odds-pair.merged::after {
+  content: '';
+  position: absolute;
+  inset: 7px -3px;              /* hug the two inscribed diamonds */
+  border-radius: 999px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: -1;
+}
+.ante-odds-pair.merged.settle-win-next::after {
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.85),
+    0 0 12px 3px rgba(52, 211, 153, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
+}
+.ante-odds-pair.merged.settle-loss::after {
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.85),
+    0 0 12px 3px rgba(248, 113, 113, 0.35);
+  animation: settlePulse 2.8s ease-in-out infinite;
+}
+.ante-odds-pair.merged.settle-push::after {
+  box-shadow:
+    0 0 0 3px rgba(234, 179, 8, 0.85),
+    0 0 12px 3px rgba(253, 224, 71, 0.3);
+  animation: settlePulse 3s ease-in-out infinite;
+}
+/* Help OFF — hide all pay/take visual cues. */
+body.help-off .spot.settle-loss::after,
+body.help-off .spot.settle-win-next::after,
+body.help-off .spot.settle-push::after,
+body.help-off .spot.settle-jackpot::after,
+body.help-off .ante-odds-pair.merged::after {
+  display: none;
+}
+body.help-off .tray-btn#btn-help { background: #7f1d1d; border-color: #b91c1c; color: #fee2e2; }
+
+/* PUSHED text overlay — appears only AFTER the dealer clicks the pushed
+   bet to acknowledge it (the click clears the chips back to the player). */
+.pushed-overlay {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font: 800 10px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fef3c7;
+  background: rgba(120, 53, 15, 0.95);
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+  padding: 3px 7px;
+  pointer-events: none;
+  z-index: 120;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* Chip tray columns become clickable during the pay-winners subphase. */
+body.paying .chip-stack-tray { cursor: pointer; transition: filter 0.12s, transform 0.05s; }
+body.paying .chip-stack-tray:hover { filter: brightness(1.25); }
+body.paying .chip-stack-tray:active { transform: translateY(1px); }
+
+/* Outgoing-stack is clickable to clear */
+.chip-stack-display { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.chip-stack-display:hover:not(:empty) {
+  border-color: rgba(252,165,165,0.85);
+  background: rgba(220,38,38,0.18);
+}
+
+@media (max-width: 900px) {
+  .players-row { grid-template-columns: 1fr; gap: 14px; }
+  .felt { padding: 56px 8px 18px; }
+
+  /* ============================================================
+     MOBILE CAROUSEL — always on. One seat visible at a time;
+     settlement walks Seat 3 → 2 → 1.
+     ============================================================ */
+  .players-row {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    min-height: 510px;
+    padding: 0;
+    gap: 0;
+  }
+  .player {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+  .player.carousel-queued { transform: translateX(-115%); }
+  .player.carousel-active { transform: translateX(0);     }
+  .player.carousel-done   { transform: translateX(115%);  }
+  body.no-carousel-transition .player { transition: none !important; }
+  .player.carousel-queued,
+  .player.carousel-done {
+    pointer-events: none;
+  }
+}
+
+/* NARROW MOBILE — squeeze the rack + outgoing so the bar fits. */
+@media (max-width: 560px) {
+  .bottom-bar  { gap: 10px; padding: 4px 6px; }
+  .chip-tray   { gap: 4px; padding: 6px 8px; border-width: 2px; }
+  .chip-stack-tray { width: 52px; }
+  .chip-stack-tray .chip-edge  { height: 18px; }
+  .chip-stack-tray .chip-label { font-size: 0.6rem; }
+  .close-stack { width: 52px; }
+  .chip-stack-display { width: 52px; }
+  .chip-stack-display .chip-piece { left: 4px; right: 4px; height: 18px; }
+  .tray-btn    { padding: 6px 11px; font-size: 0.72rem; }
+  .tray-buttons { gap: 6px; }
+}
+@media (max-width: 420px) {
+  .bottom-bar  { gap: 6px; padding: 4px 4px; }
+  .chip-tray   { gap: 3px; padding: 5px 6px; }
+  .chip-stack-tray { width: 42px; }
+  .chip-stack-tray .chip-edge  { height: 16px; }
+  .chip-stack-tray .chip-label { font-size: 0.55rem; letter-spacing: 0; }
+  .close-stack { width: 42px; }
+  /* The OUTGOING label is wider than its 42px box; right-align it so
+     the excess sticks out LEFT (over empty space) instead of pushing
+     the page's scrollable area past the right edge of the viewport. */
+  .close-stack-label { font-size: 8.5px; letter-spacing: 0.1em; text-align: right; }
+  .chip-stack-display { width: 42px; padding: 3px; }
+  .chip-stack-display .chip-piece { left: 3px; right: 3px; height: 16px; }
+  .tray-btn    { padding: 5px 8px; font-size: 0.68rem; }
+}
+
+/* ============================================================
+   NEW-ROUND CURTAIN — hides the synchronous reset/deal/decide
+   sequence between rounds.
+   ============================================================ */
+#new-round-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0.18s;
+  background: rgba(7, 8, 12, 0.88);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+}
+body.new-round-curtain #new-round-overlay {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0s;
+}
+.new-round-text {
+  font: 800 38px/1 "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.55);
+}
+@media (max-width: 560px) {
+  .new-round-text { font-size: 28px; letter-spacing: 0.18em; }
+}
+
+/* ============================================================
+   SETTINGS MODAL — side-bet frequency sliders.
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 600;
+  background: rgba(7, 8, 12, 0.78);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0.18s;
+  padding: 20px;
+}
+.modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease-out, visibility 0s linear 0s;
+}
+.modal-panel {
+  background: linear-gradient(180deg, #1a1830 0%, #0f1020 100%);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 22px 24px 20px;
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  color: #f4f4f5;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.modal-header h2 {
+  margin: 0; font: 700 18px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.02em;
+}
+.modal-close {
+  background: transparent; border: none; color: rgba(255,255,255,0.55);
+  font: 700 26px/1 system-ui; cursor: pointer; padding: 0 6px;
+  transition: color 0.12s;
+}
+.modal-close:hover { color: #fff; }
+.modal-lede {
+  margin: 4px 0 16px; font-size: 12.5px; color: rgba(255,255,255,0.6);
+  line-height: 1.45;
+}
+.settings-rows { display: flex; flex-direction: column; gap: 14px; }
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center; gap: 4px 12px;
+}
+.settings-row .row-label {
+  font: 700 12.5px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  grid-column: 1;
+}
+.settings-row .row-value {
+  font: 800 13px/1 "Inter", sans-serif;
+  color: #facc15;
+  min-width: 44px; text-align: right;
+  grid-column: 2;
+}
+.settings-row input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 2px 0 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  outline: none;
+  cursor: pointer;
+}
+.settings-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  border: 2px solid #f4f4f5;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.settings-row input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  border: 2px solid #f4f4f5;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 22px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+@media (max-width: 480px) {
+  .modal-panel { padding: 18px 18px 16px; }
+  .modal-header h2 { font-size: 16px; }
+  .modal-footer .tray-btn { padding: 6px 12px; font-size: 0.72rem; }
+}
+
+/* Payouts modal — sectioned paytable listing. */
+.modal-panel.payouts-panel { max-width: 540px; }
+.payout-section { margin-bottom: 18px; }
+.payout-section:last-child { margin-bottom: 0; }
+.payout-section h3 {
+  margin: 0 0 6px;
+  font: 800 12px/1 "Inter", sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #facc15;
+}
+.payout-section .ps-note {
+  font: 600 11.5px/1.45 "Inter", sans-serif;
+  color: rgba(255,255,255,0.62);
+  margin: 4px 0 8px;
+}
+.payout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 600 12.5px/1.4 "Inter", sans-serif;
+}
+.payout-table td, .payout-table th {
+  padding: 6px 8px 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  text-align: left;
+}
+.payout-table tr:last-child td { border-bottom: none; }
+.payout-table th {
+  font: 800 10px/1.3 "Inter", sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+}
+.payout-table td:last-child, .payout-table th:last-child {
+  text-align: right;
+  padding-right: 0;
+}
+.payout-table td:last-child {
+  font: 800 12.5px/1.4 "JetBrains Mono", "Courier New", monospace;
+  color: #34d399;
+}
+.payout-table td.envy-col {
+  text-align: right;
+  font: 800 12.5px/1.4 "JetBrains Mono", "Courier New", monospace;
+  color: #fbbf24;
+}
+
+/* ============================================================
+   MOBILE COMPACTION — smaller chrome + tighter seat mats so a
+   full seat, the board, and the rack fit with less scrolling.
+   (Placed last so it wins the cascade.)
+   ============================================================ */
+@media (max-width: 560px) {
+  .home-btn { top: 10px; left: 12px; padding: 7px 13px 7px 10px; font-size: 11px; }
+  .felt { padding: 46px 8px 14px; }
+  #status { padding: 8px 10px; margin-bottom: 10px; gap: 6px 10px; }
+  .mat { padding: 10px 8px; gap: 10px; }
+  .mat .main-stack { gap: 1px; }
+  .spot { width: 52px; height: 52px; }
+  .spot.trips, .spot.pocket, .spot.red, .spot.blue { border-width: 5px; }
+  .spot.diamond { width: 56px; height: 56px; }
+  .spot.diamond::before { width: 38px; height: 38px; border-width: 4px; }
+  .spot .label { font-size: 8px; }
+  .seat-label { font-size: 10px; }
+  .players-row { min-height: 440px; }
+  .player .cards { margin-top: 6px; }
+  .dealer-area { margin-top: 2px; }
+}
+</style>
+</head>
+<body>
+
+<a class="home-btn" href="poker.html">Poker</a>
+
+<div id="announce"></div>
+
+<div id="new-round-overlay"><div class="new-round-text">New Round</div></div>
+
+<div class="felt">
+
+  <!-- Static status row above the carousel -->
+  <div id="status">
+    <span class="round">Round <span id="round-no">1</span></span>
+    <span class="phase" id="phase-label">Starting…</span>
+    <span class="hint" id="hint-label">Odds always = Ante</span>
+  </div>
+
+  <!-- Three players across the top -->
+  <div class="players-row" id="players-row">
+    <!-- Player templates rendered by JS -->
+  </div>
+
+  <!-- Dealer area: 2 hole cards | gap | 5 community cards.
+       Doubles as the discard-drill surface after the reveal. -->
+  <div class="dealer-area" id="dealer-area">
+    <div class="label">Board</div>
+    <div class="dealer-cards" id="dealer-cards"></div>
+    <div class="dealer-meta" id="dealer-meta"></div>
+  </div>
+
+  <!-- Dealer rack + outgoing stack -->
+  <div class="bottom-bar">
+    <div class="chip-tray-wrap">
+      <div class="chip-tray" id="chip-tray"><!-- stacks injected by JS --></div>
+      <div class="tray-buttons">
+        <button class="tray-btn" id="btn-reset" type="button">Reset</button>
+        <button class="tray-btn" id="btn-help"  type="button">Help: On</button>
+        <button class="tray-btn" id="btn-payouts" type="button">Payouts</button>
+        <button class="tray-btn primary" id="btn-settings" type="button">Settings</button>
+      </div>
+    </div>
+    <div class="close-stack">
+      <div class="close-stack-label">Outgoing</div>
+      <div class="chip-stack-display" id="chip-stack-display"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Settings modal: per-side-bet probability sliders. -->
+<div id="settings-overlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-labelledby="settings-title">
+    <div class="modal-header">
+      <h2 id="settings-title">Side-bet probabilities</h2>
+      <button class="modal-close" id="btn-settings-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="modal-lede">How often the NPC players take each side bet. 0% = never, 100% = every round.</p>
+    <div class="settings-rows" id="settings-rows"><!-- sliders injected by JS --></div>
+    <div class="modal-footer">
+      <button class="tray-btn" id="btn-settings-reset" type="button">Restore defaults</button>
+      <button class="tray-btn primary" id="btn-settings-save" type="button">Save &amp; start round</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payouts modal — full paytable listing for all bets. -->
+<div id="payouts-overlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal-panel payouts-panel">
+    <div class="modal-header">
+      <h2>Payouts</h2>
+      <button class="modal-close" id="btn-payouts-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="modal-lede">All paytables for Heads-Up Hold'em. Dealer qualifies with a PAIR or better (best 5 of 7).</p>
+
+    <div class="payout-section">
+      <h3>Raise &amp; Ante</h3>
+      <p class="ps-note">Raise (3×/2×/1× the Ante, one raise only) is ALWAYS full action: win 1:1 / lose / tie pushes.
+      Ante: dealer doesn't qualify → push; otherwise win 1:1 / lose / tie pushes.</p>
+      <table class="payout-table">
+        <tr><td>Win</td><td>1 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Odds — win table</h3>
+      <p class="ps-note">Odds always equals the Ante. Dealer doesn't qualify → push. Tie → push.
+      Player WINS with a Straight or better → paid below; wins with less → push.</p>
+      <table class="payout-table">
+        <tr><td>Royal Flush</td><td>500 : 1</td></tr>
+        <tr><td>Straight Flush</td><td>50 : 1</td></tr>
+        <tr><td>Four of a Kind</td><td>10 : 1</td></tr>
+        <tr><td>Full House</td><td>3 : 1</td></tr>
+        <tr><td>Flush</td><td>1.5 : 1</td></tr>
+        <tr><td>Straight</td><td>1 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Odds — bad beat table</h3>
+      <p class="ps-note">Player LOSES the hand while holding a Straight or better → the Odds bet is PAID below.
+      Loses with less than a Straight → Odds loses.</p>
+      <table class="payout-table">
+        <tr><td>Straight Flush</td><td>500 : 1</td></tr>
+        <tr><td>Four of a Kind</td><td>25 : 1</td></tr>
+        <tr><td>Full House</td><td>6 : 1</td></tr>
+        <tr><td>Flush</td><td>5 : 1</td></tr>
+        <tr><td>Straight</td><td>4 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Trips Plus</h3>
+      <p class="ps-note">Player's best 5 of ALL 7 cards. Plays even when the player folds.</p>
+      <table class="payout-table">
+        <tr><td>Royal Flush</td><td>100 : 1</td></tr>
+        <tr><td>Straight Flush</td><td>40 : 1</td></tr>
+        <tr><td>Four of a Kind</td><td>30 : 1</td></tr>
+        <tr><td>Full House</td><td>8 : 1</td></tr>
+        <tr><td>Flush</td><td>7 : 1</td></tr>
+        <tr><td>Straight</td><td>4 : 1</td></tr>
+        <tr><td>Three of a Kind</td><td>3 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Pocket Bonus</h3>
+      <p class="ps-note">The 2 pocket cards only. Plays even when the player folds.</p>
+      <table class="payout-table">
+        <tr><td>Pair of Aces</td><td>25 : 1</td></tr>
+        <tr><td>Suited Ace + Face (J/Q/K)</td><td>20 : 1</td></tr>
+        <tr><td>Unsuited Ace + Face (J/Q/K)</td><td>10 : 1</td></tr>
+        <tr><td>Any other Pair</td><td>5 : 1</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Blue Bonus Jackpot ($1) — 5 Card Linked</h3>
+      <p class="ps-note">Exactly 5 cards: the 2 pocket cards + the 3 FLOP cards. Fixed-dollar payouts:</p>
+      <table class="payout-table">
+        <tr><td>Royal / Straight Flush</td><td>100% JACKPOT</td></tr>
+        <tr><td>Four of a Kind</td><td>$250</td></tr>
+        <tr><td>Full House</td><td>$75</td></tr>
+        <tr><td>Flush</td><td>$50</td></tr>
+        <tr><td>Straight</td><td>$20</td></tr>
+        <tr><td>Three of a Kind</td><td>$5</td></tr>
+        <tr><td>Two Pair</td><td>$3</td></tr>
+      </table>
+    </div>
+
+    <div class="payout-section">
+      <h3>Red Bonus Jackpot ($5) — 5 Card Linked</h3>
+      <p class="ps-note">Same 5 linked cards (2 pocket + 3 flop). ENVY: when a seat hits RF / SF / Four of a
+      Kind, every OTHER seat with the Red bet wins the envy bonus.</p>
+      <table class="payout-table">
+        <tr><th>Hand</th><th>Pays</th><th>Envy</th></tr>
+        <tr><td>Royal Flush</td><td>100% JACKPOT</td><td class="envy-col">$5,000</td></tr>
+        <tr><td>Straight Flush</td><td>10% JACKPOT</td><td class="envy-col">$1,500</td></tr>
+        <tr><td>Four of a Kind</td><td>$1,500</td><td class="envy-col">$250</td></tr>
+        <tr><td>Full House</td><td>$250</td><td class="envy-col">—</td></tr>
+        <tr><td>Flush</td><td>$200</td><td class="envy-col">—</td></tr>
+        <tr><td>Straight</td><td>$150</td><td class="envy-col">—</td></tr>
+        <tr><td>Three of a Kind</td><td>$45</td><td class="envy-col">—</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ============================================================
+     Constants
+     ============================================================ */
+  const SUITS = ['♠','♥','♦','♣'];
+  const RED = new Set(['♥','♦']);
+  const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const RANK_VAL = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
+  const FACES = new Set(['J','Q','K']);
+
+  /* ----- Paytables (multipliers "to 1" unless noted) ----- */
+  const ODDS_WIN = {
+    straight: 1, flush: 1.5, full_house: 3, four_of_a_kind: 10,
+    straight_flush: 50, royal_flush: 500,
+  };
+  const ODDS_BAD_BEAT = {
+    straight: 4, flush: 5, full_house: 6, four_of_a_kind: 25,
+    straight_flush: 500,
+  };
+  const TRIPS_PLUS = {
+    three_of_a_kind: 3, straight: 4, flush: 7, full_house: 8,
+    four_of_a_kind: 30, straight_flush: 40, royal_flush: 100,
+  };
+  const POCKET_BONUS = {
+    pair_aces: 25, suited_ace_face: 20, unsuited_ace_face: 10, other_pair: 5,
+  };
+  /* Blue $1 progressive — 2 pocket + 3 FLOP cards. Fixed dollars.
+     Royal AND Straight Flush both hit the 100% jackpot. */
+  const BLUE_LINKED = {
+    royal_flush:     'JACKPOT_100',
+    straight_flush:  'JACKPOT_100',
+    four_of_a_kind:  250,
+    full_house:      75,
+    flush:           50,
+    straight:        20,
+    three_of_a_kind: 5,
+    two_pair:        3,
+  };
+  /* Red $5 progressive — same 5 linked cards. Fixed dollars. */
+  const RED_LINKED = {
+    royal_flush:     'JACKPOT_100',
+    straight_flush:  'JACKPOT_10',
+    four_of_a_kind:  1500,
+    full_house:      250,
+    flush:           200,
+    straight:        150,
+    three_of_a_kind: 45,
+  };
+  /* Envy bonus — flat, paid to every OTHER seat with the Red bet. */
+  const RED_ENVY = { royal_flush: 5000, straight_flush: 1500, four_of_a_kind: 250 };
+
+  /* ============================================================
+     Deck / cards
+     ============================================================ */
+  function newDeck() {
+    const d = [];
+    for (const r of RANKS) for (const s of SUITS) d.push({ rank: r, suit: s });
+    return d;
+  }
+  function shuffle(d) {
+    for (let i = d.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [d[i], d[j]] = [d[j], d[i]];
+    }
+    return d;
+  }
+
+  /* ============================================================
+     Hand evaluation — 5-card evaluator + best-5-of-N
+     ============================================================ */
+  function evalFive(cards) {
+    if (cards.length !== 5) throw new Error('evalFive needs 5 cards');
+    const sorted = cards.slice().sort((a,b) => RANK_VAL[b.rank] - RANK_VAL[a.rank]);
+    const vals = sorted.map(c => RANK_VAL[c.rank]);
+    const allSame = sorted.every(c => c.suit === sorted[0].suit);
+    let isStraight = false, straightHigh = vals[0];
+    if (vals[0] - vals[4] === 4 && new Set(vals).size === 5) {
+      isStraight = true;
+    } else if (vals.join('-') === '14-5-4-3-2') {
+      isStraight = true; straightHigh = 5;
+    }
+    const counts = {};
+    for (const c of cards) counts[c.rank] = (counts[c.rank]||0) + 1;
+    const groups = Object.entries(counts)
+      .map(([r,n]) => ({ v: RANK_VAL[r], n }))
+      .sort((a,b) => b.n - a.n || b.v - a.v);
+    const isRoyal = allSame && isStraight && vals[0] === 14 && vals[4] === 10;
+
+    if (isRoyal)                    return { cat: 10, key: [14], name: 'Royal Flush' };
+    if (allSame && isStraight)      return { cat:  9, key: [straightHigh], name: 'Straight Flush' };
+    if (groups[0].n === 4)          return { cat:  8, key: [groups[0].v, groups[1].v], name: 'Four of a Kind' };
+    if (groups[0].n === 3 && groups[1].n === 2) return { cat: 7, key: [groups[0].v, groups[1].v], name: 'Full House' };
+    if (allSame)                    return { cat:  6, key: vals, name: 'Flush' };
+    if (isStraight)                 return { cat:  5, key: [straightHigh], name: 'Straight' };
+    if (groups[0].n === 3)          return { cat:  4, key: [groups[0].v, groups[1].v, groups[2].v], name: 'Three of a Kind' };
+    if (groups[0].n === 2 && groups[1].n === 2) return { cat: 3, key: [groups[0].v, groups[1].v, groups[2].v], name: 'Two Pair' };
+    if (groups[0].n === 2)          return { cat:  2, key: [groups[0].v, ...groups.slice(1).map(g=>g.v)], name: 'Pair' };
+    return { cat: 1, key: vals, name: 'High Card' };
+  }
+
+  /* Compare two eval results: +1 if a>b, -1 if a<b, 0 if equal.
+     Standard poker with proper kicker comparison. */
+  function cmpEval(a, b) {
+    if (a.cat !== b.cat) return a.cat > b.cat ? 1 : -1;
+    for (let i = 0; i < Math.max(a.key.length, b.key.length); i++) {
+      const av = a.key[i] || 0, bv = b.key[i] || 0;
+      if (av !== bv) return av > bv ? 1 : -1;
+    }
+    return 0;
+  }
+
+  /* Best 5-card hand from N >= 5 cards — enumerate C(N,5) combos. */
+  function bestFiveFrom(cards) {
+    let best = null;
+    function rec(start, picked) {
+      if (picked.length === 5) {
+        const e = evalFive(picked);
+        if (!best || cmpEval(e, best) > 0) best = e;
+        return;
+      }
+      /* Prune: not enough cards left */
+      if (cards.length - start < 5 - picked.length) return;
+      for (let i = start; i < cards.length; i++) {
+        picked.push(cards[i]);
+        rec(i + 1, picked);
+        picked.pop();
+      }
+    }
+    rec(0, []);
+    return best;
+  }
+
+  /* Map a 5-card eval to a paytable key. */
+  function catKey(e) {
+    return ['', 'high_card', 'pair', 'two_pair', 'three_of_a_kind', 'straight',
+            'flush', 'full_house', 'four_of_a_kind', 'straight_flush', 'royal_flush'][e.cat];
+  }
+
+  /* Pocket Bonus category from the 2 hole cards. */
+  function pocketBonusCat(hole) {
+    const [a, b] = hole;
+    if (a.rank === b.rank) {
+      return a.rank === 'A' ? 'pair_aces' : 'other_pair';
+    }
+    const hasAce  = a.rank === 'A' || b.rank === 'A';
+    const hasFace = FACES.has(a.rank) || FACES.has(b.rank);
+    if (hasAce && hasFace) {
+      return a.suit === b.suit ? 'suited_ace_face' : 'unsuited_ace_face';
+    }
+    return null;
+  }
+
+  /* Sort cards for DISPLAY only — pairs first, then rank descending. */
+  function sortCardsForDisplay(cards) {
+    if (!cards || cards.length < 2) return cards ? cards.slice() : [];
+    const counts = {};
+    for (const c of cards) counts[c.rank] = (counts[c.rank] || 0) + 1;
+    return cards.slice().sort((a, b) => {
+      const ma = counts[a.rank] >= 2 ? 1 : 0;
+      const mb = counts[b.rank] >= 2 ? 1 : 0;
+      if (ma !== mb) return mb - ma;
+      return RANK_VAL[b.rank] - RANK_VAL[a.rank];
+    });
+  }
+
+  /* ============================================================
+     NPC decision engine — "realistic-ish"
+     ============================================================ */
+  function pocketStrength(hole) {
+    const [a, b] = hole;
+    const va = RANK_VAL[a.rank], vb = RANK_VAL[b.rank];
+    const hi = Math.max(va, vb), lo = Math.min(va, vb);
+    const suited = a.suit === b.suit;
+    const isPair = a.rank === b.rank;
+    if (isPair && va >= 8) return 'strong';                       /* 88+ */
+    if (hi === 14 && lo >= 11) return 'strong';                   /* AK / AQ / AJ */
+    if (suited && lo >= 10) return 'strong';                      /* big suited (T+ both) */
+    if (isPair) return 'medium';                                  /* 22–77 */
+    if (lo >= 10) return 'medium';                                /* two broadway offsuit */
+    if (suited && hi === 14) return 'medium';                     /* suited ace */
+    return 'weak';
+  }
+  /* Strong draw on the flop: 4-flush or open-ended straight draw
+     within the player's 5 cards (2 hole + 3 flop). */
+  function hasStrongDraw(five) {
+    const suitCount = {};
+    for (const c of five) suitCount[c.suit] = (suitCount[c.suit]||0) + 1;
+    if (Object.values(suitCount).some(n => n >= 4)) return true;
+    const vals = [...new Set(five.map(c => RANK_VAL[c.rank]))].sort((a,b)=>a-b);
+    if (vals.includes(14)) vals.unshift(1);                       /* wheel ace */
+    let run = 1;
+    for (let i = 1; i < vals.length; i++) {
+      run = (vals[i] === vals[i-1] + 1) ? run + 1 : 1;
+      if (run >= 4) return true;
+    }
+    return false;
+  }
+  /* Decide the NPC's whole line at once (played synchronously under the
+     curtain). Returns { decision: 'raise'|'fold', mult, street } —
+     mult ∈ {3,2,1}, street ∈ {'pre-flop','flop','river'}. */
+  function npcDecide(hole, board) {
+    /* Pre-flop: strong pockets usually raise 3× (~70%); medium ~25%. */
+    const str = pocketStrength(hole);
+    if (str === 'strong' && Math.random() < 0.70) return { decision: 'raise', mult: 3, street: 'pre-flop' };
+    if (str === 'medium' && Math.random() < 0.25) return { decision: 'raise', mult: 3, street: 'pre-flop' };
+    /* Flop (checked pre): made pair-or-better or a strong draw → 2× ~50%. */
+    const flopFive = hole.concat(board.slice(0, 3));
+    const eFlop = evalFive(flopFive);
+    if ((eFlop.cat >= 2 || hasStrongDraw(flopFive)) && Math.random() < 0.50) {
+      return { decision: 'raise', mult: 2, street: 'flop' };
+    }
+    /* River (checked twice): pair+ bets 1× ~85% / folds 15%;
+       high-card junk folds ~60% / bets 40%. */
+    const eAll = bestFiveFrom(hole.concat(board));
+    if (eAll.cat >= 2) {
+      return Math.random() < 0.85
+        ? { decision: 'raise', mult: 1, street: 'river' }
+        : { decision: 'fold',  mult: 0, street: 'river' };
+    }
+    return Math.random() < 0.40
+      ? { decision: 'raise', mult: 1, street: 'river' }
+      : { decision: 'fold',  mult: 0, street: 'river' };
+  }
+
+  /* ============================================================
+     NPC bet generation
+     ============================================================ */
+  /* Antes are multiples of $10 so the 1.5× Odds flush pay stays in
+     whole chips ($1 minimum, no pink $2.50). */
+  function pickAnte() {
+    const tiers = [
+      { v: 10, w: 5 }, { v: 20, w: 3 }, { v: 50, w: 2 },
+      { v: 100, w: 1.5 }, { v: 200, w: 0.6 },
+    ];
+    return weightedPick(tiers);
+  }
+  /* Trips / Pocket side bets: $5/$10/$15/$25, small-biased. */
+  function pickBonusAmount() {
+    const tiers = [
+      { v: 5, w: 5 }, { v: 10, w: 3 }, { v: 15, w: 2 }, { v: 25, w: 1 },
+    ];
+    return weightedPick(tiers);
+  }
+  function weightedPick(tiers) {
+    const sum = tiers.reduce((a,b) => a + b.w, 0);
+    let r = Math.random() * sum;
+    for (const t of tiers) { r -= t.w; if (r <= 0) return t.v; }
+    return tiers[tiers.length - 1].v;
+  }
+  const SETTINGS_DEFAULTS = {
+    trips:  0.55,
+    pocket: 0.55,
+    blue:   0.50,
+    red:    0.50,
+  };
+  const SETTINGS_KEY = 'huh-sidebet-chances-v1';
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...SETTINGS_DEFAULTS };
+      const parsed = JSON.parse(raw);
+      const out = { ...SETTINGS_DEFAULTS };
+      for (const k of Object.keys(SETTINGS_DEFAULTS)) {
+        if (typeof parsed[k] === 'number' && parsed[k] >= 0 && parsed[k] <= 1) {
+          out[k] = parsed[k];
+        }
+      }
+      return out;
+    } catch (e) {
+      return { ...SETTINGS_DEFAULTS };
+    }
+  }
+  function saveSettings(s) {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  const SETTINGS = loadSettings();
+
+  function genBets() {
+    const ante = pickAnte();
+    return {
+      ante:   ante,
+      odds:   ante,   /* Odds ALWAYS equals the Ante */
+      raise:  0,      /* set after the raise decision */
+      trips:  Math.random() < SETTINGS.trips  ? pickBonusAmount() : 0,
+      pocket: Math.random() < SETTINGS.pocket ? pickBonusAmount() : 0,
+      red:    Math.random() < SETTINGS.red    ? 5 : 0,
+      blue:   Math.random() < SETTINGS.blue   ? 1 : 0,
+    };
+  }
+
+  /* ============================================================
+     State
+     ============================================================ */
+  const STATE = {
+    round: 1,
+    phase: 'idle',       /* idle | discard | settle | complete */
+    subphase: null,      /* collect-losers | pay-winners | collect-cards | null */
+    deck: [],
+    dealer: { cards: [] },   /* 2 hole cards */
+    board: [],               /* 5 community cards: [0..2] = flop, [3..4] = final 2 */
+    dealerBest: null,        /* best-5-of-7 eval */
+    dealerQual: false,
+    validDiscardPairs: [],   /* all [i,j] whose remaining 5 == best value */
+    discardSel: [],          /* tentative discard clicks (0..2 indices) */
+    discardDone: null,       /* confirmed discard pair */
+    discardLock: false,
+    players: [],
+    currentPlayerIdx: -1,
+    outgoing: { chips: [], total: 0 },
+  };
+
+  function newPlayer(id) {
+    return { id, cards: [], bets: null, decision: null, raiseMult: 0,
+             raiseStreet: null, settlement: null, cardsCollected: false };
+  }
+  STATE.players = [newPlayer(0), newPlayer(1), newPlayer(2)];
+
+  /* ============================================================
+     Rendering
+     ============================================================ */
+  const $row     = document.getElementById('players-row');
+  const $dealerC = document.getElementById('dealer-cards');
+  const $dealerM = document.getElementById('dealer-meta');
+  const $round   = document.getElementById('round-no');
+  const $phase   = document.getElementById('phase-label');
+  const $announce= document.getElementById('announce');
+
+  const BET_LABELS = {
+    raise: 'Raise', ante: 'Ante', odds: 'Odds', trips: 'Trips Plus',
+    pocket: 'Pocket Bonus', blue: 'Blue Bonus', red: 'Red Bonus',
+  };
+
+  /* ----- Cylinder-chip rendering ----- */
+  function chipColorForValue(v) {
+    if (v === 1)   return 'white';
+    if (v === 5)   return 'red';
+    if (v === 25)  return 'green';
+    if (v === 100) return 'black';
+    if (v === 500) return 'purple';
+    return 'white';
+  }
+  function chipStackForAmount(amount) {
+    const chips = [];
+    let remaining = amount;
+    const denoms = [500, 100, 25, 5, 1];
+    for (const d of denoms) {
+      while (remaining >= d - 0.001) {
+        chips.push({ value: d, color: chipColorForValue(d) });
+        remaining -= d;
+        if (Math.abs(remaining) < 0.001) remaining = 0;
+      }
+    }
+    chips.sort((a, b) => b.value - a.value);
+    return chips;
+  }
+  function renderBetStack(amount) {
+    if (!amount) return '';
+    const chips = chipStackForAmount(amount);
+    const STEP = 6;
+    const pieces = chips.map((c, i) => {
+      const stripeOffset = (Math.random() * 11).toFixed(2);
+      return '<div class="bet-chip-piece cp-' + c.color + '" ' +
+        'style="bottom:' + (i * STEP) + 'px; z-index:' + i +
+        '; --stripe-offset:' + stripeOffset + 'px"></div>';
+    }).join('');
+    return '<div class="bet-stack-viz">' + pieces + '</div>';
+  }
+
+  /* ----- Decorative dealer chip tray ----- */
+  function renderChipTray() {
+    const tray = document.getElementById('chip-tray');
+    if (!tray) return;
+    const stacks = [
+      { color: 'ce-purple', label: '$500', value: 500, count: 10 },
+      { color: 'ce-black',  label: '$100', value: 100, count: 10 },
+      { color: 'ce-green',  label: '$25',  value: 25,  count: 10 },
+      { color: 'ce-red',    label: '$5',   value: 5,   count: 10 },
+      { color: 'ce-white',  label: '$1',   value: 1,   count: 10 },
+    ];
+    tray.innerHTML = '';
+    const STEP = 6;
+    const LABEL_PAD = 22;
+    for (const s of stacks) {
+      const col = document.createElement('div');
+      col.className = 'chip-stack-tray';
+      col.dataset.value = s.value;
+      for (let i = 0; i < s.count; i++) {
+        const chip = document.createElement('div');
+        chip.classList.add('chip-edge');
+        chip.classList.add(s.color);
+        chip.style.bottom = (LABEL_PAD + i * STEP) + 'px';
+        chip.style.zIndex = String(i);
+        chip.style.setProperty('--stripe-offset', (Math.random() * 11).toFixed(2) + 'px');
+        col.appendChild(chip);
+      }
+      const lbl = document.createElement('div');
+      lbl.className = 'chip-label';
+      lbl.textContent = s.label;
+      col.appendChild(lbl);
+      tray.appendChild(col);
+    }
+  }
+
+  function cardHTML(c, faceDown, extraCls, dataAttr) {
+    const cls  = extraCls ? ' ' + extraCls : '';
+    const data = dataAttr || '';
+    if (faceDown) return '<div class="card face-down' + cls + '"' + data + '></div>';
+    const colorCls = RED.has(c.suit) ? 'red' : 'black';
+    return '<div class="card ' + colorCls + cls + '"' + data + '>' +
+      '<div class="corner tl">' + c.rank + '<span class="suit">' + c.suit + '</span></div>' +
+      '<div class="pip">' + c.suit + '</div>' +
+      '<div class="corner br">' + c.rank + '<span class="suit">' + c.suit + '</span></div>' +
+    '</div>';
+  }
+
+  function renderPlayer(p) {
+    const bets = p.bets || {};
+    /* Folded seats keep their 2 cards tucked face-down near Trips Plus
+       until BOTH forced losses (Ante + Odds) are collected; then the
+       cards reveal so the still-live side bets can settle. */
+    const isFolded = p.decision === 'fold';
+    const anteOddsResolved = !!(p.settlement &&
+      p.settlement.ante && p.settlement.ante.resolved &&
+      p.settlement.odds && p.settlement.odds.resolved);
+    const tuckedFolded = isFolded && !anteOddsResolved;
+
+    let cardsHTML;
+    if (!p.cards.length || p.cardsCollected) {
+      cardsHTML = '';
+    } else {
+      const showFaceUp =
+        (STATE.phase === 'discard' || STATE.phase === 'settle' || STATE.phase === 'complete')
+        && (!isFolded || anteOddsResolved);
+      cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, !showFaceUp)).join('');
+    }
+    const collectable = (STATE.phase === 'settle'
+                       && STATE.subphase === 'collect-cards'
+                       && p.id === STATE.currentPlayerIdx
+                       && !p.cardsCollected) ? ' collectable' : '';
+    let badge = '';
+    if (p.decision === 'fold') {
+      badge = '<div class="decision-badge fold">Fold</div>';
+    } else if (p.decision === 'raise') {
+      badge = '<div class="decision-badge play">Raise ' + p.raiseMult + '&times; · ' + p.raiseStreet + '</div>';
+    }
+
+    function spotState(betKey) {
+      if (STATE.phase !== 'settle') return '';
+      if (p.id !== STATE.currentPlayerIdx) return '';
+      const r = p.settlement && p.settlement[betKey];
+      if (!r || r.resolved) return '';
+      if (STATE.subphase === 'collect-losers' && r.outcome === 'loss') {
+        /* Folded seats: gate side-bet losses behind Ante + Odds so the
+           workflow reads (Ante+Odds → reveal → rest). */
+        if (p.decision === 'fold' && betKey !== 'ante' && betKey !== 'odds') {
+          const aR = p.settlement.ante, oR = p.settlement.odds;
+          if ((aR && !aR.resolved) || (oR && !oR.resolved)) return '';
+        }
+        return ' settle-loss';
+      }
+      if (STATE.subphase === 'pay-winners') {
+        if (r.outcome === 'jackpot') return ' settle-jackpot';
+        if (r.outcome === 'push')    return ' settle-push';
+        if (r.outcome === 'win')     return ' settle-win-next';
+      }
+      return '';
+    }
+    function spotChips(betKey) {
+      const r = p.settlement && p.settlement[betKey];
+      if (STATE.phase === 'settle' && r && r.resolved &&
+          (r.outcome === 'win' || r.outcome === 'loss' || r.outcome === 'push')) {
+        return '';
+      }
+      return renderBetStack(bets[betKey]);
+    }
+    function spotPushedLabel(betKey) {
+      const r = p.settlement && p.settlement[betKey];
+      if (STATE.phase === 'settle' && r && r.outcome === 'push' && r.resolved) {
+        return '<span class="pushed-overlay">PUSHED</span>';
+      }
+      return '';
+    }
+
+    const cur = (STATE.phase === 'settle' && p.id === STATE.currentPlayerIdx) ? ' current' : '';
+    const dim = (STATE.phase === 'settle' && p.id !== STATE.currentPlayerIdx && STATE.currentPlayerIdx >= 0) ? ' dim' : '';
+    const foldDim = (p.decision === 'fold' && STATE.phase !== 'place-bets' && !cur) ? ' dim' : '';
+    const visibleSeat =
+      (STATE.phase === 'settle' && STATE.currentPlayerIdx >= 0)
+        ? STATE.currentPlayerIdx
+        : (STATE.players.length - 1);
+    let carousel = '';
+    if      (p.id === visibleSeat) carousel = ' carousel-active';
+    else if (p.id  >  visibleSeat) carousel = ' carousel-done';
+    else                            carousel = ' carousel-queued';
+
+    /* MERGED CAPSULE — when the side-by-side ANTE and ODDS share the
+       same unresolved settle state, hide their individual halos and
+       draw one horizontal capsule around the pair. */
+    const anteSt = spotState('ante');
+    const oddsSt = spotState('odds');
+    const pairMerge = (anteSt && anteSt === oddsSt) ? ' merged' + anteSt : '';
+
+    return '<div class="player' + cur + dim + foldDim + carousel + '" data-pid="' + p.id + '">' +
+      '<div class="seat-label">Seat ' + (p.id + 1) + '</div>' +
+      '<div class="mat">' +
+        '<div class="row-main">' +
+          '<div class="main-stack">' +
+            '<div class="spot diamond raise' + spotState('raise') + '" data-betkey="raise">' + spotChips('raise') + spotPushedLabel('raise') + '<span class="label">Raise</span></div>' +
+            '<div class="ante-odds-pair' + pairMerge + '">' +
+              '<div class="spot diamond ante' + anteSt + '" data-betkey="ante">' + spotChips('ante') + spotPushedLabel('ante') + '<span class="label">Ante</span></div>' +
+              '<span class="eq">=</span>' +
+              '<div class="spot diamond odds' + oddsSt + '" data-betkey="odds">' + spotChips('odds') + spotPushedLabel('odds') + '<span class="label">Odds</span></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="row-bonuses">' +
+          '<div class="spot trips'  + spotState('trips')  + '" data-betkey="trips">'  + spotChips('trips')  + '<span class="label">Trips<br>Plus</span></div>' +
+          '<div class="spot pocket' + spotState('pocket') + '" data-betkey="pocket">' + spotChips('pocket') + '<span class="label">Pocket<br>Bonus</span></div>' +
+        '</div>' +
+        '<div class="row-progressives">' +
+          '<div class="spot red'  + (bets.red  ? ' placed' : '') + spotState('red')  + '" data-betkey="red"><span class="label">Red<br>$5</span></div>' +
+          '<div class="spot blue' + (bets.blue ? ' placed' : '') + spotState('blue') + '" data-betkey="blue"><span class="label">Blue<br>$1</span></div>' +
+        '</div>' +
+      '</div>' +
+      badge +
+      '<div class="cards' + (tuckedFolded ? ' folded' : '') + collectable + '">' +
+        (cardsHTML || '') +
+      '</div>' +
+    '</div>';
+  }
+
+  /* Dealer area — 7-card row: 2 hole cards | gap | 5 community cards.
+     Cards keep their DEAL ORDER (index 0-1 = hole, 2-6 = board) so the
+     discard drill's indices are stable across renders. */
+  function renderDealer() {
+    const hole = STATE.dealer.cards;
+    if (!hole.length) { $dealerC.innerHTML = ''; $dealerM.innerHTML = ''; return; }
+    const seven = hole.concat(STATE.board);
+    const show = (STATE.phase === 'discard' || STATE.phase === 'settle' || STATE.phase === 'complete');
+    const slanted = new Set((STATE.discardDone || []).concat(STATE.discardSel));
+    const drillOn = STATE.phase === 'discard' && !STATE.discardDone;
+    const piece = (i) => {
+      let cls = '';
+      if (slanted.has(i)) cls += (cls ? ' ' : '') + 'slant';
+      if (drillOn)        cls += (cls ? ' ' : '') + 'selectable';
+      return cardHTML(seven[i], !show, cls, ' data-di="' + i + '"');
+    };
+    /* Board row: 3 flop cards, a gap, then the 2 river cards.
+       Dealer's 2 hole cards on their own row underneath. All cards are
+       the same size as the seat cards. Deal-order indices (0-1 hole,
+       2-4 flop, 5-6 river) stay stable for the discard drill. */
+    $dealerC.innerHTML =
+      '<div class="dc-row board-row">' +
+        piece(2) + piece(3) + piece(4) +
+        '<div class="gap"></div>' +
+        piece(5) + piece(6) +
+      '</div>' +
+      '<div class="dc-lbl">Dealer</div>' +
+      '<div class="dc-row hole-row">' + piece(0) + piece(1) + '</div>';
+
+    if (STATE.discardDone) {
+      const best = STATE.dealerBest;
+      $dealerM.innerHTML =
+        '<span>' + best.name + (STATE.dealerQual
+          ? ' &mdash; <span class="qualify">qualifies</span>'
+          : ' &mdash; <span class="no-qual">does NOT qualify</span>') + '</span>';
+    } else if (STATE.phase === 'discard') {
+      $dealerM.innerHTML = '<span>Click the 2 cards NOT in the dealer’s best five</span>';
+    } else {
+      $dealerM.innerHTML = '';
+    }
+  }
+
+  function ensurePlayerSkeletons() {
+    const ok = $row.children.length === STATE.players.length &&
+      Array.from($row.children).every((el, i) => el.dataset.pid === String(i));
+    if (ok) return;
+    $row.innerHTML = STATE.players.map(p =>
+      '<div class="player" data-pid="' + p.id + '"></div>'
+    ).join('');
+  }
+
+  function renderAll() {
+    ensurePlayerSkeletons();
+    const scratch = document.createElement('div');
+    for (const p of STATE.players) {
+      const $p = $row.children[p.id];
+      if (!$p) continue;
+      scratch.innerHTML = renderPlayer(p);
+      const fresh = scratch.firstElementChild;
+      if (fresh) {
+        $p.className = fresh.className;
+        $p.innerHTML = fresh.innerHTML;
+      }
+    }
+    renderDealer();
+    $round.textContent = STATE.round;
+
+    document.body.classList.toggle('paying', STATE.subphase === 'pay-winners');
+
+    let phaseTxt;
+    if (STATE.phase === 'settle') {
+      const seat = 'Seat ' + (STATE.currentPlayerIdx + 1);
+      if (STATE.subphase === 'collect-losers') phaseTxt = seat + ' — collect losers';
+      else if (STATE.subphase === 'pay-winners') {
+        const p = STATE.players[STATE.currentPlayerIdx];
+        const next = winnerBets(p)[0];
+        phaseTxt = seat + ' — pay ' + (next ? BET_LABELS[next] : 'winners');
+      } else if (STATE.subphase === 'collect-cards') {
+        phaseTxt = seat + ' — click cards to collect';
+      } else phaseTxt = seat;
+    } else if (STATE.phase === 'discard') {
+      phaseTxt = 'Discard drill — slant the 2 unused cards';
+    } else {
+      const phaseLabels = {
+        'idle':     'Starting…',
+        'complete': 'Round complete — next round starting…',
+      };
+      phaseTxt = phaseLabels[STATE.phase] || STATE.phase;
+    }
+    $phase.textContent = phaseTxt;
+
+    /* Restore the default hint (unless a flashHint owns it). */
+    if (!hintTimer) {
+      const $h = document.getElementById('hint-label');
+      if (STATE.phase === 'settle' && STATE.subphase === 'pay-winners') {
+        const p = STATE.players[STATE.currentPlayerIdx];
+        const next = winnerBets(p)[0];
+        if (next) {
+          const r = p.settlement[next];
+          if (r.outcome === 'jackpot') {
+            $h.textContent = 'JACKPOT bet — click to announce (no payout)';
+          } else if (r.outcome === 'push') {
+            $h.textContent = 'Push — tap the bet to acknowledge (chip stays)';
+          } else {
+            const totalLeft = winnerBets(p).reduce((sum, k) => {
+              const rr = p.settlement[k];
+              return sum + (rr && rr.outcome === 'win' ? rr.net : 0);
+            }, 0);
+            $h.textContent = (STATE.outgoing.total === totalLeft)
+              ? 'Pay $' + r.net + ' next — click bet'
+              : 'Build grand total $' + totalLeft + ' in outgoing';
+          }
+          $h.style.color = '';
+          return;
+        }
+      }
+      if (STATE.phase === 'discard') {
+        $h.textContent = 'First click slants a card · second click checks the pair';
+      } else {
+        $h.textContent = 'Odds always = Ante';
+      }
+      $h.style.color = '';
+    }
+  }
+
+  /* ============================================================
+     Announce helper for jackpots
+     ============================================================ */
+  function announce(text, sub) {
+    $announce.innerHTML = text + (sub ? '<span class="sub">' + sub + '</span>' : '');
+    $announce.classList.add('show');
+    setTimeout(() => $announce.classList.remove('show'), 3500);
+  }
+
+  /* ============================================================
+     Round flow — runs synchronously under the "new round" curtain
+     right up to the discard drill, which is the dealer's first job.
+     ============================================================ */
+  function startRound() {
+    document.body.classList.add('new-round-curtain');
+    document.body.classList.add('no-carousel-transition');
+
+    for (const p of STATE.players) {
+      p.cards = [];
+      p.bets = null;
+      p.decision = null;
+      p.raiseMult = 0;
+      p.raiseStreet = null;
+      p.settlement = null;
+      p.cardsCollected = false;
+    }
+    STATE.dealer.cards = [];
+    STATE.board = [];
+    STATE.dealerBest = null;
+    STATE.dealerQual = false;
+    STATE.validDiscardPairs = [];
+    STATE.discardSel = [];
+    STATE.discardDone = null;
+    STATE.discardLock = false;
+    STATE.outgoing = { chips: [], total: 0 };
+    STATE.currentPlayerIdx = -1;
+    STATE.subphase = null;
+
+    STATE.deck = shuffle(newDeck());
+
+    /* Place bets */
+    for (const p of STATE.players) p.bets = genBets();
+
+    /* Deal: 2 hole cards to each player + the dealer, then the board
+       (3-card flop + final 2 dealt together — no turn/river split). */
+    for (let i = 0; i < 2; i++) {
+      for (const p of STATE.players) p.cards.push(STATE.deck.pop());
+      STATE.dealer.cards.push(STATE.deck.pop());
+    }
+    for (let i = 0; i < 5; i++) STATE.board.push(STATE.deck.pop());
+
+    /* Player decisions — ONE raise only (3× pre / 2× flop / 1× river
+       or fold at the river). */
+    for (const p of STATE.players) {
+      const d = npcDecide(p.cards, STATE.board);
+      p.decision = d.decision;
+      p.raiseMult = d.mult;
+      p.raiseStreet = d.decision === 'raise' ? d.street : null;
+      p.bets.raise = d.decision === 'raise' ? d.mult * p.bets.ante : 0;
+    }
+
+    /* Dealer's best 5 of 7 + every discard pair that leaves an
+       equal-value five (ties accepted in the drill). */
+    const seven = STATE.dealer.cards.concat(STATE.board);
+    STATE.dealerBest = bestFiveFrom(seven);
+    STATE.dealerQual = STATE.dealerBest.cat >= 2;   /* at least a PAIR */
+    STATE.validDiscardPairs = [];
+    for (let i = 0; i < 7; i++) {
+      for (let j = i + 1; j < 7; j++) {
+        const rem = seven.filter((_, k) => k !== i && k !== j);
+        if (cmpEval(evalFive(rem), STATE.dealerBest) === 0) {
+          STATE.validDiscardPairs.push([i, j]);
+        }
+      }
+    }
+
+    STATE.phase = 'discard';
+    renderAll();
+
+    setTimeout(() => {
+      document.body.classList.remove('new-round-curtain');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.body.classList.remove('no-carousel-transition');
+        });
+      });
+    }, 550);
+  }
+
+  /* ============================================================
+     DISCARD DRILL — click the 2 cards NOT in the dealer's best 5.
+     First click tentatively slants the card; clicking it again
+     deselects. The second (different) card completes the pair:
+       - correct → both stay slanted, dealer hand + qualify text,
+         short pause, then settlement begins;
+       - wrong → hint + shake, both un-slant, try again.
+     ============================================================ */
+  function onDealerCardClick(idx) {
+    if (STATE.phase !== 'discard' || STATE.discardDone || STATE.discardLock) return;
+    const sel = STATE.discardSel;
+    const pos = sel.indexOf(idx);
+    if (pos >= 0) {              /* deselect before the pair completes */
+      sel.splice(pos, 1);
+      renderAll();
+      return;
+    }
+    sel.push(idx);
+    if (sel.length < 2) { renderAll(); return; }
+
+    const [a, b] = sel;
+    const valid = STATE.validDiscardPairs.some(([x, y]) =>
+      (x === a && y === b) || (x === b && y === a));
+    if (valid) {
+      STATE.discardDone = sel.slice();
+      STATE.discardSel = [];
+      STATE.discardLock = true;
+      renderAll();               /* shows slanted pair + hand name + qualify */
+      setTimeout(() => {
+        STATE.discardLock = false;
+        enterSettle();
+      }, 1200);
+    } else {
+      STATE.discardLock = true;
+      renderAll();               /* both slanted for a beat */
+      flashHint('Those five aren’t the dealer’s best hand');
+      $dealerC.classList.add('shake');
+      setTimeout(() => {
+        $dealerC.classList.remove('shake');
+        STATE.discardSel = [];
+        STATE.discardLock = false;
+        renderAll();
+      }, 520);
+    }
+  }
+
+  /* ============================================================
+     INTERACTIVE SETTLEMENT — right to left, one seat at a time:
+       1) collect losers, 2) pay winners in PAY_ORDER (grand total
+       built in outgoing first), 3) collect the cards.
+     ============================================================ */
+  const PAY_ORDER = ['raise','ante','odds','trips','pocket','blue','red'];
+
+  function enterSettle() {
+    STATE.phase = 'settle';
+    settleAll();
+    /* Auto-resolve zero stakes and PROGRESSIVE LOSSES (the $5 Red and
+       $1 Blue cheques were taken into the rack before the deal, so a
+       progressive loss needs no dealer action). PUSHES never
+       auto-resolve — the dealer clicks them to acknowledge. */
+    for (const p of STATE.players) {
+      for (const k of PAY_ORDER) {
+        const r = p.settlement && p.settlement[k];
+        if (!r) continue;
+        const isProgressiveLoss =
+          (k === 'blue' || k === 'red') && r.outcome === 'loss';
+        r.resolved = (r.staked === 0 || isProgressiveLoss);
+      }
+    }
+    STATE.currentPlayerIdx = STATE.players.length - 1;   /* rightmost */
+    advanceSettlement();
+    renderAll();
+  }
+
+  function lossBets(p) {
+    if (!p.settlement) return [];
+    return PAY_ORDER.filter(k => {
+      const r = p.settlement[k];
+      return r && !r.resolved && r.outcome === 'loss';
+    });
+  }
+  function winnerBets(p) {
+    if (!p.settlement) return [];
+    return PAY_ORDER.filter(k => {
+      const r = p.settlement[k];
+      return r && !r.resolved && (r.outcome === 'win' || r.outcome === 'jackpot' || r.outcome === 'push');
+    });
+  }
+
+  function advanceSettlement() {
+    while (STATE.currentPlayerIdx >= 0) {
+      const p = STATE.players[STATE.currentPlayerIdx];
+      const losers  = lossBets(p);
+      const winners = winnerBets(p);
+      if (losers.length > 0) {
+        STATE.subphase = 'collect-losers';
+        return;
+      }
+      if (winners.length > 0) {
+        STATE.subphase = 'pay-winners';
+        return;
+      }
+      if (!p.cardsCollected) {
+        STATE.subphase = 'collect-cards';
+        return;
+      }
+      STATE.currentPlayerIdx--;
+      STATE.subphase = null;
+    }
+    /* All players resolved → next round behind the curtain. */
+    STATE.subphase = null;
+    STATE.phase = 'complete';
+    STATE.round++;
+    document.body.classList.add('no-carousel-transition');
+    document.body.classList.add('new-round-curtain');
+    setTimeout(() => {
+      if (STATE.phase === 'complete') startRound();
+    }, 50);
+  }
+
+  /* ---------- Click handlers ---------- */
+  function onBetClick(playerIdx, betKey) {
+    if (STATE.phase !== 'settle') return;
+    if (playerIdx !== STATE.currentPlayerIdx) {
+      flashHint('Settle Seat ' + (STATE.currentPlayerIdx + 1) + ' first.');
+      return;
+    }
+    const p = STATE.players[playerIdx];
+    const r = p.settlement && p.settlement[betKey];
+    if (!r || r.resolved) return;
+
+    if (STATE.subphase === 'collect-losers') {
+      if (r.outcome !== 'loss') {
+        flashHint('Collect losers before paying winners.');
+        return;
+      }
+      /* Folded seats: Ante + Odds MUST be collected first — the tucked
+         cards reveal after, and only then do side bets settle. */
+      if (p.decision === 'fold' && betKey !== 'ante' && betKey !== 'odds') {
+        const aR = p.settlement.ante, oR = p.settlement.odds;
+        if ((aR && !aR.resolved) || (oR && !oR.resolved)) {
+          flashHint('Collect the Ante and Odds first — cards reveal after.');
+          return;
+        }
+      }
+      flyBetToRack(playerIdx, betKey, () => {
+        r.resolved = true;
+        p.bets[betKey] = 0;
+        afterStep();
+      });
+      return;
+    }
+
+    if (STATE.subphase === 'pay-winners') {
+      const winners = winnerBets(p);
+      if (winners[0] !== betKey) {
+        flashHint('Pay in order — next: ' + BET_LABELS[winners[0]]);
+        return;
+      }
+      if (r.outcome === 'jackpot') {
+        /* Dramatic announce; NO chip payment — we're not counting out
+           hundreds of thousands. The click acknowledges it. */
+        announce('JACKPOT!', 'Seat ' + (playerIdx + 1) + ' — ' + r.detail);
+        r.resolved = true;
+        setTimeout(() => { renderAll(); }, 200);
+        setTimeout(() => { advanceSettlement(); renderAll(); }, 1600);
+        return;
+      }
+      if (r.outcome === 'push') {
+        /* Push: dealer taps the bet, chips clear back to the player,
+           THEN the PUSHED overlay shows (via renderAll). */
+        r.resolved = true;
+        afterStep();
+        return;
+      }
+      /* Normal winner — the dealer must build the GRAND TOTAL of all
+         still-unresolved winning bets in outgoing before paying. */
+      const expected = r.net;
+      const remainingWinningTotal = winnerBets(p).reduce((sum, k) => {
+        const rr = p.settlement[k];
+        return sum + (rr && rr.outcome === 'win' ? rr.net : 0);
+      }, 0);
+      if (STATE.outgoing.total !== remainingWinningTotal) {
+        flashHint(
+          'Build the grand total $' + remainingWinningTotal +
+          ' in outgoing first (now $' + STATE.outgoing.total + ').'
+        );
+        return;
+      }
+      const peel = peelTopMatching(expected);
+      if (!peel) {
+        flashHint('Outgoing missing the right chips for $' + expected + '.');
+        return;
+      }
+      flyOutgoingToBet(playerIdx, betKey, () => {
+        STATE.outgoing.chips = peel.remaining;
+        STATE.outgoing.total = peel.remaining.reduce((a, c) => a + c.value, 0);
+        r.resolved = true;
+        afterStep();
+      });
+      return;
+    }
+  }
+
+  function onTrayClick(value) {
+    if (STATE.phase !== 'settle' || STATE.subphase !== 'pay-winners') return;
+    STATE.outgoing.chips.push({ value, color: chipColorForValue(value) });
+    STATE.outgoing.total += value;
+    renderOutgoing();
+  }
+  function onOutgoingClick() {
+    if (STATE.outgoing.total === 0) return;
+    STATE.outgoing = { chips: [], total: 0 };
+    renderOutgoing();
+  }
+
+  function afterStep() {
+    advanceSettlement();
+    renderAll();
+    renderOutgoing();
+  }
+
+  /* ---------- Status hint flash ---------- */
+  let hintTimer = null;
+  function flashHint(msg) {
+    const el = document.getElementById('hint-label');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = '#f87171';
+    if (hintTimer) clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => {
+      hintTimer = null;
+      el.style.color = '';
+      renderAll();   /* restores the normal hint */
+    }, 2200);
+  }
+
+  /* ---------- Chip flight animations ---------- */
+  function rectCenter(el) {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  function flyChipsClone(sourceEl, targetEl, onDone) {
+    if (!sourceEl || !targetEl) { onDone && onDone(); return; }
+    const src = rectCenter(sourceEl);
+    const tgt = rectCenter(targetEl);
+    const dx = tgt.x - src.x;
+    const dy = tgt.y - src.y;
+    const clone = sourceEl.cloneNode(true);
+    sourceEl.style.visibility = 'hidden';
+    clone.style.position = 'fixed';
+    clone.style.left = (src.x - sourceEl.offsetWidth/2) + 'px';
+    clone.style.top  = (src.y - sourceEl.offsetHeight/2) + 'px';
+    clone.style.zIndex = '900';
+    clone.style.transition = 'transform 0.55s cubic-bezier(.5,.05,.5,1.0), opacity 0.55s ease-out';
+    clone.style.pointerEvents = 'none';
+    document.body.appendChild(clone);
+    void clone.offsetWidth;
+    clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
+    clone.style.opacity = '0.0';
+    setTimeout(() => {
+      if (clone.parentNode) clone.parentNode.removeChild(clone);
+      onDone && onDone();
+    }, 580);
+  }
+  function flyBetToRack(playerIdx, betKey, onDone) {
+    const betEl = document.querySelector('[data-pid="' + playerIdx + '"] [data-betkey="' + betKey + '"] .bet-stack-viz');
+    const tray  = document.getElementById('chip-tray');
+    flyChipsClone(betEl, tray, onDone);
+  }
+  function flyOutgoingToBet(playerIdx, betKey, onDone) {
+    const outBox = document.getElementById('chip-stack-display');
+    const betEl  = document.querySelector('[data-pid="' + playerIdx + '"] [data-betkey="' + betKey + '"]');
+    if (!outBox || !betEl) { onDone && onDone(); return; }
+
+    const srcRect   = outBox.getBoundingClientRect();
+    const srcCenter = { x: srcRect.left + srcRect.width/2, y: srcRect.top + srcRect.height/2 };
+    const tgtCenter = rectCenter(betEl);
+
+    const clone = outBox.cloneNode(true);
+    clone.style.position = 'fixed';
+    clone.style.left   = srcRect.left + 'px';
+    clone.style.top    = srcRect.top  + 'px';
+    clone.style.width  = srcRect.width  + 'px';
+    clone.style.height = srcRect.height + 'px';
+    clone.style.margin = '0';
+    clone.style.background = 'transparent';
+    clone.style.border     = 'none';
+    clone.style.boxShadow  = 'none';
+    clone.style.zIndex     = '900';
+    clone.style.pointerEvents = 'none';
+    clone.style.transition = 'transform 0.55s cubic-bezier(.5,.05,.5,1.0), opacity 0.55s ease-out';
+
+    document.body.appendChild(clone);
+    void clone.offsetWidth;
+
+    const dx = tgtCenter.x - srcCenter.x;
+    const dy = tgtCenter.y - srcCenter.y;
+    clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
+    clone.style.opacity   = '0.0';
+
+    setTimeout(() => {
+      if (clone.parentNode) clone.parentNode.removeChild(clone);
+      onDone && onDone();
+    }, 580);
+  }
+
+  /* Peel ANY subset of outgoing chips summing to `expected`. */
+  function peelTopMatching(expected) {
+    const chips = STATE.outgoing.chips;
+    const pickedIdx = findSubsetSumming(chips, expected);
+    if (!pickedIdx) return null;
+    const set = new Set(pickedIdx);
+    const remaining = chips.filter((_, i) => !set.has(i));
+    return { remaining };
+  }
+  function findSubsetSumming(chips, target) {
+    if (Math.abs(target) < 0.001) return [];
+    const n = chips.length;
+    const order = chips.map((_, i) => i)
+      .sort((a, b) => chips[b].value - chips[a].value);
+    const picked = [];
+    function search(orderIdx, remaining) {
+      if (Math.abs(remaining) < 0.001) return picked.slice();
+      if (orderIdx >= n || remaining < -0.001) return null;
+      const v = chips[order[orderIdx]].value;
+      if (v <= remaining + 0.001) {
+        picked.push(order[orderIdx]);
+        const r = search(orderIdx + 1, remaining - v);
+        if (r) return r;
+        picked.pop();
+      }
+      return search(orderIdx + 1, remaining);
+    }
+    return search(0, target);
+  }
+
+  /* ---------- Outgoing stack rendering ---------- */
+  function renderOutgoing() {
+    const stackEl = document.getElementById('chip-stack-display');
+    if (!stackEl) return;
+    stackEl.innerHTML = '';
+    const STEP = 6;
+    const sorted = STATE.outgoing.chips.slice().sort((a,b) => b.value - a.value);
+    sorted.forEach((c, i) => {
+      const piece = document.createElement('div');
+      piece.classList.add('chip-piece');
+      piece.classList.add('ce-' + c.color);
+      piece.style.bottom = (i * STEP) + 'px';
+      piece.style.zIndex = String(i);
+      piece.style.setProperty('--stripe-offset', (Math.random()*11).toFixed(2) + 'px');
+      stackEl.appendChild(piece);
+    });
+    const lbl = document.querySelector('.close-stack-label');
+    if (lbl) {
+      lbl.textContent = STATE.outgoing.total > 0
+        ? 'Outgoing $' + STATE.outgoing.total
+        : 'Outgoing';
+    }
+  }
+
+  /* ============================================================
+     Settlement math
+     ============================================================ */
+  function settleAll() {
+    const dBest = STATE.dealerBest;
+    const dQual = STATE.dealerQual;
+    const flop  = STATE.board.slice(0, 3);
+
+    /* First pass — every bet except envy adjustments. */
+    const redHits = [];   /* { seat, catk } for RF / SF / 4K on the red linked 5 */
+    for (const p of STATE.players) {
+      const s = { raise:null, ante:null, odds:null, trips:null, pocket:null, blue:null, red:null };
+      const b = p.bets;
+      const seven = p.cards.concat(STATE.board);
+      const pBest = bestFiveFrom(seven);
+      const cmp = cmpEval(pBest, dBest);
+      const folded = p.decision === 'fold';
+
+      /* ---------- RAISE — always full action ---------- */
+      if (b.raise > 0) {
+        if (cmp > 0)      s.raise = { staked: b.raise, outcome: 'win',  net: b.raise,  detail: '+$' + b.raise };
+        else if (cmp < 0) s.raise = { staked: b.raise, outcome: 'loss', net: -b.raise, detail: '-$' + b.raise };
+        else              s.raise = { staked: b.raise, outcome: 'push', net: 0,        detail: 'push (tie)' };
+      }
+
+      /* ---------- ANTE ---------- */
+      if (b.ante > 0) {
+        if (folded) {
+          s.ante = { staked: b.ante, outcome: 'loss', net: -b.ante, detail: '-$' + b.ante + ' (fold)' };
+        } else if (!dQual) {
+          s.ante = { staked: b.ante, outcome: 'push', net: 0, detail: 'push (no qualify)' };
+        } else if (cmp > 0) {
+          s.ante = { staked: b.ante, outcome: 'win',  net: b.ante,  detail: '+$' + b.ante };
+        } else if (cmp < 0) {
+          s.ante = { staked: b.ante, outcome: 'loss', net: -b.ante, detail: '-$' + b.ante };
+        } else {
+          s.ante = { staked: b.ante, outcome: 'push', net: 0, detail: 'push (tie)' };
+        }
+      }
+
+      /* ---------- ODDS (always = Ante) ---------- */
+      if (b.odds > 0) {
+        const pk = catKey(pBest);
+        if (folded) {
+          s.odds = { staked: b.odds, outcome: 'loss', net: -b.odds, detail: '-$' + b.odds + ' (fold)' };
+        } else if (!dQual) {
+          s.odds = { staked: b.odds, outcome: 'push', net: 0, detail: 'push (no qualify)' };
+        } else if (cmp === 0) {
+          /* Tie — no bad beat: they weren't beaten. */
+          s.odds = { staked: b.odds, outcome: 'push', net: 0, detail: 'push (tie)' };
+        } else if (cmp > 0) {
+          if (ODDS_WIN[pk] !== undefined) {
+            const pay = Math.round(b.odds * ODDS_WIN[pk]);
+            s.odds = { staked: b.odds, outcome: 'win', net: pay, detail: pBest.name + ' +$' + pay };
+          } else {
+            s.odds = { staked: b.odds, outcome: 'push', net: 0, detail: 'push (< Straight)' };
+          }
+        } else {
+          /* Player LOST the hand. Straight or better → bad-beat pay. */
+          if (ODDS_BAD_BEAT[pk] !== undefined) {
+            const pay = Math.round(b.odds * ODDS_BAD_BEAT[pk]);
+            s.odds = { staked: b.odds, outcome: 'win', net: pay, detail: 'Bad beat — ' + pBest.name + ' +$' + pay };
+          } else {
+            s.odds = { staked: b.odds, outcome: 'loss', net: -b.odds, detail: '-$' + b.odds };
+          }
+        }
+      }
+
+      /* ---------- TRIPS PLUS — best 5 of ALL 7, plays even on fold ---------- */
+      if (b.trips > 0) {
+        const tk = catKey(pBest);
+        if (TRIPS_PLUS[tk] !== undefined) {
+          const pay = b.trips * TRIPS_PLUS[tk];
+          s.trips = { staked: b.trips, outcome: 'win', net: pay, detail: pBest.name + ' +$' + pay };
+        } else {
+          s.trips = { staked: b.trips, outcome: 'loss', net: -b.trips, detail: '-$' + b.trips };
+        }
+      }
+
+      /* ---------- POCKET BONUS — 2 pocket cards only, plays on fold ---------- */
+      if (b.pocket > 0) {
+        const pc = pocketBonusCat(p.cards);
+        if (pc) {
+          const pay = b.pocket * POCKET_BONUS[pc];
+          const names = { pair_aces: 'Pair of Aces', suited_ace_face: 'Suited A+Face',
+                          unsuited_ace_face: 'A+Face', other_pair: 'Pair' };
+          s.pocket = { staked: b.pocket, outcome: 'win', net: pay, detail: names[pc] + ' +$' + pay };
+        } else {
+          s.pocket = { staked: b.pocket, outcome: 'loss', net: -b.pocket, detail: '-$' + b.pocket };
+        }
+      }
+
+      /* ---------- LINKED 5 (2 pocket + 3 FLOP) for the progressives ---------- */
+      const linked5 = p.cards.concat(flop);
+      const eL = evalFive(linked5);
+      const lk = catKey(eL);
+
+      /* ---------- BLUE $1 ---------- */
+      if (b.blue > 0) {
+        const v = BLUE_LINKED[lk];
+        if (v === 'JACKPOT_100') {
+          s.blue = { staked: b.blue, outcome: 'jackpot', net: 0, detail: '5-Card ' + eL.name + ' — Blue 100% JACKPOT' };
+        } else if (v !== undefined) {
+          s.blue = { staked: b.blue, outcome: 'win', net: v, detail: eL.name + ' +$' + v };
+        } else {
+          s.blue = { staked: b.blue, outcome: 'loss', net: -b.blue, detail: '-$' + b.blue };
+        }
+      }
+
+      /* ---------- RED $5 ---------- */
+      if (b.red > 0) {
+        const v = RED_LINKED[lk];
+        if (v === 'JACKPOT_100') {
+          s.red = { staked: b.red, outcome: 'jackpot', net: 0, detail: '5-Card Royal Flush — Red 100% JACKPOT' };
+        } else if (v === 'JACKPOT_10') {
+          s.red = { staked: b.red, outcome: 'jackpot', net: 0, detail: '5-Card Straight Flush — Red 10% JACKPOT' };
+        } else if (v !== undefined) {
+          s.red = { staked: b.red, outcome: 'win', net: v, detail: eL.name + ' +$' + v };
+        } else {
+          s.red = { staked: b.red, outcome: 'loss', net: -b.red, detail: '-$' + b.red };
+        }
+        if (RED_ENVY[lk] !== undefined) redHits.push({ seat: p.id, catk: lk });
+      }
+
+      p.settlement = s;
+    }
+
+    /* Second pass — ENVY on the Red bet: every OTHER seat that made the
+       red bet wins the flat envy bonus (implemented as a win on their
+       red bet with detail "Envy bonus"). */
+    if (redHits.length > 0) {
+      for (const p of STATE.players) {
+        if (!p.bets.red) continue;
+        const envy = redHits
+          .filter(h => h.seat !== p.id)
+          .reduce((sum, h) => sum + RED_ENVY[h.catk], 0);
+        if (envy <= 0) continue;
+        const r = p.settlement.red;
+        if (!r) continue;
+        if (r.outcome === 'jackpot') {
+          r.detail += ' (+ Envy $' + envy + ')';
+        } else if (r.outcome === 'win') {
+          r.net += envy;
+          r.detail += ' + Envy bonus $' + envy;
+        } else {
+          p.settlement.red = { staked: p.bets.red, outcome: 'win', net: envy, detail: 'Envy bonus +$' + envy };
+        }
+      }
+    }
+  }
+
+  /* ============================================================
+     Wire up
+     ============================================================ */
+  const SIDE_BET_LABELS = [
+    { key: 'trips',  label: 'Trips Plus' },
+    { key: 'pocket', label: 'Pocket Bonus' },
+    { key: 'blue',   label: 'Blue Bonus ($1)' },
+    { key: 'red',    label: 'Red Bonus ($5)' },
+  ];
+  function renderSettingsRows(draft) {
+    const root = document.getElementById('settings-rows');
+    root.innerHTML = '';
+    for (const { key, label } of SIDE_BET_LABELS) {
+      const pct = Math.round(draft[key] * 100);
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      row.innerHTML =
+        '<span class="row-label">' + label + '</span>' +
+        '<span class="row-value" data-key="' + key + '">' + pct + '%</span>' +
+        '<input type="range" min="0" max="100" step="5" value="' + pct + '" data-key="' + key + '">';
+      root.appendChild(row);
+    }
+    root.querySelectorAll('input[type="range"]').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const k = e.currentTarget.dataset.key;
+        const pct = parseInt(e.currentTarget.value, 10);
+        draft[k] = pct / 100;
+        const v = root.querySelector('.row-value[data-key="' + k + '"]');
+        if (v) v.textContent = pct + '%';
+      });
+    });
+  }
+  let settingsDraft = null;
+  function openSettings() {
+    settingsDraft = { ...SETTINGS };
+    renderSettingsRows(settingsDraft);
+    document.getElementById('settings-overlay').classList.add('open');
+  }
+  function closeSettings() {
+    document.getElementById('settings-overlay').classList.remove('open');
+    settingsDraft = null;
+  }
+  document.getElementById('btn-settings').onclick = openSettings;
+  document.getElementById('btn-settings-close').onclick = closeSettings;
+
+  const $payouts = document.getElementById('payouts-overlay');
+  document.getElementById('btn-payouts').onclick = () => $payouts.classList.add('open');
+  document.getElementById('btn-payouts-close').onclick = () => $payouts.classList.remove('open');
+  $payouts.addEventListener('click', (e) => { if (e.target === $payouts) $payouts.classList.remove('open'); });
+  document.getElementById('settings-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'settings-overlay') closeSettings();
+  });
+  document.getElementById('btn-settings-reset').onclick = () => {
+    settingsDraft = { ...SETTINGS_DEFAULTS };
+    renderSettingsRows(settingsDraft);
+  };
+  document.getElementById('btn-settings-save').onclick = () => {
+    if (settingsDraft) {
+      Object.assign(SETTINGS, settingsDraft);
+      saveSettings(SETTINGS);
+    }
+    closeSettings();
+    startRound();
+  };
+
+  /* Help toggle — persists to localStorage ('huh-help'). */
+  const HELP_KEY = 'huh-help';
+  function applyHelpState(off) {
+    document.body.classList.toggle('help-off', off);
+    document.getElementById('btn-help').textContent = off ? 'Help: Off' : 'Help: On';
+  }
+  function loadHelp() {
+    try { return localStorage.getItem(HELP_KEY) === 'off'; }
+    catch (e) { return false; }
+  }
+  function saveHelp(off) {
+    try { localStorage.setItem(HELP_KEY, off ? 'off' : 'on'); } catch (e) {}
+  }
+  applyHelpState(loadHelp());
+  document.getElementById('btn-help').onclick = () => {
+    const newOff = !document.body.classList.contains('help-off');
+    applyHelpState(newOff);
+    saveHelp(newOff);
+  };
+  document.getElementById('btn-reset').onclick = () => {
+    STATE.round = 1;
+    STATE.subphase = null;
+    STATE.currentPlayerIdx = -1;
+    STATE.outgoing = { chips: [], total: 0 };
+    renderOutgoing();
+    startRound();
+  };
+
+  /* Delegated click on the players row. */
+  document.getElementById('players-row').addEventListener('click', (e) => {
+    const spotEl = e.target.closest('.spot[data-betkey]');
+    if (spotEl) {
+      const playerEl = spotEl.closest('.player[data-pid]');
+      if (!playerEl) return;
+      const pid = parseInt(playerEl.dataset.pid, 10);
+      const key = spotEl.dataset.betkey;
+      onBetClick(pid, key);
+      return;
+    }
+    if (STATE.phase === 'settle' && STATE.subphase === 'collect-cards') {
+      const cardEl = e.target.closest('.player[data-pid] .card');
+      if (!cardEl) return;
+      const playerEl = cardEl.closest('.player[data-pid]');
+      const pid = parseInt(playerEl.dataset.pid, 10);
+      if (pid !== STATE.currentPlayerIdx) return;
+      onCardCollectClick(pid);
+    }
+  });
+  function onCardCollectClick(playerIdx) {
+    const p = STATE.players[playerIdx];
+    if (!p || p.cardsCollected) return;
+    p.cardsCollected = true;
+    afterStep();
+  }
+  /* Delegated click on the dealer 7-card row — the discard drill. */
+  $dealerC.addEventListener('click', (e) => {
+    const cardEl = e.target.closest('.card[data-di]');
+    if (!cardEl) return;
+    const idx = parseInt(cardEl.dataset.di, 10);
+    if (!isNaN(idx)) onDealerCardClick(idx);
+  });
+  /* Chip tray → outgoing. */
+  document.getElementById('chip-tray').addEventListener('click', (e) => {
+    const col = e.target.closest('.chip-stack-tray');
+    if (!col) return;
+    const v = parseFloat(col.dataset.value);
+    if (!isNaN(v)) onTrayClick(v);
+  });
+  document.getElementById('chip-stack-display').addEventListener('click', () => onOutgoingClick());
+
+  /* ---------- Test / debug hook ---------- */
+  window.__HUH_TEST__ = {
+    get state() { return STATE; },
+    evalFive, bestFiveFrom, cmpEval, catKey,
+    dealerSeven: () => STATE.dealer.cards.concat(STATE.board),
+    dealerBest:  () => STATE.dealerBest,
+    validDiscardPairs: () => STATE.validDiscardPairs.map(x => x.slice()),
+  };
+
+  /* Initial render + auto-start the first round. */
+  renderChipTray();
+  renderAll();
+  startRound();
+})();
+</script>
+
+</body>
+</html>
