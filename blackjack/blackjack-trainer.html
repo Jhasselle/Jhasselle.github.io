@@ -195,13 +195,16 @@
   .rowgrid table {
     border-collapse: collapse;
     margin: 0 auto;
+    width: 100%;
+    max-width: 620px;
+    table-layout: fixed;
   }
   .rowgrid th, .rowgrid td {
     border: 1px solid var(--border);
     padding: 4px;
     text-align: center;
-    min-width: 46px;
     height: 46px;
+    overflow: hidden;
   }
   .rowgrid th {
     background: var(--panel2);
@@ -212,8 +215,9 @@
   .rowgrid td.handcell {
     background: var(--panel2);
     font-weight: 700;
-    min-width: 58px;
+    width: 13%;
   }
+  .rowgrid th:first-child { width: 13%; }
   .rowgrid input {
     width: 100%;
     height: 100%;
@@ -603,6 +607,16 @@
   }
 
   /* Responsive tweaks */
+  @media (max-width: 560px) {
+    /* Strategy tables: shrink cells so all 11 columns fit any screen width */
+    .rowgrid { margin: 14px -12px; }
+    .rowgrid th, .rowgrid td { height: 36px; padding: 2px 1px; font-size: 0.68rem; }
+    .rowgrid td.handcell { font-size: 0.7rem; width: 14%; }
+    .rowgrid th:first-child { width: 14%; }
+    /* Keep inputs at 16px so iOS doesn't auto-zoom on focus */
+    .rowgrid input { font-size: 16px; }
+    .rowgrid td.reveal::after { font-size: 0.55rem; margin-top: -2px; }
+  }
   @media (max-width: 520px) {
     .answers { grid-template-columns: repeat(2, 1fr); }
     .playing-card { width: 60px; height: 86px; }
@@ -621,20 +635,54 @@
    shared chrome (buttons, cards, headers).
    ============================================================ */
 body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   background:
     radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
     radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
     radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
     #07080c;
   background-attachment: fixed;
+  position: relative;
+  overflow-x: hidden;
 }
-.wrap { max-width: 980px; padding: 28px 22px 80px; }
+/* Subtle drifting radial wash behind everything — matches the rest of the site */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(99,102,241,0.07), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+/* Animated gradient strip across the top — matches the main menu */
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 60s linear infinite;
+}
+@keyframes stripSlide {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+.wrap { position: relative; z-index: 1; }
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); font-weight: 600;
+}
+.wrap { max-width: 980px; padding: 72px 22px 80px; }
 h1, h2 {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: -0.018em;
 }
 h1 {
-  font-size: 34px; font-weight: 800;
+  font-size: 38px; font-weight: 800;
   background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
@@ -670,8 +718,25 @@ h2 { font-size: 22px; font-weight: 700; }
 }
 .menu-tile:hover::before, a.menu-tile:hover::before, button.menu-tile:hover::before,
 .tile:hover::before, .mode-btn:hover::before, button.mode-btn:hover::before { transform: scaleY(1); }
-.menu-tile b, .mode-btn b { display: block; font-weight: 700; font-size: 17px; margin-bottom: 4px; letter-spacing: -0.01em; }
-.menu-tile span, .mode-btn span { color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.5; }
+.menu-tile b, .mode-btn b { display: block; font-weight: 700; font-size: 18px; margin-bottom: 4px; letter-spacing: -0.01em; }
+.menu-tile span, .mode-btn span { display: block; color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.5; }
+
+/* Main menu: tiles sit directly on the background like the poker/roulette hubs */
+#main-menu-buttons {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+/* Arrow meta line on tiles — matches the hub pages */
+.mode-btn .meta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(99,102,241,0.85); font-weight: 700;
+  margin-top: 8px;
+}
+.mode-btn .meta::before { content: "→"; }
 
 /* Primary / ghost button refresh */
 button.primary, .primary {
@@ -757,6 +822,7 @@ button.ghost:hover, .ghost:hover {
 </style>
 </head>
 <body>
+<div class="top-strip"></div>
 <a class="themed-home-btn" href="../table-dealer-trainer.html" style="display:none">Home</a>
 <script>
 /* Show the Home button only when the main menu screen is active. Watches
@@ -788,36 +854,39 @@ button.ghost:hover, .ghost:hover {
 
   <!-- ==================== MAIN MENU ==================== -->
   <div id="main-menu">
+    <div class="greet">Table Dealer Trainer · Blackjack</div>
     <h1>Blackjack Trainer</h1>
     <div class="sub">Study tools for dealing blackjack</div>
     <div id="main-menu-buttons" class="card">
       <button class="mode-btn" onclick="Nav.goSection('strategy-section')">
         <b>6-Deck Blackjack Strategy</b>
         <span>Drill the basic strategy chart &mdash; full row, one-at-a-time, or full table.</span>
+        <span class="meta">Open drills</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('flashcard-section')">
         <b>Terminology Flash Cards</b>
         <span>Multiple-choice quiz on blackjack table terminology and procedures.</span>
+        <span class="meta">Open flash cards</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('pays-section')">
         <b>Blackjack Payouts</b>
         <span>Flash through bet amounts and reveal the 3:2 payout. No scoring &mdash; just drill.</span>
+        <span class="meta">Open drill</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('count-section')">
         <b>Count Card Total</b>
         <span>Random hands dealt from a 6-deck shoe per basic strategy. Add the total in your head, then reveal.</span>
+        <span class="meta">Open drill</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('sidebets-section')">
         <b>Side-bet Practice</b>
         <span>21+3 Xtreme, Bust Bonus, and Red &amp; Blue Jackpot &mdash; all shuffled together. See the hand or up-card, recall the payout.</span>
+        <span class="meta">Open practice</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('dealing-section')">
         <b>Dealing Simulator</b>
         <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
-      </button>
-      <button class="mode-btn" onclick="location.href='cheque-money-exchange.html'">
-        <b>Cheque &amp; Money Exchange</b>
-        <span>Single-station drill. Color coming in, cheque change, and money changing &mdash; build the outgoing stack from the chip tray.</span>
+        <span class="meta">Choose a variant</span>
       </button>
     </div>
   </div>
@@ -1363,7 +1432,7 @@ button.ghost:hover, .ghost:hover {
         <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
       </button>
       <button class="mode-btn" onclick="location.href='pitch-dealing-simulator.html'">
-        <b>2-Deck Pitch <span class="cs-badge">Beta</span></b>
+        <b>2-Deck Pitch</b>
         <span>Hand-pitched blackjack from two decks. Cards dealt face-down to players; revealed on double, split, bust, 21+3 win, or settlement.</span>
       </button>
     </div>
