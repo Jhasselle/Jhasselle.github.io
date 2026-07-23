@@ -106,8 +106,8 @@
   /* ---- wheel overlay ---- */
   #wheelWrap{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
     flex-direction:column;background:rgba(5,8,12,.88);}
-  #wheelResult{margin-top:20px;font-size:58px;font-weight:900;min-height:70px;
-    letter-spacing:2px;text-shadow:0 2px 12px rgba(0,0,0,.6);}
+  #wheelResult{margin-top:20px;font-size:clamp(26px,7vw,48px);font-weight:900;min-height:70px;
+    letter-spacing:2px;text-shadow:0 2px 12px rgba(0,0,0,.6);text-align:center;padding:0 12px;}
 
   /* ---- modal ---- */
   #modalWrap{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
@@ -207,6 +207,13 @@ const RED_NUMS=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const WHEEL_ORDER=[0,28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,ZZ,27,10,25,29,12,8,19,31,18,6,21,33,16,4,23,35,14,2];
 const numLabel=n=>n===ZZ?'00':String(n);
 const numColor=n=>(n===0||n===ZZ)?'green':(RED_NUMS.has(n)?'red':'black');
+/* Real-life dealer call: number, color, then even/odd ("17, Black, Odd").
+   Zeros are neither even nor odd — just "0, Green" / "00, Green". */
+const numCall=n=>{
+  const c=numColor(n).toUpperCase();
+  if(n===0||n===ZZ)return numLabel(n)+', '+c;
+  return numLabel(n)+', '+c+', '+(n%2===0?'EVEN':'ODD');
+};
 const PAYOUT={straight:35,split:17,street:11,corner:8,basket:6,trio:11,sixline:5,dozen:2,column:2,even:1};
 const TABLE_MIN=15;    // outside bets must be at least table minimum
 const INSIDE_MAX=100;  // no single inside bet may exceed $100
@@ -439,6 +446,7 @@ $('tableWrap').appendChild(svg);
 const layoutG=el('g',{},svg);   // static layout
 const cellsG=el('g',{},svg);    // tappable number cells (dolly phase)
 const dollyG=el('g',{},svg);    // win pulse + dolly marker (UNDER chips so counts stay visible)
+const zoneG=el('g',{},svg);     // "clear the nine" zone highlight (UNDER chips)
 const paidG=el('g',{},svg);     // payout markers (UNDER chips — checkmark always behind chips)
 const payHintG=el('g',{},svg);  // pulsing rings around the next payout (UNDER chips)
 const chipsG=el('g',{},svg);    // bet chips (always on top of pay hint + paid markers)
@@ -642,7 +650,7 @@ function spinWheel(winIdx,done){
     if(s<1)requestAnimationFrame(frame);
     else{
       const n=WHEEL_ORDER[winIdx],c=numColor(n);
-      $('wheelResult').textContent=numLabel(n)+' · '+c.toUpperCase();
+      $('wheelResult').textContent=numCall(n);
       $('wheelResult').style.color=c==='red'?'#ff6b6b':c==='green'?'#4cd97f':'#e8e6e0';
       setTimeout(()=>{$('wheelWrap').style.display='none';done();},600);
     }
@@ -656,6 +664,8 @@ function spinWheel(winIdx,done){
 let state='IDLE';
 let diff=DIFFS[0];
 let winNum=-1, forcedWin=null;
+/* sweep procedure sub-state: outside → nine → sections (bottom-up) */
+let clearStep='outside', sectionIdx=0, nineRect=null, nineNums=null;
 let payQueue=[], payTarget=null;
 let score={round:0,correct:0,errors:0,streak:0,best:0};
 let roundStats={correct:0,errors:0,paid:0};
@@ -667,10 +677,18 @@ function setInstr(t,s){
   $('instr').classList.remove('attn'); // re-added only where attention is needed
 }
 /* only the layer relevant to the current phase receives taps —
-   otherwise chips sitting on a number would block the dolly tap */
+   otherwise chips sitting on a number would block the dolly tap.
+   Number cells are also tappable during the nine/section sweep steps
+   (a sweep click can land on the bare felt of the area). */
 function syncTaps(){
-  cellsG.setAttribute('pointer-events', state==='MARK'?'all':'none');
+  const cellTaps = state==='MARK' || (state==='CLEAR'&&clearStep!=='outside');
+  cellsG.setAttribute('pointer-events', cellTaps?'all':'none');
   targetsG.setAttribute('pointer-events', (state==='CLEAR'||state==='PAY')?'all':'none');
+  /* the chip artwork itself must never eat the dolly tap — during MARK
+     taps fall through the chip stack to the number cell underneath.
+     (Bet taps in other states go through the transparent targetsG
+     circles, which sit ABOVE the chips, so this changes nothing there.) */
+  chipsG.setAttribute('pointer-events', state==='MARK'?'none':'auto');
 }
 function updateScore(){
   const tot=score.correct+score.errors;
@@ -720,6 +738,8 @@ function deal(){
   dollyG.innerHTML='';
   winNumG.innerHTML='';
   payHintG.innerHTML='';
+  zoneG.innerHTML='';
+  clearStep='outside';sectionIdx=0;nineRect=null;nineNums=null;
   $('winBadge').style.display='none';
   $('peek').style.display='none';
   payQueue=[];payTarget=null;
@@ -748,25 +768,186 @@ function startSpin(){
 }
 function afterLanding(){
   const c=numColor(winNum), wb=$('winBadge');
+  const parity=(winNum===0||winNum===ZZ)?'':(winNum%2===0?' · EVEN':' · ODD');
   wb.innerHTML=numLabel(winNum)+
-    `<br><span style="font-size:10px;letter-spacing:1.5px;font-weight:700">${c.toUpperCase()}</span>`;
+    `<br><span style="font-size:10px;letter-spacing:1.5px;font-weight:700">${c.toUpperCase()}${parity}</span>`;
   wb.style.display='block';
   wb.style.color=c==='red'?'#ff6b6b':c==='green'?'#4cd97f':'#e8e6e0';
   state='MARK';syncTaps();
-  setInstr('Place the dolly — tap the winning number.','The ball landed on '+numLabel(winNum)+'.');
+  setInstr('Place the dolly — tap the winning number.','The call: '+numCall(winNum)+'.');
   $('instr').classList.add('attn'); // pulse so a newbie knows it's their move
 }
 const losersLeft=()=>bets.filter(b=>!b.won&&!b.swept).length;
 const winnersLeft=()=>bets.filter(b=>b.won&&!b.paid).length;
 
+/* ============================================================
+   REAL-LIFE SWEEP PROCEDURE
+   1) outside losers, one tap each;
+   2) "clear the nine" — one tap takes every losing inside chip
+      in the 3×3 block around the winning number (zeros → the
+      zeros row + the 1-2-3 row);
+   3) sections, bottom of the table first: 3rd dozen → 2nd →
+      1st & zeros — one tap per section.
+   Winning chips are never removed. Membership is by the bet's
+   position on the layout (splits/corners on a boundary count).
+   ============================================================ */
+const EPS=0.5;
+const SECTION_NAMES=['3rd dozen (25-36)','2nd dozen (13-24)','1st dozen & zeros'];
+function computeNine(){
+  /* THREE FULL STREETS — the "nine" is always full 3-number rows spanning
+     the whole width of the inside layout: the winning number's street
+     plus the adjacent street on each side. At the table ends the window
+     shifts so it stays three full streets (winner in 34-36 → streets
+     28-30 / 31-33 / 34-36). When the winning street is 1-2-3 the zeros
+     row joins the zone too (0/00 chips sit adjacent). A zero win keeps a
+     zeros-based zone but spans full rows: zeros row + streets 1-3, 4-6. */
+  if(winNum===0||winNum===ZZ){
+    nineRect={x0:GX,y0:GY0,x1:GX+3*CW,y1:GY+2*CH};
+    nineNums=new Set([0,ZZ,1,2,3,4,5,6]);
+  }else{
+    const row=Math.floor((winNum-1)/3);
+    const r0=Math.min(Math.max(row-1,0),9), r1=r0+2;
+    const withZeros=row===0;
+    nineRect={x0:GX,y0:withZeros?GY0:GY+r0*CH,x1:GX+3*CW,y1:GY+(r1+1)*CH};
+    nineNums=new Set();
+    if(withZeros){nineNums.add(0);nineNums.add(ZZ);}
+    for(let r=r0;r<=r1;r++)for(let c=0;c<3;c++)nineNums.add(r*3+c+1);
+  }
+}
+function inNine(b){
+  return b.spot.x>=nineRect.x0-EPS&&b.spot.x<=nineRect.x1+EPS&&
+         b.spot.y>=nineRect.y0-EPS&&b.spot.y<=nineRect.y1+EPS;
+}
+const outsideLosers=()=>bets.filter(b=>!b.won&&!b.swept&&isOutside(b.spot.type));
+const nineLosers=()=>bets.filter(b=>!b.won&&!b.swept&&!isOutside(b.spot.type)&&inNine(b));
+/* section bands by layout position, bottom-up; a boundary bet (six line /
+   split straddling two dozens) belongs to the LOWER section, which is
+   swept first */
+function sectionOfY(y){
+  if(y>=GY+8*CH-EPS)return 0;
+  if(y>=GY+4*CH-EPS)return 1;
+  return 2;
+}
+function sectionOfNumber(n){
+  if(n===0||n===ZZ)return 2;
+  return n>=25?0:n>=13?1:2;
+}
+const sectionLosers=idx=>bets.filter(b=>!b.won&&!b.swept&&!isOutside(b.spot.type)&&sectionOfY(b.spot.y)===idx);
+function showZoneRect(z){
+  zoneG.innerHTML='';
+  const r=el('rect',{x:z.x0+2,y:z.y0+2,
+    width:z.x1-z.x0-4,height:z.y1-z.y0-4,rx:8,
+    fill:'#d4af37',stroke:'#d4af37','stroke-width':2,'stroke-dasharray':'8 6'},zoneG);
+  r.setAttribute('class','winPulse');
+}
+function showNineZone(){showZoneRect(nineRect);}
+/* whole-section highlight during the sections step — same treatment as
+   the nine zone; moves with the active section. Zeros only glow in the
+   last section if they weren't already part of the nine zone. */
+function sectionRect(idx){
+  if(idx===0)return {x0:GX,y0:GY+8*CH,x1:GX+3*CW,y1:GY+12*CH};
+  if(idx===1)return {x0:GX,y0:GY+4*CH,x1:GX+3*CW,y1:GY+8*CH};
+  const zerosCleared=!!(nineNums&&nineNums.has(0));
+  return {x0:GX,y0:zerosCleared?GY:GY0,x1:GX+3*CW,y1:GY+4*CH};
+}
+function showSectionZone(){showZoneRect(sectionRect(sectionIdx));}
+function hideNineZone(){zoneG.innerHTML='';}
+
 function toClearPhase(){
   if(losersLeft()===0){toPayPhase();return;}
-  state='CLEAR';syncTaps();
-  setInstr('Sweep the losing bets — tap each one.',losersLeft()+' to clear. Don’t touch the winners!');
+  state='CLEAR';clearStep='outside';sectionIdx=0;
+  computeNine();
+  advanceClear();
+}
+/* move to the first sweep step that still has work; empty steps are
+   skipped automatically (no dead clicks) */
+function advanceClear(){
+  if(losersLeft()===0){toPayPhase();return;}
+  if(clearStep==='outside'){
+    const n=outsideLosers().length;
+    if(n>0){
+      syncTaps();
+      setInstr('Take the losing outside bets — tap each one.',
+        n+' outside bet'+(n>1?'s':'')+' to take. Inside waits.');
+      return;
+    }
+    clearStep='nine';
+  }
+  if(clearStep==='nine'){
+    if(nineLosers().length>0){
+      showNineZone();syncTaps();
+      setInstr('Clear the nine — tap the marked zone around '+numLabel(winNum)+'.',
+        'One sweep takes every losing chip in the highlighted zone. Winners stay.');
+      return;
+    }
+    clearStep='sections';sectionIdx=0;
+  }
+  hideNineZone();
+  while(sectionIdx<3&&sectionLosers(sectionIdx).length===0)sectionIdx++;
+  if(sectionIdx>=3){toPayPhase();return;}
+  showSectionZone();
+  syncTaps();
+  setInstr('Sweep the '+SECTION_NAMES[sectionIdx]+' — tap the highlighted section.',
+    'Bottom of the table first: 3rd dozen → 2nd → 1st & zeros.');
+}
+function clearNine(){
+  mark(true);
+  for(const b of nineLosers())sweepBet(b);
+  clearStep='sections';sectionIdx=0;
+  hideNineZone();
+  advanceClear();
+}
+function clearSection(){
+  mark(true);
+  for(const b of sectionLosers(sectionIdx))sweepBet(b);
+  sectionIdx++;
+  advanceClear();
+}
+function nineAreaClick(hit){
+  if(hit){clearNine();return;}
+  mark(false);
+  showModal('Clear the nine first','bad',
+    'Sweep the block around <b>'+numLabel(winNum)+'</b> — the highlighted zone — before working the sections.',
+    [{label:'Continue'}]);
+}
+function sectionAreaClick(sec){
+  if(sec===sectionIdx){clearSection();return;}
+  mark(false);
+  showModal('Work from the bottom of the table','bad',
+    'Sections clear bottom-up: 3rd dozen → 2nd → 1st & zeros.\n<b>'+SECTION_NAMES[sectionIdx]+'</b> is next.',
+    [{label:'Continue'}]);
+}
+/* ============================================================
+   SOP pay sequence for a winning number — position priority 1-12
+   (wheel head = zeros at the TOP of our layout, dealer = RIGHT):
+     1  six line, far side (street BELOW the winner — away from wheel)
+     2  six line closest to the wheel head (street above) — incl. basket
+     3  street (and zero trios)
+     4  corner far from wheel + far from dealer   (below-left)
+     5  corner far from wheel + close to dealer   (below-right)
+     6  corner close to wheel + far from dealer   (above-left)
+     7  corner closest to wheel + dealer          (above-right)
+     8  split furthest from the wheel  (with the number below)
+     9  split furthest from the dealer (with the left neighbour)
+     10 split closest to the dealer    (with the right neighbour)
+     11 split closest to the wheel     (with the number above / zeros)
+     12 straight up
+   ============================================================ */
+function insidePosRank(spot){
+  const dp=cellCenter(winNum);
+  const dx=spot.x-dp.x, dy=spot.y-dp.y, t=spot.type;
+  if(t==='straight')return 12;
+  if(t==='split')return Math.abs(dy)>Math.abs(dx)?(dy>0?8:11):(dx<0?9:10);
+  if(t==='corner')return dy>0?(dx<0?4:5):(dx<0?6:7);
+  if(t==='street'||t==='trio')return 3;
+  return dy>0?1:2;   /* six lines + basket */
 }
 /* group unpaid winners: one group per chip colour (paid in full at once),
-   each cheque bet its own group. Furthest winning chip from the winning
-   number gets paid first. */
+   each cheque bet its own group. The ORDER of the inside colour payouts
+   follows the SOP position sequence above: scan positions 1→12; the first
+   unpaid winning chip decides which colour is paid next. When colours are
+   stacked on the same spot, the TOP chip (placed last, drawn on top) goes
+   first — so a stack is worked top-down before the scan moves on. */
 function buildPayQueue(){
   /* OUTSIDE pays first, one spot + one colour at a time.
      INSIDE pays per colour, everything at once. */
@@ -780,11 +961,18 @@ function buildPayQueue(){
       (inside[b.player]=inside[b.player]||{cheque:false,outside:false,player:b.player,bets:[],attempted:false}).bets.push(b);
   }
   groups.push(...Object.values(inside));
-  const dp=cellCenter(winNum);
-  for(const g of groups)
-    g.dist=Math.max(...g.bets.map(b=>Math.hypot(b.spot.x-dp.x,b.spot.y-dp.y)));
+  for(const g of groups){
+    if(g.outside)continue;
+    g.seq=Infinity;
+    for(const b of g.bets){
+      /* smaller = earlier: position rank, then stack depth (later index
+         = drawn on top = paid first) */
+      const key=insidePosRank(b.spot)*10000+(9999-bets.indexOf(b));
+      if(key<g.seq){g.seq=key;g.seqBet=b;}
+    }
+  }
   groups.sort((a,b)=>(b.outside-a.outside)||
-    (a.outside?outsideRank(a)-outsideRank(b)||(a.player??-1)-(b.player??-1):b.dist-a.dist));
+    (a.outside?outsideRank(a)-outsideRank(b)||(a.player??-1)-(b.player??-1):a.seq-b.seq));
   return groups;
 }
 /* house procedure: columns right-to-left, then down the outside */
@@ -817,11 +1005,15 @@ function updatePayUI(){
   const where=payTarget.outside
     ? payTarget.bets[0].spot.name+' — outside pays one spot at a time'
     : 'ALL their inside bets at once';
+  const lead=(!payTarget.outside&&payTarget.seqBet)
+    ? 'Their '+payTarget.seqBet.spot.name+' leads the pay sequence. '
+    : '';
   setInstr(`Pay ${name}: ${where}.`,
-    'The highlighted chips are next. Tap chips to inspect. '+payQueue.length+' payout'+(payQueue.length>1?'s':'')+' left.');
+    lead+'The highlighted chips are next. Tap chips to inspect. '+payQueue.length+' payout'+(payQueue.length>1?'s':'')+' left.');
   showPayHint();
 }
 function toPayPhase(){
+  hideNineZone();
   if(winnersLeft()===0){endRound();return;}
   state='PAY';syncTaps();
   payQueue=buildPayQueue();
@@ -843,6 +1035,12 @@ function endRound(){
 
 /* ---------- taps ---------- */
 function onCellTap(n){
+  if(state==='CLEAR'){
+    /* sweep clicks can land on the bare felt of an area */
+    if(clearStep==='nine')nineAreaClick(nineNums.has(n));
+    else if(clearStep==='sections')sectionAreaClick(sectionOfNumber(n));
+    return;
+  }
   if(state!=='MARK')return;
   if(n===winNum){
     if(!dollyAttempted)mark(true);
@@ -861,17 +1059,31 @@ function onCellTap(n){
 function onBetTap(b){
   if(state==='CLEAR'){
     if(b.swept)return;
-    if(b.won){
-      mark(false);
-      showModal('That bet is a winner!','bad',
-        `${betDesc(b)} on <b>${b.spot.name}</b> covers ${numLabel(winNum)}.\nNever sweep a winning bet.`,
-        [{label:'Continue'}]);
-      return;
+    if(clearStep==='outside'){
+      /* STEP 1 — outside losers only, one tap each (unchanged mechanics) */
+      if(!isOutside(b.spot.type)){
+        mark(false);
+        showModal('Outside bets first','bad',
+          'Take the losing outside bets — columns, dozens and even-money — before touching the inside.',
+          [{label:'Continue'}]);
+        return;
+      }
+      if(b.won){
+        mark(false);
+        showModal('That bet is a winner!','bad',
+          `${betDesc(b)} on <b>${b.spot.name}</b> covers ${numLabel(winNum)}.\nNever sweep a winning bet.`,
+          [{label:'Continue'}]);
+        return;
+      }
+      if(!b.sweepCounted){b.sweepCounted=true;mark(true);}
+      sweepBet(b);
+      advanceClear();
+    }else if(clearStep==='nine'){
+      /* a tap on any chip in the zone area counts as the zone sweep */
+      nineAreaClick(inNine(b));
+    }else{
+      sectionAreaClick(sectionOfY(b.spot.y));
     }
-    if(!b.sweepCounted){b.sweepCounted=true;mark(true);}
-    sweepBet(b);
-    if(losersLeft()===0)toPayPhase();
-    else setInstr('Sweep the losing bets — tap each one.',losersLeft()+' to go.');
   }else if(state==='PAY'){
     /* looking around the layout while totalling — taps just inspect */
     peek(b);
@@ -1019,7 +1231,8 @@ $('diffSel').addEventListener('change',()=>{
   score={round:0,correct:0,errors:0,streak:0,best:0};
   state='IDLE';syncTaps();
   diff=DIFFS[+$('diffSel').value];
-  bets=[];chipsG.innerHTML='';targetsG.innerHTML='';paidG.innerHTML='';dollyG.innerHTML='';winNumG.innerHTML='';payHintG.innerHTML='';
+  bets=[];chipsG.innerHTML='';targetsG.innerHTML='';paidG.innerHTML='';dollyG.innerHTML='';winNumG.innerHTML='';payHintG.innerHTML='';zoneG.innerHTML='';
+  clearStep='outside';sectionIdx=0;nineRect=null;nineNums=null;
   $('winBadge').style.display='none';$('peek').style.display='none';closeSheet();
   payQueue=[];payTarget=null;
   $('actionBtn').textContent='DEAL';$('actionBtn').disabled=false;
@@ -1028,6 +1241,51 @@ $('diffSel').addEventListener('change',()=>{
 });
 $('sheetLink').addEventListener('click',()=>{$('chart').style.display='flex';});
 $('chart').addEventListener('click',()=>{$('chart').style.display='none';});
+
+/* ---------- test / debug hook ---------- */
+window.__ROUL_TEST__={
+  get state(){return state;},
+  get winNum(){return winNum;},
+  get clearStep(){return clearStep;},
+  get sectionIdx(){return sectionIdx;},
+  get score(){return {...score};},
+  get roundStats(){return {...roundStats};},
+  zoneCount:()=>zoneG.childElementCount,
+  /* current highlight rect (nine zone or active section) in SVG units */
+  zoneBBox:()=>{
+    const r=zoneG.firstElementChild;
+    return r?{x:+r.getAttribute('x'),y:+r.getAttribute('y'),
+      width:+r.getAttribute('width'),height:+r.getAttribute('height')}:null;
+  },
+  nineNums:()=>nineNums?[...nineNums]:null,
+  geom:()=>({GX,GY,GY0,CW,CH,ZH,ZZ}),
+  bets:()=>bets.map(b=>({name:b.spot.name,type:b.spot.type,player:b.player,chips:b.chips,
+    chequeVal:b.chequeVal,chequeCount:b.chequeCount,won:b.won,swept:b.swept,paid:b.paid})),
+  forceWin:n=>{forcedWin=n;},
+  /* deterministic bet layout for tests: [{name,player,chips,chequeVal,chequeCount}] */
+  setBets:list=>{
+    bets=list.map((d,i)=>{
+      const spot=SPOTS.find(s=>s.name===d.name);
+      if(!spot)throw new Error('unknown spot: '+d.name);
+      return {id:i,spot,player:d.player??0,chips:d.chips??1,chequeVal:d.chequeVal??0,
+        chequeCount:d.chequeCount??0,won:false,paid:false,swept:false,
+        payAttempted:false,sweepCounted:false,els:null};
+    });
+    renderBets();
+    setInstr('Bets are down. Press SPIN.',bets.length+' bets on the layout.');
+  },
+  cellPoint:n=>{
+    const c=cellCenter(n);
+    const p=new DOMPoint(c.x,c.y).matrixTransform(svg.getScreenCTM());
+    return {x:p.x,y:p.y};
+  },
+  spotPoint:name=>{
+    const s=SPOTS.find(t=>t.name===name);
+    const p=new DOMPoint(s.x,s.y).matrixTransform(svg.getScreenCTM());
+    return {x:p.x,y:p.y};
+  },
+  cellEl:n=>cellsG.children[n===0?0:n===ZZ?1:n+1],
+};
 
 /* ---------- boot ---------- */
 setupPlayers(diff);updatePlayers();updateScore();syncTaps();
