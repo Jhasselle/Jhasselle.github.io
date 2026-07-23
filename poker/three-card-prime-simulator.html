@@ -154,7 +154,7 @@ body {
 }
 /* Push the cards row to the bottom of the player container so it sits
    close to the dealer rack (matters mostly on the mobile carousel view). */
-.player .cards:not(.folded) {
+.player .cards:not(.folded):not(.tucked-play) {
   margin-top: auto;
 }
 .player .seat-label {
@@ -373,12 +373,40 @@ body {
   transition: transform 0.35s cubic-bezier(.5,.05,.5,1.0);
 }
 /* ============================================================
-   FOLDED HAND — cards stay face-down and slide up to tuck under
-   the Prime bet (rightmost circle in the middle row of the
-   dealer-view mat). The chip stack on Prime renders ON TOP of
-   the cards because the .bet-stack-viz sits at z-index 6 and the
-   tucked cards drop to z-index 0.
+   TUCKED HANDS — the 3 cards render as a small rotated face-down
+   cluster INSIDE a bet spot (so the spot's ring/diamond, label,
+   and chip stack all paint OVER the cards — genuinely "tucked
+   under the bet"), and the cluster tracks the spot at every
+   viewport automatically:
+   - non-folded seats → under the PLAY diamond (top of the main
+     stack), from the deal until the seat becomes the CURRENT
+     seat of NORMAL settlement (the Push All sequence does NOT
+     reveal them);
+   - folded seats → under the PRIME spot until the folded Ante
+     loss is collected, then they reveal so the side bets can
+     settle.
+   The seat's normal .cards row also carries a marker class
+   (.tucked-play / .folded) while the hand is tucked.
    ============================================================ */
+.spot .tuck-cards {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -60%);
+  display: flex;
+  z-index: 0;              /* below the ring/diamond (::before z1), label (z2), chips (z100) */
+  pointer-events: none;
+}
+.spot .tuck-cards .card {
+  width: 38px;
+  height: 54px;
+  margin-left: -16px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.spot .tuck-cards .card:first-child { margin-left: 0; }
+.spot .tuck-cards .card:nth-child(1) { transform: rotate(-10deg); }
+.spot .tuck-cards .card:nth-child(2) { transform: rotate(  3deg); }
+.spot .tuck-cards .card:nth-child(3) { transform: rotate( 14deg); }
 /* Collectable — applied to the current player's cards row during the
    'collect-cards' subphase. Cards become clickable and lift on hover
    to invite the click that advances the carousel. */
@@ -405,37 +433,15 @@ body {
 body:not(.help-off) .player .cards.collectable {
   animation: cardCollectPulse 2.4s ease-in-out infinite;
 }
-.player .cards.folded {
+/* Marker classes on the (empty) cards row while the hand is tucked
+   inside a spot — the actual tuck visuals live in .spot .tuck-cards. */
+.player .cards.folded,
+.player .cards.tucked-play {
   position: absolute;
-  /* North bias on Prime with overlap into the chip-stack area: the
-     Prime spot sits roughly y=194-254 from the player top, and its
-     chip-stack-viz hugs the upper third of the circle (~y=202-234).
-     With cards 54px tall, top:180 puts the card bottoms at y=234,
-     which matches the chip-stack bottom — so the chip stack (z-index
-     100) fully covers the lower half of the cards (z-index 0). The
-     cards' top edge at y=180 still sits 14px above Prime's top, so
-     the "north bias / above the bet" feel reads at a glance. */
-  top: 180px;
-  right: 22px;         /* right side = Prime spot in the rotated mat */
   margin-top: 0;
   min-height: 0;
-  gap: 0;
-  z-index: 0;
   pointer-events: none;
-  justify-content: flex-start;
-  transform-origin: bottom right;
 }
-.player .cards.folded .card {
-  width: 38px;
-  height: 54px;
-  margin-left: -16px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-.player .cards.folded .card:first-child { margin-left: 0; }
-.player .cards.folded .card:nth-child(1) { transform: rotate(-10deg); }
-.player .cards.folded .card:nth-child(2) { transform: rotate(  3deg); }
-.player .cards.folded .card:nth-child(3) { transform: rotate( 14deg); }
 .card {
   /* Uniform card size — matches the dealer's hand. */
   width: 60px; height: 86px;
@@ -514,6 +520,26 @@ body:not(.help-off) .player .cards.collectable {
 }
 .dealer-meta .qualify  { color: #34d399; }
 .dealer-meta .no-qual  { color: #f87171; }
+/* PUSH ALL — shown next to the "does NOT qualify" text when the dealer
+   misses and at least one Play bet is pushing. Styled like the primary
+   tray buttons, with a soft pulse so it reads as the one next action. */
+.push-all-btn {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid #38bdf8;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  color: #0b1220;
+  font: 800 11.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(56,189,248,0.22), 0 0 16px 4px rgba(56,189,248,0.30);
+  animation: settlePulse 2s ease-in-out infinite;
+}
+.push-all-btn:hover { background: linear-gradient(135deg, #7dd3fc, #38bdf8); }
 
 /* =========================================================
    Dealer rack + outgoing stack — pulled verbatim from the
@@ -1679,7 +1705,8 @@ body.new-round-curtain #new-round-overlay {
   };
 
   function newPlayer(id) {
-    return { id, cards: [], bets: null, decision: null, settlement: null };
+    return { id, cards: [], bets: null, decision: null, settlement: null,
+             revealed: false };
   }
   STATE.players = [newPlayer(0), newPlayer(1), newPlayer(2)];
 
@@ -1792,25 +1819,35 @@ body.new-round-curtain #new-round-overlay {
 
   function renderPlayer(p) {
     const bets = p.bets || {};
-    /* For a folded seat, cards stay tucked face-down on the Prime bet
-       UNTIL the Ante chip is collected. Once the Ante is resolved the
-       cards flip face-up (and untuck) so the side bets can be settled. */
+    /* Card visibility — NPC cards never show face-up before the seat
+       is actually being worked:
+       - Non-folded seats: cards tucked face-down under the PLAY
+         diamond from the deal until the seat becomes the CURRENT seat
+         of NORMAL settlement (p.revealed — set by advanceSettlement,
+         NOT by the Push All sequence). Once revealed they stay
+         face-up in the normal cards row until collected.
+       - Folded seats: cards tucked face-down under the PRIME spot
+         until the folded Ante loss is collected; then they reveal so
+         the side bets can be settled. */
     const isFolded = p.decision === 'fold';
     const anteResolved = !!(p.settlement && p.settlement.ante && p.settlement.ante.resolved);
     const tuckedFolded = isFolded && !anteResolved;
+    const tuckedPlay   = !isFolded && !p.revealed;
 
-    let cardsHTML;
-    if (!p.cards.length || p.cardsCollected) {
-      /* No cards yet OR they've been picked up after settlement —
-         render an empty card row. */
-      cardsHTML = '';
-    } else {
-      const showFaceUp =
-        (STATE.phase === 'reveal' || STATE.phase === 'settle' || STATE.phase === 'complete')
-        && (!isFolded || anteResolved);
-      /* Display ordering only — see sortCardsForDisplay. The underlying
-         p.cards array stays in deal order so evaluation isn't affected. */
-      cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, !showFaceUp)).join('');
+    let cardsHTML = '';
+    let tuckHTML = '';
+    if (p.cards.length && !p.cardsCollected) {
+      if (tuckedFolded || tuckedPlay) {
+        /* Small rotated face-down cluster rendered INSIDE the bet spot
+           (Play for live hands, Prime for folds) so the spot's outline,
+           label, and chip stack paint over the cards. */
+        tuckHTML = '<div class="tuck-cards">' +
+          p.cards.map(() => cardHTML(null, true)).join('') + '</div>';
+      } else {
+        /* Revealed — face-up in the normal cards row. Display ordering
+           only; p.cards stays in deal order for evaluation. */
+        cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, false)).join('');
+      }
     }
     /* Visual hint when cards are awaiting collection — they get the
        'collectable' class so CSS can show a pointer cursor + soft glow,
@@ -1853,8 +1890,11 @@ body.new-round-curtain #new-round-overlay {
       const r = p.settlement && p.settlement[betKey];
       /* Once a bet is resolved, hide its chip stack — the chips have
          moved to the rack (collected), paid out to the player, or been
-         pushed back to the player (push, after the dealer clicks it). */
-      if (STATE.phase === 'settle' && r && r.resolved &&
+         pushed back to the player (push — via the dealer's click, or
+         the automated Push All sequence on a dealer no-qual). */
+      const settlingPhase = (STATE.phase === 'settle' || STATE.phase === 'push-all' ||
+                             STATE.phase === 'push-all-wait' || STATE.phase === 'complete');
+      if (settlingPhase && r && r.resolved &&
           (r.outcome === 'win' || r.outcome === 'loss' || r.outcome === 'push')) {
         return '';
       }
@@ -1866,14 +1906,19 @@ body.new-round-curtain #new-round-overlay {
        Cleared in the next round via state reset. */
     function spotPushedLabel(betKey) {
       const r = p.settlement && p.settlement[betKey];
-      if (STATE.phase === 'settle' && r && r.outcome === 'push' && r.resolved) {
+      const settlingPhase = (STATE.phase === 'settle' || STATE.phase === 'push-all' ||
+                             STATE.phase === 'push-all-wait' || STATE.phase === 'complete');
+      if (settlingPhase && r && r.outcome === 'push' && r.resolved) {
         return '<span class="pushed-overlay">PUSHED</span>';
       }
       return '';
     }
 
-    const cur = (STATE.phase === 'settle' && p.id === STATE.currentPlayerIdx) ? ' current' : '';
-    const dim = (STATE.phase === 'settle' && p.id !== STATE.currentPlayerIdx && STATE.currentPlayerIdx >= 0) ? ' dim' : '';
+    /* Carousel + highlight follow the current seat during BOTH normal
+       settlement and the automated Push All sequence. */
+    const engaged = (STATE.phase === 'settle' || STATE.phase === 'push-all');
+    const cur = (engaged && p.id === STATE.currentPlayerIdx) ? ' current' : '';
+    const dim = (engaged && p.id !== STATE.currentPlayerIdx && STATE.currentPlayerIdx >= 0) ? ' dim' : '';
     const foldDim = (p.decision === 'fold' && STATE.phase !== 'place-bets' && !cur) ? ' dim' : '';
     /* Carousel positioning. The mobile media query turns the players-row
        into a one-at-a-time stage. Seats with id > visible slide off to
@@ -1884,7 +1929,7 @@ body.new-round-curtain #new-round-overlay {
        through three player mats. The CSS classes are emitted on every
        phase but only have a visual effect at mobile widths. */
     const visibleSeat =
-      (STATE.phase === 'settle' && STATE.currentPlayerIdx >= 0)
+      (engaged && STATE.currentPlayerIdx >= 0)
         ? STATE.currentPlayerIdx
         : (STATE.players.length - 1);
     let carousel = '';
@@ -1912,14 +1957,14 @@ body.new-round-curtain #new-round-overlay {
       '<div class="mat">' +
         '<div class="row-main">' +
           '<div class="main-stack' + stackMerge + '">' +
-            '<div class="spot diamond play' + spotState('play') + '" data-betkey="play">' + spotChips('play') + spotPushedLabel('play') + '<span class="label">Play</span></div>' +
+            '<div class="spot diamond play' + spotState('play') + '" data-betkey="play">' + (tuckedPlay ? tuckHTML : '') + spotChips('play') + spotPushedLabel('play') + '<span class="label">Play</span></div>' +
             '<div class="spot diamond ante' + spotState('ante') + '" data-betkey="ante">' + spotChips('ante') + spotPushedLabel('ante') + '<span class="label">Ante</span></div>' +
           '</div>' +
         '</div>' +
         '<div class="row-bonuses">' +
           '<div class="spot all6'   + spotState('all6')  + '" data-betkey="all6">'  + spotChips('all6')  + '<span class="label">All 6</span></div>' +
           '<div class="spot pair'   + spotState('pair')  + '" data-betkey="pair">'  + spotChips('pair')  + '<span class="label">Pair<br>Bonus</span></div>' +
-          '<div class="spot prime'  + spotState('prime') + '" data-betkey="prime">' + spotChips('prime') + '<span class="label">Prime</span></div>' +
+          '<div class="spot prime'  + spotState('prime') + '" data-betkey="prime">' + (tuckedFolded ? tuckHTML : '') + spotChips('prime') + '<span class="label">Prime</span></div>' +
         '</div>' +
         '<div class="row-progressives">' +
           /* Progressive bets stay LIT for the entire round once a bet
@@ -1936,7 +1981,7 @@ body.new-round-curtain #new-round-overlay {
         '</div>' +
       '</div>' +
       badge +
-      '<div class="cards' + (tuckedFolded ? ' folded' : '') + collectable + '">' +
+      '<div class="cards' + (tuckedFolded ? ' folded' : '') + (tuckedPlay ? ' tucked-play' : '') + collectable + '">' +
         (cardsHTML || '') +
       '</div>' +
     '</div>';
@@ -1946,7 +1991,8 @@ body.new-round-curtain #new-round-overlay {
     const cs = STATE.dealer.cards;
     if (!cs.length) { $dealerC.innerHTML = ''; $dealerM.innerHTML = ''; return; }
     /* Order: 2 linked | gap | 3 main */
-    const showAll = (STATE.phase === 'reveal' || STATE.phase === 'settle' || STATE.phase === 'complete');
+    const showAll = (STATE.phase === 'reveal' || STATE.phase === 'settle' || STATE.phase === 'complete'
+                     || STATE.phase === 'push-all-wait' || STATE.phase === 'push-all');
     if (!showAll) {
       /* Cards exist but dealer hasn't revealed — show all face down */
       $dealerC.innerHTML = cs.slice(3,5).map(() => cardHTML(null, true)).join('')
@@ -1965,10 +2011,19 @@ body.new-round-curtain #new-round-overlay {
       + mainDisp.map(c => cardHTML(c, false)).join('');
     const e3 = evalThree(cs.slice(0,3));
     const qualifies = dealerQualifies(cs.slice(0,3));
+    /* Dealer misses with Play pushes on the layout → the PUSH ALL
+       button appears right next to the "does NOT qualify" text.
+       Clicking it runs the automated push carousel (runPushAll). */
+    const pushAllBtn = (STATE.phase === 'push-all-wait')
+      ? '<button class="push-all-btn" id="btn-push-all" type="button">Push All</button>'
+      : '';
     $dealerM.innerHTML =
       '<span>' + e3.name + (qualifies
         ? ' &mdash; <span class="qualify">qualifies</span>'
-        : ' &mdash; <span class="no-qual">does NOT qualify</span>') + '</span>';
+        : ' &mdash; <span class="no-qual">does NOT qualify</span>') + '</span>' +
+      pushAllBtn;
+    const $pa = document.getElementById('btn-push-all');
+    if ($pa) $pa.onclick = runPushAll;
   }
 
   /* Make sure persistent .player skeleton divs exist (one per seat). The
@@ -2024,6 +2079,10 @@ body.new-round-curtain #new-round-overlay {
       } else if (STATE.subphase === 'collect-cards') {
         phaseTxt = seat + ' — click cards to collect';
       } else phaseTxt = seat;
+    } else if (STATE.phase === 'push-all-wait') {
+      phaseTxt = 'Dealer does NOT qualify — click PUSH ALL';
+    } else if (STATE.phase === 'push-all') {
+      phaseTxt = 'Seat ' + (STATE.currentPlayerIdx + 1) + ' — Play pushes';
     } else {
       const phaseLabels = {
         'idle':       'Click Deal to start',
@@ -2062,8 +2121,12 @@ body.new-round-curtain #new-round-overlay {
           return;
         }
       }
-      $h.innerHTML = 'Lucky suit: <span id="lucky-suit">' + STATE.luckySuit +
-        ' (' + SUIT_NAME[STATE.luckySuit] + ')</span>';
+      if (STATE.phase === 'push-all-wait' || STATE.phase === 'push-all') {
+        $h.textContent = 'Play bets push · Ante still plays';
+      } else {
+        $h.innerHTML = 'Lucky suit: <span id="lucky-suit">' + STATE.luckySuit +
+          ' (' + SUIT_NAME[STATE.luckySuit] + ')</span>';
+      }
       $h.style.color = '';
     }
   }
@@ -2096,11 +2159,13 @@ body.new-round-curtain #new-round-overlay {
       p.decision = null;
       p.settlement = null;
       p.cardsCollected = false;
+      p.revealed = false;
     }
     STATE.dealer.cards = [];
     STATE.outgoing = { chips: [], total: 0 };
     STATE.currentPlayerIdx = -1;
     STATE.subphase = null;
+    pushAllRunning = false;
 
     /* New shuffled deck */
     STATE.deck = shuffle(newDeck());
@@ -2137,12 +2202,11 @@ body.new-round-curtain #new-round-overlay {
     renderAll();
 
     /* Brief curtain show — long enough to read "NEW ROUND", short
-       enough to feel snappy — then enter the settle phase and drop
-       the curtain. enterSettle's renderAll commits the final settle
-       state right before the curtain fades, so the table is already
-       interactive when it appears. */
+       enough to feel snappy — then enter the settlement flow and drop
+       the curtain. On a dealer no-qual with Play pushes this holds at
+       the PUSH ALL button instead of going straight to settle. */
     setTimeout(() => {
-      enterSettle();
+      beginSettlementFlow();
       document.body.classList.remove('new-round-curtain');
       /* Re-enable carousel transitions after the curtain has dropped
          so any in-round settlement seat slides (Seat 3 → 2 → 1) still
@@ -2175,19 +2239,17 @@ body.new-round-curtain #new-round-overlay {
   */
   const PAY_ORDER = ['play','ante','prime','pair','all6','mini','linked'];
 
-  function enterSettle() {
-    STATE.phase = 'settle';
-    /* Compute the settlement values for every bet (without resolving them). */
+  /* Compute the settlement values + initial resolved flags:
+     - Zero-stake bets auto-resolve (nothing to settle).
+     - Progressive LOSSES auto-resolve too — the Mini-Royal $1 and
+       5-Card Linked $5 cheques are taken into the rack BEFORE the
+       deal in real life, so when one of those bets loses there's no
+       action for the dealer.
+     - PUSHES do NOT auto-resolve: TIE pushes are clicked individually
+       by the dealer to acknowledge them; no-qual PLAY pushes are
+       resolved by the automated Push All sequence. */
+  function prepareSettlement() {
     settleAll();
-    /* Initialize resolved flags:
-       - Zero-stake bets auto-resolve (nothing to settle).
-       - Progressive LOSSES auto-resolve too — the Mini-Royal $1 and
-         5-Card Linked $5 cheques are taken into the rack BEFORE the
-         deal in real life, so when one of those bets loses there's no
-         action for the dealer.
-       - PUSHES do NOT auto-resolve: the dealer must click the pushed
-         bet (e.g. Play when the dealer doesn't qualify) to acknowledge
-         it. The "PUSHED" overlay only appears after that click. */
     for (const p of STATE.players) {
       for (const k of PAY_ORDER) {
         const r = p.settlement && p.settlement[k];
@@ -2197,9 +2259,83 @@ body.new-round-curtain #new-round-overlay {
         r.resolved = (r.staked === 0 || isProgressiveLoss);
       }
     }
+  }
+
+  function enterSettle() {
+    STATE.phase = 'settle';
     STATE.currentPlayerIdx = STATE.players.length - 1;   /* rightmost */
     advanceSettlement();
     renderAll();
+  }
+
+  /* After the dealer reveal: if the dealer does NOT qualify and at
+     least one seat has an unresolved Play push, hold for the PUSH ALL
+     button; otherwise go straight into normal settlement. */
+  function beginSettlementFlow() {
+    prepareSettlement();
+    const dealerQual = dealerQualifies(STATE.dealer.cards.slice(0, 3));
+    if (!dealerQual && pushAllSeats().length > 0) {
+      STATE.phase = 'push-all-wait';
+      STATE.currentPlayerIdx = -1;
+      renderAll();
+    } else {
+      enterSettle();
+    }
+  }
+
+  /* Seats (right-to-left) whose Play bet is an unresolved push —
+     folded seats never placed a Play bet, so they're naturally
+     skipped (their play settlement is null / zero-staked). */
+  function pushAllSeats() {
+    const out = [];
+    for (let i = STATE.players.length - 1; i >= 0; i--) {
+      const r = STATE.players[i].settlement && STATE.players[i].settlement.play;
+      if (r && !r.resolved && r.outcome === 'push') out.push(i);
+    }
+    return out;
+  }
+
+  /* ============================================================
+     PUSH ALL — dealer does NOT qualify. Automated sequence, one
+     seat at a time right-to-left: the carousel centers the seat,
+     the Play chips clear back to the player and a PUSHED overlay
+     appears over the Play diamond (~900ms per seat). Then normal
+     settlement continues (Ante still plays and wins). Tie pushes
+     on qualifying rounds keep the manual click-to-acknowledge
+     behavior — this sequence only ever runs on a no-qual.
+     ============================================================ */
+  let pushAllRunning = false;
+  function runPushAll() {
+    if (STATE.phase !== 'push-all-wait' || pushAllRunning) return;
+    pushAllRunning = true;
+    STATE.phase = 'push-all';
+    const seats = pushAllSeats();
+    let idx = 0;
+    function finish() {
+      pushAllRunning = false;
+      enterSettle();
+      renderOutgoing();
+    }
+    function step() {
+      /* Abort cleanly if a Reset started a new round mid-sequence. */
+      if (STATE.phase !== 'push-all') { pushAllRunning = false; return; }
+      if (idx >= seats.length) { finish(); return; }
+      const id = seats[idx++];
+      const p = STATE.players[id];
+      STATE.currentPlayerIdx = id;
+      renderAll();                     /* carousel centers the seat */
+      setTimeout(() => {
+        if (STATE.phase !== 'push-all') { pushAllRunning = false; return; }
+        if (p.settlement.play) {
+          p.settlement.play.resolved = true;   /* chips clear + PUSHED overlay */
+        }
+        renderAll();
+        setTimeout(step, 450);         /* ≈900ms per seat overall */
+      }, 450);
+    }
+    if (seats.length === 0) { finish(); return; }
+    renderAll();
+    step();
   }
 
   /* Returns the list of unresolved losing bet keys for a player. */
@@ -2227,6 +2363,12 @@ body.new-round-curtain #new-round-overlay {
   function advanceSettlement() {
     while (STATE.currentPlayerIdx >= 0) {
       const p = STATE.players[STATE.currentPlayerIdx];
+      /* A non-folded seat's cards reveal (untuck from the Play spot)
+         the moment it becomes the current seat of NORMAL settlement —
+         the Push All sequence deliberately does NOT set this. Folded
+         seats keep their own gate (reveal after the Ante loss is
+         collected). Once revealed, cards stay revealed until collected. */
+      if (p.decision !== 'fold') p.revealed = true;
       const losers  = lossBets(p);
       const winners = winnerBets(p);
       if (losers.length > 0) {
@@ -2816,6 +2958,15 @@ body.new-round-curtain #new-round-overlay {
   });
   /* Click the outgoing stack to clear it (undo). */
   document.getElementById('chip-stack-display').addEventListener('click', () => onOutgoingClick());
+
+  /* ---------- Test / debug hook ---------- */
+  window.__TCP_TEST__ = {
+    get state() { return STATE; },
+    dealerQual: () => STATE.dealer.cards.length >= 3
+      ? dealerQualifies(STATE.dealer.cards.slice(0, 3))
+      : null,
+    pushAllSeats: () => pushAllSeats().slice(),
+  };
 
   /* Initial render */
   renderChipTray();
