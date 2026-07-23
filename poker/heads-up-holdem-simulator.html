@@ -150,7 +150,7 @@ body {
   display: flex;
   flex-direction: column;
 }
-.player .cards:not(.folded) {
+.player .cards:not(.folded):not(.tucked-raise) {
   margin-top: auto;
 }
 .player .seat-label {
@@ -367,37 +367,44 @@ body:not(.help-off) .player .cards.collectable {
   animation: cardCollectPulse 2.4s ease-in-out infinite;
 }
 /* ============================================================
-   FOLDED HAND — the player's 2 hole cards tuck face-down near
-   the Trips Plus spot (left circle of the bonus row) until the
-   Ante + Odds losses are collected, then they reveal so the
-   still-live side bets can be settled.
+   TUCKED HANDS — the 2 hole cards render as a small rotated
+   face-down cluster INSIDE a bet spot (so the spot's ring,
+   label, and chip stack all paint OVER the cards — genuinely
+   "tucked under the bet"), and the cluster tracks the spot at
+   every viewport automatically:
+   - non-folded seats → under the RAISE diamond, from the deal
+     until the seat becomes the CURRENT settlement seat;
+   - folded seats → under the TRIPS PLUS spot (right circle of
+     the bonus row) until Ante + Odds losses are collected.
+   The seat's normal .cards row also carries a marker class
+   (.tucked-raise / .folded) while the hand is tucked.
    ============================================================ */
-.player .cards.folded {
+.spot .tuck-cards {
   position: absolute;
-  /* Bonus row starts ≈194px from the player top (padding 16 + label 22
-     + main column 130 + row gaps 28). Cards 54px tall at top:184 put
-     their bottoms into the Trips chip-stack area, so the stack
-     (z-index 100) overlaps the card bottoms — "tucked under the bet". */
-  top: 184px;
-  left: calc(25% - 26px);      /* Trips = left spot of the bonus row */
-  margin-top: 0;
-  min-height: 0;
-  gap: 0;
-  z-index: 0;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -60%);
+  display: flex;
+  z-index: 0;              /* below the ring (::before z1), label (z2), chips (z100) */
   pointer-events: none;
-  justify-content: flex-start;
-  transform-origin: bottom left;
 }
-.player .cards.folded .card {
+.spot .tuck-cards .card {
   width: 38px;
   height: 54px;
   margin-left: -14px;
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
-.player .cards.folded .card:first-child { margin-left: 0; }
-.player .cards.folded .card:nth-child(1) { transform: rotate(-9deg); }
-.player .cards.folded .card:nth-child(2) { transform: rotate(  7deg); }
+.spot .tuck-cards .card:first-child { margin-left: 0; }
+.spot .tuck-cards .card:nth-child(1) { transform: rotate(-9deg); }
+.spot .tuck-cards .card:nth-child(2) { transform: rotate(  7deg); }
+/* Marker classes on the (empty) cards row while the hand is tucked. */
+.player .cards.folded,
+.player .cards.tucked-raise {
+  position: absolute;
+  margin-top: 0;
+  min-height: 0;
+  pointer-events: none;
+}
 .card {
   width: 60px; height: 86px;
   border-radius: 6px;
@@ -502,6 +509,26 @@ body:not(.help-off) .dealer-cards .card.selectable:not(.slant):hover {
 }
 .dealer-meta .qualify  { color: #34d399; }
 .dealer-meta .no-qual  { color: #f87171; }
+/* PUSH ALL — shown next to the "does NOT qualify" text when the dealer
+   misses. Styled like the primary tray buttons, with a soft pulse so
+   it reads as the one next action. */
+.push-all-btn {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid #38bdf8;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  color: #0b1220;
+  font: 800 11.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(56,189,248,0.22), 0 0 16px 4px rgba(56,189,248,0.30);
+  animation: settlePulse 2s ease-in-out infinite;
+}
+.push-all-btn:hover { background: linear-gradient(135deg, #7dd3fc, #38bdf8); }
 
 /* Narrow screens — ALL cards (seats, board, dealer) shrink together so
    every card on the table stays the same size. */
@@ -1148,8 +1175,9 @@ body.new-round-curtain #new-round-overlay {
 
     <div class="payout-section">
       <h3>Raise &amp; Ante</h3>
-      <p class="ps-note">Raise (3×/2×/1× the Ante, one raise only) is ALWAYS full action: win 1:1 / lose / tie pushes.
-      Ante: dealer doesn't qualify → push; otherwise win 1:1 / lose / tie pushes.</p>
+      <p class="ps-note">Raise (3×/2×/1× the Ante, one raise only) is ALWAYS full action — even on a
+      dealer no-qual: win 1:1 / lose / tie pushes. Ante: dealer doesn't qualify → PUSH ALL (the Ante
+      pushes back to the player); otherwise win 1:1 / lose / tie pushes.</p>
       <table class="payout-table">
         <tr><td>Win</td><td>1 : 1</td></tr>
       </table>
@@ -1157,8 +1185,8 @@ body.new-round-curtain #new-round-overlay {
 
     <div class="payout-section">
       <h3>Odds — win table</h3>
-      <p class="ps-note">Odds always equals the Ante. Dealer doesn't qualify → push. Tie → push.
-      Player WINS with a Straight or better → paid below; wins with less → push.</p>
+      <p class="ps-note">Odds always equals the Ante and plays FULL ACTION even when the dealer doesn't
+      qualify. Tie → push. Player WINS with a Straight or better → paid below; wins with less → push.</p>
       <table class="payout-table">
         <tr><td>Royal Flush</td><td>500 : 1</td></tr>
         <tr><td>Straight Flush</td><td>50 : 1</td></tr>
@@ -1555,7 +1583,8 @@ body.new-round-curtain #new-round-overlay {
 
   function newPlayer(id) {
     return { id, cards: [], bets: null, decision: null, raiseMult: 0,
-             raiseStreet: null, settlement: null, cardsCollected: false };
+             raiseStreet: null, settlement: null, cardsCollected: false,
+             revealed: false };
   }
   STATE.players = [newPlayer(0), newPlayer(1), newPlayer(2)];
 
@@ -1659,23 +1688,33 @@ body.new-round-curtain #new-round-overlay {
 
   function renderPlayer(p) {
     const bets = p.bets || {};
-    /* Folded seats keep their 2 cards tucked face-down near Trips Plus
-       until BOTH forced losses (Ante + Odds) are collected; then the
-       cards reveal so the still-live side bets can settle. */
+    /* Card visibility — NPC hole cards must NEVER show face-up before
+       the dealer's discard drill completes:
+       - Non-folded seats: cards tucked face-down under the RAISE
+         diamond until the seat becomes the CURRENT settlement seat
+         (p.revealed is set then, and persists until collection).
+       - Folded seats: cards tucked face-down at the Trips Plus spot
+         until BOTH forced losses (Ante + Odds) are collected. */
     const isFolded = p.decision === 'fold';
     const anteOddsResolved = !!(p.settlement &&
       p.settlement.ante && p.settlement.ante.resolved &&
       p.settlement.odds && p.settlement.odds.resolved);
     const tuckedFolded = isFolded && !anteOddsResolved;
+    const tuckedRaise  = !isFolded && !p.revealed;
 
-    let cardsHTML;
-    if (!p.cards.length || p.cardsCollected) {
-      cardsHTML = '';
-    } else {
-      const showFaceUp =
-        (STATE.phase === 'discard' || STATE.phase === 'settle' || STATE.phase === 'complete')
-        && (!isFolded || anteOddsResolved);
-      cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, !showFaceUp)).join('');
+    let cardsHTML = '';
+    let tuckHTML = '';
+    if (p.cards.length && !p.cardsCollected) {
+      if (tuckedFolded || tuckedRaise) {
+        /* Small rotated face-down cluster rendered INSIDE the bet spot
+           (raise for live hands, trips for folds) so the spot's ring,
+           label, and chip stack paint over the cards. */
+        tuckHTML = '<div class="tuck-cards">' +
+          p.cards.map(() => cardHTML(null, true)).join('') + '</div>';
+      } else {
+        const showFaceUp = isFolded ? anteOddsResolved : p.revealed;
+        cardsHTML = sortCardsForDisplay(p.cards).map(c => cardHTML(c, !showFaceUp)).join('');
+      }
     }
     const collectable = (STATE.phase === 'settle'
                        && STATE.subphase === 'collect-cards'
@@ -1709,9 +1748,12 @@ body.new-round-curtain #new-round-overlay {
       }
       return '';
     }
+    /* Phases in which settlement results decorate the mat. */
+    const settlingPhase = (STATE.phase === 'settle' || STATE.phase === 'push-all' ||
+                           STATE.phase === 'push-all-wait' || STATE.phase === 'complete');
     function spotChips(betKey) {
       const r = p.settlement && p.settlement[betKey];
-      if (STATE.phase === 'settle' && r && r.resolved &&
+      if (settlingPhase && r && r.resolved &&
           (r.outcome === 'win' || r.outcome === 'loss' || r.outcome === 'push')) {
         return '';
       }
@@ -1719,17 +1761,20 @@ body.new-round-curtain #new-round-overlay {
     }
     function spotPushedLabel(betKey) {
       const r = p.settlement && p.settlement[betKey];
-      if (STATE.phase === 'settle' && r && r.outcome === 'push' && r.resolved) {
+      if (settlingPhase && r && r.outcome === 'push' && r.resolved) {
         return '<span class="pushed-overlay">PUSHED</span>';
       }
       return '';
     }
 
-    const cur = (STATE.phase === 'settle' && p.id === STATE.currentPlayerIdx) ? ' current' : '';
-    const dim = (STATE.phase === 'settle' && p.id !== STATE.currentPlayerIdx && STATE.currentPlayerIdx >= 0) ? ' dim' : '';
+    /* Carousel + highlight follow the current seat during BOTH normal
+       settlement and the automated Push All sequence. */
+    const engaged = (STATE.phase === 'settle' || STATE.phase === 'push-all');
+    const cur = (engaged && p.id === STATE.currentPlayerIdx) ? ' current' : '';
+    const dim = (engaged && p.id !== STATE.currentPlayerIdx && STATE.currentPlayerIdx >= 0) ? ' dim' : '';
     const foldDim = (p.decision === 'fold' && STATE.phase !== 'place-bets' && !cur) ? ' dim' : '';
     const visibleSeat =
-      (STATE.phase === 'settle' && STATE.currentPlayerIdx >= 0)
+      (engaged && STATE.currentPlayerIdx >= 0)
         ? STATE.currentPlayerIdx
         : (STATE.players.length - 1);
     let carousel = '';
@@ -1749,25 +1794,25 @@ body.new-round-curtain #new-round-overlay {
       '<div class="mat">' +
         '<div class="row-main">' +
           '<div class="main-stack">' +
-            '<div class="spot diamond raise' + spotState('raise') + '" data-betkey="raise">' + spotChips('raise') + spotPushedLabel('raise') + '<span class="label">Raise</span></div>' +
+            '<div class="spot diamond raise' + spotState('raise') + '" data-betkey="raise">' + (tuckedRaise ? tuckHTML : '') + spotChips('raise') + spotPushedLabel('raise') + '<span class="label">Raise</span></div>' +
             '<div class="ante-odds-pair' + pairMerge + '">' +
-              '<div class="spot diamond ante' + anteSt + '" data-betkey="ante">' + spotChips('ante') + spotPushedLabel('ante') + '<span class="label">Ante</span></div>' +
-              '<span class="eq">=</span>' +
               '<div class="spot diamond odds' + oddsSt + '" data-betkey="odds">' + spotChips('odds') + spotPushedLabel('odds') + '<span class="label">Odds</span></div>' +
+              '<span class="eq">=</span>' +
+              '<div class="spot diamond ante' + anteSt + '" data-betkey="ante">' + spotChips('ante') + spotPushedLabel('ante') + '<span class="label">Ante</span></div>' +
             '</div>' +
           '</div>' +
         '</div>' +
         '<div class="row-bonuses">' +
-          '<div class="spot trips'  + spotState('trips')  + '" data-betkey="trips">'  + spotChips('trips')  + '<span class="label">Trips<br>Plus</span></div>' +
           '<div class="spot pocket' + spotState('pocket') + '" data-betkey="pocket">' + spotChips('pocket') + '<span class="label">Pocket<br>Bonus</span></div>' +
+          '<div class="spot trips'  + spotState('trips')  + '" data-betkey="trips">'  + (tuckedFolded ? tuckHTML : '') + spotChips('trips')  + '<span class="label">Trips<br>Plus</span></div>' +
         '</div>' +
         '<div class="row-progressives">' +
-          '<div class="spot red'  + (bets.red  ? ' placed' : '') + spotState('red')  + '" data-betkey="red"><span class="label">Red<br>$5</span></div>' +
           '<div class="spot blue' + (bets.blue ? ' placed' : '') + spotState('blue') + '" data-betkey="blue"><span class="label">Blue<br>$1</span></div>' +
+          '<div class="spot red'  + (bets.red  ? ' placed' : '') + spotState('red')  + '" data-betkey="red"><span class="label">Red<br>$5</span></div>' +
         '</div>' +
       '</div>' +
       badge +
-      '<div class="cards' + (tuckedFolded ? ' folded' : '') + collectable + '">' +
+      '<div class="cards' + (tuckedFolded ? ' folded' : '') + (tuckedRaise ? ' tucked-raise' : '') + collectable + '">' +
         (cardsHTML || '') +
       '</div>' +
     '</div>';
@@ -1780,7 +1825,9 @@ body.new-round-curtain #new-round-overlay {
     const hole = STATE.dealer.cards;
     if (!hole.length) { $dealerC.innerHTML = ''; $dealerM.innerHTML = ''; return; }
     const seven = hole.concat(STATE.board);
-    const show = (STATE.phase === 'discard' || STATE.phase === 'settle' || STATE.phase === 'complete');
+    const show = (STATE.phase === 'discard' || STATE.phase === 'settle' ||
+                  STATE.phase === 'push-all-wait' || STATE.phase === 'push-all' ||
+                  STATE.phase === 'complete');
     const slanted = new Set((STATE.discardDone || []).concat(STATE.discardSel));
     const drillOn = STATE.phase === 'discard' && !STATE.discardDone;
     const piece = (i) => {
@@ -1804,10 +1851,19 @@ body.new-round-curtain #new-round-overlay {
 
     if (STATE.discardDone) {
       const best = STATE.dealerBest;
+      /* Dealer misses → the PUSH ALL button appears right next to the
+         "does NOT qualify" text; clicking it runs the automated
+         raise-return + ante-push sequence, seat by seat. */
+      const pushAllBtn = (STATE.phase === 'push-all-wait')
+        ? '<button class="push-all-btn" id="btn-push-all" type="button">Push All</button>'
+        : '';
       $dealerM.innerHTML =
         '<span>' + best.name + (STATE.dealerQual
           ? ' &mdash; <span class="qualify">qualifies</span>'
-          : ' &mdash; <span class="no-qual">does NOT qualify</span>') + '</span>';
+          : ' &mdash; <span class="no-qual">does NOT qualify</span>') + '</span>' +
+        pushAllBtn;
+      const $pa = document.getElementById('btn-push-all');
+      if ($pa) $pa.onclick = runPushAll;
     } else if (STATE.phase === 'discard') {
       $dealerM.innerHTML = '<span>Click the 2 cards NOT in the dealer’s best five</span>';
     } else {
@@ -1855,6 +1911,10 @@ body.new-round-curtain #new-round-overlay {
       } else phaseTxt = seat;
     } else if (STATE.phase === 'discard') {
       phaseTxt = 'Discard drill — slant the 2 unused cards';
+    } else if (STATE.phase === 'push-all-wait') {
+      phaseTxt = 'Dealer does NOT qualify — click PUSH ALL';
+    } else if (STATE.phase === 'push-all') {
+      phaseTxt = 'Seat ' + (STATE.currentPlayerIdx + 1) + ' — Ante pushes';
     } else {
       const phaseLabels = {
         'idle':     'Starting…',
@@ -1891,6 +1951,8 @@ body.new-round-curtain #new-round-overlay {
       }
       if (STATE.phase === 'discard') {
         $h.textContent = 'First click slants a card · second click checks the pair';
+      } else if (STATE.phase === 'push-all-wait' || STATE.phase === 'push-all') {
+        $h.textContent = 'Antes push · Raise + Odds still play';
       } else {
         $h.textContent = 'Odds always = Ante';
       }
@@ -1923,6 +1985,7 @@ body.new-round-curtain #new-round-overlay {
       p.raiseStreet = null;
       p.settlement = null;
       p.cardsCollected = false;
+      p.revealed = false;
     }
     STATE.dealer.cards = [];
     STATE.board = [];
@@ -1935,6 +1998,7 @@ body.new-round-curtain #new-round-overlay {
     STATE.outgoing = { chips: [], total: 0 };
     STATE.currentPlayerIdx = -1;
     STATE.subphase = null;
+    pushAllRunning = false;
 
     STATE.deck = shuffle(newDeck());
 
@@ -2015,9 +2079,19 @@ body.new-round-curtain #new-round-overlay {
       STATE.discardSel = [];
       STATE.discardLock = true;
       renderAll();               /* shows slanted pair + hand name + qualify */
+      const roundToken = STATE.round;
       setTimeout(() => {
+        if (STATE.round !== roundToken || STATE.phase !== 'discard') return;
         STATE.discardLock = false;
-        enterSettle();
+        prepareSettlement();
+        if (STATE.dealerQual) {
+          enterSettle();
+        } else {
+          /* Dealer misses — hold for the PUSH ALL button (rendered in
+             the dealer area next to the "does NOT qualify" text). */
+          STATE.phase = 'push-all-wait';
+          renderAll();
+        }
       }, 1200);
     } else {
       STATE.discardLock = true;
@@ -2040,13 +2114,16 @@ body.new-round-curtain #new-round-overlay {
      ============================================================ */
   const PAY_ORDER = ['raise','ante','odds','trips','pocket','blue','red'];
 
-  function enterSettle() {
-    STATE.phase = 'settle';
+  /* Compute every bet's settlement + initial resolved flags. Runs at
+     drill completion for BOTH the qualify path (straight into settle)
+     and the no-qual path (results are ready before Push All runs). */
+  function prepareSettlement() {
     settleAll();
     /* Auto-resolve zero stakes and PROGRESSIVE LOSSES (the $5 Red and
        $1 Blue cheques were taken into the rack before the deal, so a
        progressive loss needs no dealer action). PUSHES never
-       auto-resolve — the dealer clicks them to acknowledge. */
+       auto-resolve — the dealer clicks them to acknowledge (or, on a
+       dealer no-qual, the Push All sequence resolves Raise + Ante). */
     for (const p of STATE.players) {
       for (const k of PAY_ORDER) {
         const r = p.settlement && p.settlement[k];
@@ -2056,9 +2133,60 @@ body.new-round-curtain #new-round-overlay {
         r.resolved = (r.staked === 0 || isProgressiveLoss);
       }
     }
+  }
+
+  function enterSettle() {
+    STATE.phase = 'settle';
     STATE.currentPlayerIdx = STATE.players.length - 1;   /* rightmost */
     advanceSettlement();
     renderAll();
+  }
+
+  /* ============================================================
+     PUSH ALL — dealer does NOT qualify. Automated sequence, one
+     seat at a time right-to-left, skipping folded seats: the
+     carousel centers the seat, its cards reveal, the ANTE chips
+     clear back to the player and a PUSHED overlay appears over
+     the Ante only. The RAISE stays on the spot — it (and Odds,
+     sides, progressives) settles by normal comparison in the
+     collect-losers / pay-winners flow afterward.
+     ============================================================ */
+  let pushAllRunning = false;
+  function runPushAll() {
+    if (STATE.phase !== 'push-all-wait' || pushAllRunning) return;
+    pushAllRunning = true;
+    STATE.phase = 'push-all';
+    const seats = [];
+    for (let i = STATE.players.length - 1; i >= 0; i--) {
+      if (STATE.players[i].decision !== 'fold') seats.push(i);
+    }
+    let idx = 0;
+    function finish() {
+      pushAllRunning = false;
+      enterSettle();
+      renderOutgoing();
+    }
+    function step() {
+      /* Abort cleanly if a Reset started a new round mid-sequence. */
+      if (STATE.phase !== 'push-all') { pushAllRunning = false; return; }
+      if (idx >= seats.length) { finish(); return; }
+      const id = seats[idx++];
+      const p = STATE.players[id];
+      STATE.currentPlayerIdx = id;
+      p.revealed = true;
+      renderAll();                     /* carousel centers seat, cards reveal */
+      setTimeout(() => {
+        if (STATE.phase !== 'push-all') { pushAllRunning = false; return; }
+        if (p.settlement.ante) {
+          p.settlement.ante.resolved = true;   /* chips clear + PUSHED overlay */
+        }
+        renderAll();
+        setTimeout(step, 450);         /* ≈900ms per seat overall */
+      }, 450);
+    }
+    if (seats.length === 0) { finish(); return; }
+    renderAll();
+    step();
   }
 
   function lossBets(p) {
@@ -2079,6 +2207,11 @@ body.new-round-curtain #new-round-overlay {
   function advanceSettlement() {
     while (STATE.currentPlayerIdx >= 0) {
       const p = STATE.players[STATE.currentPlayerIdx];
+      /* A non-folded seat's cards reveal (untuck from the Raise spot)
+         the moment it becomes the current seat of the carousel — and
+         stay revealed until collected. Folded seats keep their own
+         rule (reveal after Ante + Odds are collected). */
+      if (p.decision !== 'fold') p.revealed = true;
       const losers  = lossBets(p);
       const winners = winnerBets(p);
       if (losers.length > 0) {
@@ -2366,7 +2499,8 @@ body.new-round-curtain #new-round-overlay {
       const cmp = cmpEval(pBest, dBest);
       const folded = p.decision === 'fold';
 
-      /* ---------- RAISE — always full action ---------- */
+      /* ---------- RAISE — ALWAYS full action, even when the dealer
+         doesn't qualify: win 1:1 / lose / tie pushes. ---------- */
       if (b.raise > 0) {
         if (cmp > 0)      s.raise = { staked: b.raise, outcome: 'win',  net: b.raise,  detail: '+$' + b.raise };
         else if (cmp < 0) s.raise = { staked: b.raise, outcome: 'loss', net: -b.raise, detail: '-$' + b.raise };
@@ -2388,13 +2522,12 @@ body.new-round-curtain #new-round-overlay {
         }
       }
 
-      /* ---------- ODDS (always = Ante) ---------- */
+      /* ---------- ODDS (always = Ante) — plays FULL ACTION even when
+         the dealer doesn't qualify. ---------- */
       if (b.odds > 0) {
         const pk = catKey(pBest);
         if (folded) {
           s.odds = { staked: b.odds, outcome: 'loss', net: -b.odds, detail: '-$' + b.odds + ' (fold)' };
-        } else if (!dQual) {
-          s.odds = { staked: b.odds, outcome: 'push', net: 0, detail: 'push (no qualify)' };
         } else if (cmp === 0) {
           /* Tie — no bad beat: they weren't beaten. */
           s.odds = { staked: b.odds, outcome: 'push', net: 0, detail: 'push (tie)' };
