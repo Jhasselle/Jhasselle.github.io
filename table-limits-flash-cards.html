@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2a0d47">
+<title>Table Limits — Flash Cards</title>
+
+<!-- ============================================================
+     TABLE LIMITS FLASH CARDS
+
+     Drill the minimum and maximum on the main bet and every side
+     bet, game by game.
+
+     >>> ALL LIMITS LIVE IN THE `GAMES` ARRAY AT THE TOP OF THE
+     >>> SCRIPT. That is the only place to edit when the pit
+     >>> changes a sign. Nothing else in the file hardcodes a
+     >>> number.
+
+     Anything marked `unsure: true` renders with an amber dot and
+     shows up in the "unconfirmed" legend — those are the values
+     read off a photo of the sign rather than confirmed on the
+     floor. Clear the flag once you've checked them.
+     ============================================================ -->
+
+<style>
+/* ============================================================
+   Palette — pulled off the felt in the pit: deep aubergine cloth,
+   the gold of the house logo, and the warm white of a laminated
+   limit placard.
+   ============================================================ */
+:root {
+  --felt-deep:   #1b0733;
+  --felt:        #35105c;
+  --felt-lift:   #4c1786;
+  --gold:        #d9b45b;
+  --gold-dim:    #8a6f31;
+  --card:        #171226;
+  --card-top:    #221a37;
+  --card-foot:   #0e0a19;
+  --card-edge:   rgba(255,255,255,0.13);
+  --ink:         #f4f0fa;
+  --ink-mid:     rgba(244,240,250,0.92);
+  --ink-soft:    rgba(244,240,250,0.74);
+  --ink-faint:   rgba(244,240,250,0.70);
+  --good:        #10b981;
+  --miss:        #f0576b;
+  --warn:        #f0b429;
+
+  /* The placards in the pit are set in a humanist sans, centred,
+     with the game name much larger than the numbers. */
+  --face: "Optima", "Candara", "Gill Sans", "Gill Sans MT", "Trebuchet MS", system-ui, sans-serif;
+  --ui:   "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(130% 80% at 50% 0%, var(--felt-lift) 0%, var(--felt) 42%, var(--felt-deep) 100%);
+  color: #f3eefb;
+  font-family: var(--ui);
+  -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+  gap: 10px;
+}
+
+/* ---------- header ---------- */
+.topbar { display: flex; align-items: center; gap: 10px; }
+.back {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(0,0,0,0.34); color: #e9defb;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 999px; padding: 8px 15px;
+  font: 600 0.9rem/1 var(--ui); text-decoration: none;
+}
+.back:hover { background: rgba(0,0,0,0.5); }
+.title {
+  margin: 0; font: 800 1.02rem/1.15 var(--ui);
+  letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--gold);
+}
+.title small {
+  display: block; margin-top: 3px;
+  font: 500 0.8rem/1.25 var(--ui); letter-spacing: 0.06em;
+  color: rgba(243,238,251,0.5); text-transform: none;
+}
+
+/* ---------- controls ---------- */
+.controls {
+  background: rgba(10,4,20,0.42);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.13);
+  color: #e6dcf7;
+  border-radius: 999px;
+  padding: 7px 13px;
+  font: 600 0.96rem/1 var(--ui);
+  cursor: pointer;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+}
+.chip:hover { background: rgba(255,255,255,0.12); }
+.chip.on {
+  background: var(--gold); border-color: #f0d795; color: #241a02;
+}
+.toggles { display: flex; gap: 8px; }
+.seg {
+  flex: 1 1 0; display: flex;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 10px; overflow: hidden;
+}
+.seg button {
+  flex: 1 1 0; background: none; border: none;
+  color: rgba(240,234,250,0.8);
+  padding: 10px 4px;
+  font: 700 0.88rem/1 var(--ui); letter-spacing: 0.03em;
+  text-transform: uppercase; cursor: pointer;
+}
+.seg button.on { background: rgba(217,180,91,0.2); color: var(--gold); }
+.seg button + button { border-left: 1px solid rgba(255,255,255,0.09); }
+
+/* ============================================================
+   THE PLACARD — the signature of the whole thing. It's a copy of
+   the laminated card propped on the table: warm card stock, a
+   soft shadow on the cloth, sitting a degree off square the way
+   a real one never sits straight. Reveal turns it over.
+   ============================================================ */
+.felt-area {
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+  padding: 2px 0;
+  perspective: 1400px;
+}
+.placard {
+  position: relative;
+  width: min(380px, 100%);
+  min-height: 300px;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.placard.flipped { transform: rotateY(180deg); }
+.face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: linear-gradient(168deg, var(--card-top) 0%, var(--card) 58%, var(--card-foot) 100%);
+  border: 1px solid var(--card-edge);
+  border-radius: 5px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.07) inset,
+    0 18px 40px rgba(4,1,10,0.66),
+    0 3px 10px rgba(4,1,10,0.5);
+  color: var(--ink);
+  padding: 22px 20px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+.face.back { transform: rotateY(180deg); }
+/* Off-screen twin used to size the placard to its tallest card. A
+   Baccarat sheet has five side bets and a Pai Gow sheet has two; if
+   the card resized per question the whole page would jump between
+   draws. */
+.face.measure {
+  inset: 0 0 auto 0; height: auto;
+  visibility: hidden; pointer-events: none;
+  backface-visibility: visible; -webkit-backface-visibility: visible;
+  box-shadow: none; z-index: -1;
+}
+
+.card-eyebrow {
+  font: 700 0.95rem/1.35 var(--ui);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 14px;
+}
+.game-name {
+  font: 400 clamp(33px, 9.8vw, 45px)/1.12 var(--face);
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+.bet-name {
+  margin-top: 16px;
+  font: 600 clamp(23px, 6.6vw, 29px)/1.25 var(--face);
+  color: var(--ink-mid);
+}
+.bet-name .qmark { display: block; margin-top: 16px; font-size: 34px; color: rgba(244,240,250,0.42); }
+
+/* the answer side, laid out the way the real sign is */
+.minmax-head {
+  display: flex; gap: 42px; justify-content: center;
+  font: 500 1.06rem/1 var(--face);
+  letter-spacing: 0.03em; color: var(--ink-faint);
+  margin-bottom: 4px;
+}
+.minmax {
+  display: flex; align-items: baseline; gap: 12px;
+  font: 400 clamp(35px, 10.6vw, 48px)/1.15 var(--face);
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.minmax .dash { color: rgba(244,240,250,0.3); }
+.answer-note .flag { margin: 0 8px 0 0; }
+.answer-note {
+  margin-top: 16px;
+  font: 500 1rem/1.45 var(--ui);
+  color: var(--ink-soft);
+  max-width: 260px;
+}
+
+/* whole-card mode reproduces the placard line for line */
+.sheet { width: 100%; }
+.sheet .game-name { margin-bottom: 10px; }
+.sheet-head {
+  display: grid; grid-template-columns: 1fr 1fr;
+  font: 500 1.04rem/1 var(--face); color: var(--ink-faint);
+  margin-bottom: 3px; max-width: 250px; margin-inline: auto;
+}
+.sheet-main {
+  font: 400 clamp(28px, 8.2vw, 36px)/1.3 var(--face);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+.sheet-side {
+  font: 400 clamp(19px, 5.6vw, 23px)/1.45 var(--face);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-mid);
+}
+.sheet-side .nm { color: var(--ink-soft); }
+
+/* Marks a value that's been changed from what the sign says. */
+.star {
+  color: var(--warn); font-style: normal; font-weight: 800;
+  margin-left: 5px;
+}
+.flag {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--warn);
+  margin-left: 6px; vertical-align: middle;
+  box-shadow: 0 0 0 2px rgba(240,180,41,0.24);
+}
+
+/* ---------- actions ---------- */
+/* The action block never changes height. Reveal becomes Next card in
+   place, and the grade row holds its space from the start — the
+   buttons must not move under a thumb mid-drill. */
+.actions { display: flex; flex-direction: column; gap: 8px; }
+.btn {
+  width: 100%; border-radius: 12px; cursor: pointer;
+  font: 800 1.02rem/1 var(--ui); letter-spacing: 0.05em;
+  padding: 15px 18px; border: 1px solid transparent;
+  transition: filter 0.12s, background 0.12s;
+}
+.btn:active { transform: translateY(1px); }
+/* The one button you press over and over — sized for a thumb without
+   looking. */
+#btn-reveal { font-size: 1.3rem; padding: 20px 18px; border-radius: 14px; letter-spacing: 0.06em; }
+.btn-reveal { background: linear-gradient(135deg, #e9c979, var(--gold)); color: #2a1e04; border-color: #f2dda6; }
+.btn-reveal:hover { filter: brightness(1.06); }
+.btn-next { background: rgba(255,255,255,0.1); color: #efe8fb; border-color: rgba(255,255,255,0.18); }
+.btn-next:hover { background: rgba(255,255,255,0.17); }
+.grade {
+  display: flex; gap: 8px;
+  visibility: hidden; pointer-events: none;
+  opacity: 0; transition: opacity 0.16s ease-out;
+}
+.grade.on { visibility: visible; pointer-events: auto; opacity: 1; }
+.grade .btn { flex: 1 1 0; }
+.btn-got   { background: rgba(16,185,129,0.16); color: #6ee7b7; border-color: rgba(16,185,129,0.5); }
+.btn-got:hover { background: rgba(16,185,129,0.26); }
+.btn-miss  { background: rgba(240,87,107,0.14); color: #fca5b1; border-color: rgba(240,87,107,0.45); }
+.btn-miss:hover { background: rgba(240,87,107,0.24); }
+
+/* ---------- footer ---------- */
+.stats {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; font: 600 0.95rem/1.35 var(--ui);
+  color: rgba(240,234,250,0.78);
+}
+.stats b { color: #f3eefb; font-weight: 800; }
+.stats .score b.good { color: #6ee7b7; }
+.stats .score b.bad  { color: #fca5b1; }
+.linkish {
+  background: none; border: none; cursor: pointer; padding: 4px 0;
+  color: rgba(240,234,250,0.78); font: 600 0.95rem/1 var(--ui);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.linkish:hover { color: #f3eefb; }
+.legend {
+  font: 500 0.88rem/1.5 var(--ui);
+  color: rgba(240,234,250,0.74);
+  text-align: center;
+}
+.legend .flag { margin: 0 4px 0 0; }
+
+/* ============================================================
+   EDIT LIMITS — a full sheet of every number in the app. The pit
+   changes a sign more often than anyone reprints a trainer, so
+   the numbers have to be editable on the device, not in the file.
+   ============================================================ */
+.bottom-row { display: flex; justify-content: center; padding-top: 2px; }
+.edit-open {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: #ece4fb; border-radius: 999px;
+  padding: 11px 26px; cursor: pointer;
+  font: 700 0.92rem/1 var(--ui); letter-spacing: 0.04em;
+}
+.edit-open:hover { background: rgba(255,255,255,0.14); }
+
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(6,2,14,0.72);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.2s ease-out, visibility 0s linear 0.2s;
+}
+.sheet-overlay.open {
+  opacity: 1; visibility: visible;
+  transition: opacity 0.2s ease-out, visibility 0s linear 0s;
+}
+.sheet-panel {
+  width: min(620px, 100%);
+  max-height: 92dvh;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #241b3b 0%, #140e24 100%);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -18px 50px rgba(0,0,0,0.6);
+}
+.sheet-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 8px;
+}
+.sheet-bar h2 {
+  margin: 0; color: var(--gold);
+  font: 800 1rem/1.2 var(--ui);
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.sheet-x {
+  background: none; border: none; color: rgba(240,234,250,0.7);
+  font: 700 30px/1 system-ui; cursor: pointer; padding: 0 4px;
+}
+.sheet-x:hover { color: #fff; }
+.sheet-note {
+  margin: 0 18px 12px; color: rgba(240,234,250,0.68);
+  font: 500 0.86rem/1.5 var(--ui);
+}
+.ed-list { overflow-y: auto; padding: 0 18px 8px; -webkit-overflow-scrolling: touch; }
+.ed-game + .ed-game { margin-top: 20px; }
+.ed-game h3 {
+  margin: 0 0 8px; color: #f3eefb;
+  font: 700 1rem/1.2 var(--ui); letter-spacing: 0.02em;
+}
+.ed-head, .ed-row {
+  display: grid; grid-template-columns: 1fr 88px 88px;
+  gap: 8px; align-items: center;
+}
+.ed-head {
+  font: 600 0.76rem/1 var(--ui); letter-spacing: 0.1em;
+  text-transform: uppercase; color: rgba(240,234,250,0.5);
+  padding-bottom: 5px;
+}
+.ed-head span:first-child { visibility: hidden; }
+.ed-head span { text-align: center; }
+.ed-row + .ed-row { margin-top: 6px; }
+.ed-label {
+  font: 600 0.95rem/1.25 var(--ui); color: #eae3f8;
+}
+.ed-row input {
+  width: 100%; text-align: center;
+  background: rgba(0,0,0,0.34);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 9px; color: #fff;
+  font: 700 1rem/1 var(--ui);
+  padding: 11px 4px;
+  -moz-appearance: textfield;
+}
+.ed-row input::-webkit-outer-spin-button,
+.ed-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ed-row input:focus { border-color: var(--gold); outline: none; }
+.ed-row input.changed { border-color: rgba(240,180,41,0.65); color: var(--warn); }
+.sheet-foot {
+  display: flex; gap: 8px; padding: 12px 18px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255,255,255,0.09);
+}
+.sheet-foot .btn { flex: 1 1 0; padding: 15px 12px; font-size: 0.95rem; }
+.edited-tag {
+  margin-top: 14px;
+  font: 700 0.8rem/1 var(--ui); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--warn);
+}
+
+.empty {
+  text-align: center; color: rgba(240,234,250,0.6);
+  font: 600 0.85rem/1.6 var(--ui); padding: 40px 20px;
+}
+
+@media (min-width: 720px) {
+  body { padding: 18px 20px 22px; max-width: 620px; margin-inline: auto; }
+  .placard { min-height: 340px; }
+}
+/* Shorter handsets: claw back room from padding and gaps, never from
+   the type — the type getting bigger was the whole point. */
+@media (max-height: 900px) {
+  body { gap: 8px; padding-top: 6px; }
+  .face { padding: 18px 16px; }
+  #btn-reveal { padding: 17px 18px; }
+  .bottom-row { padding-top: 0; }
+  .btn { padding: 14px 18px; }
+  .controls { padding: 8px; gap: 8px; }
+  .felt-area { padding: 2px 0; }
+}
+@media (max-height: 740px) {
+  .placard { min-height: 230px; }
+  .btn { padding: 12px 16px; }
+  .actions { gap: 6px; }
+  .title small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .placard { transition: none; }
+}
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="../">&larr; Back</a>
+  <h1 class="title">Table Limits<small>Minimums &amp; maximums, by game</small></h1>
+</div>
+
+<div class="controls">
+  <div class="chips" id="game-chips"></div>
+  <div class="toggles">
+    <div class="seg" id="seg-mode">
+      <button data-mode="bet"  class="on">One bet</button>
+      <button data-mode="card">Whole card</button>
+    </div>
+    <div class="seg" id="seg-order">
+      <button data-order="seq" class="on">In order</button>
+      <button data-order="random">Shuffle</button>
+    </div>
+  </div>
+</div>
+
+<div class="felt-area">
+  <div class="placard" id="placard">
+    <div class="face front" id="face-front"></div>
+    <div class="face back"  id="face-back"></div>
+    <div class="face measure" id="face-measure" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-reveal" id="btn-reveal" type="button">Reveal</button>
+  <div class="grade" id="grade">
+    <button class="btn btn-got"  id="btn-got"  type="button">Got it</button>
+    <button class="btn btn-miss" id="btn-miss" type="button">Missed it</button>
+  </div>
+</div>
+
+<div class="stats">
+  <span class="pos" id="pos"></span>
+  <span class="score" id="score"></span>
+  <button class="linkish" id="btn-reset" type="button">Reset score</button>
+</div>
+<p class="legend" id="legend"></p>
+<div class="bottom-row">
+  <button class="edit-open" id="btn-edit" type="button">Edit limits</button>
+</div>
+
+<div class="sheet-overlay" id="editor" aria-hidden="true">
+  <div class="sheet-panel" role="dialog" aria-labelledby="editor-title">
+    <div class="sheet-bar">
+      <h2 id="editor-title">Edit limits</h2>
+      <button class="sheet-x" id="btn-edit-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="sheet-note">Saves as you type, on this device only. An asterisk marks anything you've changed, and changing a number clears its amber flag.</p>
+    <div class="ed-list" id="ed-list"></div>
+    <div class="sheet-foot">
+      <button class="btn btn-next"   id="btn-restore"   type="button">Restore defaults</button>
+      <button class="btn btn-reveal" id="btn-edit-done" type="button">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     THE LIMITS. Edit here and nowhere else.
+
+       min / max      dollars
+       unsure: true   read off the sign but not yet confirmed on
+                      the floor — shows an amber dot until cleared
+
+     Side bets take a $1 minimum, confirmed everywhere except Pai
+     Gow. Pai Gow is the last one flagged: its sign reads
+     "PG Insurance $50 - Max", which doesn't say outright whether
+     $50 is the floor or the ceiling.
+     ============================================================ */
+  const DEFAULT_GAMES = [
+    {
+      id: 'shoe-bj',
+      name: '6 Deck Shoe BJ',
+      main: { min: 15, max: 500 },
+      sides: [
+        { name: '21+3',       min: 1, max: 100 },
+        { name: 'Bust Bonus', min: 1, max: 100 },
+      ],
+    },
+    {
+      id: 'pitch-bj',
+      name: 'Pitch Blackjack',
+      main: { min: 25, max: 1000 },
+      sides: [
+        { name: '21+3',       min: 1, max: 300 },
+        { name: 'Bust Bonus', min: 1, max: 300 },
+      ],
+    },
+    {
+      id: 'heads-up',
+      name: "Heads Up Hold'em",
+      main: { min: 10, max: 150 },
+      sides: [
+        { name: 'Trips',        min: 1, max: 100 },
+        { name: 'Pocket Bonus', min: 1, max: 100 },
+      ],
+    },
+    {
+      id: 'baccarat',
+      name: 'Baccarat',
+      main: { min: 50, max: 3000 },
+      sides: [
+        { name: '9/7',      min: 1, max: 50  },
+        { name: '8/6',      min: 1, max: 300 },
+        { name: 'Jin Chan', min: 1, max: 300 },
+        { name: 'Koi',      min: 1, max: 300 },
+        { name: 'Tie',      min: 1, max: 500 },
+      ],
+    },
+    {
+      id: 'three-card-prime',
+      name: '3 Card Prime',
+      main: { min: 10, max: 500 },
+      sides: [
+        { name: 'Pair Plus',    min: 1, max: 500 },
+        { name: 'Prime & All 6', min: 1, max: 100 },
+      ],
+    },
+    {
+      id: 'pai-gow',
+      name: 'Pai Gow Poker',
+      main: { min: 10, max: 500 },
+      sides: [
+        { name: 'PG Insurance',        min: 1, max: 50, unsure: true },
+        { name: "Emperor's Treasurer", min: 1, max: 50, unsure: true },
+      ],
+    },
+  ];
+
+  /* ============================================================
+     Live table = the printed defaults with the user's edits laid
+     over the top. Edits are keyed the same way flash cards are
+     ("shoe-bj:main", "baccarat:Koi") and live in localStorage.
+     ============================================================ */
+  let GAMES = [];
+  let EDITS = {};
+
+  function applyEdits() {
+    GAMES = DEFAULT_GAMES.map(g => {
+      const merge = (keyName, base) => {
+        const e = EDITS[g.id + ':' + keyName];
+        return {
+          min: e && typeof e.min === 'number' ? e.min : base.min,
+          max: e && typeof e.max === 'number' ? e.max : base.max,
+          /* Editing a number means you looked it up, so the
+             unconfirmed flag comes off with it. */
+          unsure: e ? false : !!base.unsure,
+          edited: !!e,
+        };
+      };
+      return {
+        id: g.id,
+        name: g.name,
+        main: merge('main', g.main),
+        sides: g.sides.map(s => Object.assign({ name: s.name }, merge(s.name, s))),
+      };
+    });
+  }
+
+  /* ============================================================
+     Deck building
+     ============================================================ */
+  const money = (n) => '$' + n.toLocaleString('en-US');
+
+  /* One card per bet, in the order the sign lists them: main bet
+     first, then side bets top to bottom. */
+  function betCards(g) {
+    const out = [{
+      key: g.id + ':main', gameId: g.id, game: g.name,
+      bet: 'Main bet', min: g.main.min, max: g.main.max,
+      unsure: !!g.main.unsure, edited: !!g.main.edited,
+    }];
+    for (const s of g.sides) {
+      out.push({
+        key: g.id + ':' + s.name, gameId: g.id, game: g.name,
+        bet: s.name, min: s.min, max: s.max,
+        unsure: !!s.unsure, edited: !!s.edited,
+      });
+    }
+    return out;
+  }
+  function cardCards(g) {
+    return [{ key: g.id + ':sheet', gameId: g.id, game: g.name, sheet: g }];
+  }
+
+  function buildDeck(gameId, mode) {
+    const pool = gameId === 'all' ? GAMES : GAMES.filter(g => g.id === gameId);
+    const make = mode === 'card' ? cardCards : betCards;
+    return pool.reduce((acc, g) => acc.concat(make(g)), []);
+  }
+
+  /* ============================================================
+     State — settings and per-card weights survive a reload, so
+     picking the app back up mid-shift resumes where it was.
+     ============================================================ */
+  const STORE = 'table-limits-v2';
+  const DEFAULTS = { gameId: 'all', mode: 'bet', order: 'seq' };
+  let PREFS = { ...DEFAULTS };
+  /* weight 1 = known, 4 = missed last time. Shuffle mode draws
+     against these, so a missed card comes back around sooner. */
+  let WEIGHTS = {};
+  let SCORE = { got: 0, missed: 0 };
+
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({ prefs: PREFS, weights: WEIGHTS, score: SCORE, edits: EDITS }));
+    } catch (e) { /* private mode — settings just won't persist */ }
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (p.prefs)   PREFS   = { ...DEFAULTS, ...p.prefs };
+      if (p.weights) WEIGHTS = p.weights;
+      if (p.score)   SCORE   = { got: p.score.got | 0, missed: p.score.missed | 0 };
+      if (p.edits && typeof p.edits === 'object') EDITS = p.edits;
+    } catch (e) { /* corrupt or unavailable — fall back to defaults */ }
+  }
+
+  let deck = [];
+  let seqIdx = 0;
+  let current = null;
+  let revealed = false;
+
+  /* ============================================================
+     Elements
+     ============================================================ */
+  const $chips   = document.getElementById('game-chips');
+  const $placard = document.getElementById('placard');
+  const $front   = document.getElementById('face-front');
+  const $back    = document.getElementById('face-back');
+  const $measure = document.getElementById('face-measure');
+  const $reveal  = document.getElementById('btn-reveal');
+  const $grade   = document.getElementById('grade');
+  const $pos     = document.getElementById('pos');
+  const $score   = document.getElementById('score');
+  const $legend  = document.getElementById('legend');
+
+  /* ============================================================
+     Rendering
+     ============================================================ */
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function renderChips() {
+    const all = [{ id: 'all', name: 'All games' }].concat(GAMES);
+    $chips.innerHTML = all.map(g =>
+      '<button class="chip' + (PREFS.gameId === g.id ? ' on' : '') +
+      '" data-game="' + g.id + '" type="button">' + esc(g.name) + '</button>'
+    ).join('');
+  }
+
+  function renderSeg(id, key) {
+    const attr = id === 'seg-mode' ? 'mode' : 'order';
+    document.querySelectorAll('#' + id + ' button').forEach(b => {
+      b.classList.toggle('on', b.dataset[attr] === PREFS[key]);
+    });
+  }
+
+  function frontHTML(c) {
+    if (c.sheet) {
+      return '<div class="card-eyebrow">Whole card</div>' +
+             '<div class="game-name">' + esc(c.game) + '</div>' +
+             '<div class="bet-name"><span class="qmark">?</span></div>';
+    }
+    return '<div class="card-eyebrow">' + esc(c.game) + '</div>' +
+           '<div class="game-name">' + esc(c.bet) + '</div>' +
+           '<div class="bet-name"><span class="qmark">?</span></div>';
+  }
+
+  function backHTML(c) {
+    if (c.sheet) {
+      const g = c.sheet;
+      const sides = g.sides.map(s =>
+        '<div><span class="nm">' + esc(s.name) + '</span> &nbsp;' +
+        money(s.min) + ' &ndash; ' + money(s.max) +
+        (s.edited ? '<span class="star">*</span>' : '') +
+        (s.unsure ? '<span class="flag" title="Not yet confirmed"></span>' : '') +
+        '</div>'
+      ).join('');
+      const touched = g.main.edited || g.sides.some(s => s.edited);
+      return '<div class="sheet">' +
+        '<div class="game-name">' + esc(g.name) + '</div>' +
+        '<div class="sheet-head"><span>Min</span><span>Max</span></div>' +
+        '<div class="sheet-main">' + money(g.main.min) + ' &ndash; ' + money(g.main.max) +
+          (g.main.edited ? '<span class="star">*</span>' : '') + '</div>' +
+        '<div class="sheet-side">' + sides + '</div>' +
+        (touched ? '<div class="edited-tag">Edited</div>' : '') +
+      '</div>';
+    }
+    return '<div class="card-eyebrow">' + esc(c.game) + ' &middot; ' + esc(c.bet) + '</div>' +
+      '<div class="minmax-head"><span>Min</span><span>Max</span></div>' +
+      '<div class="minmax">' + money(c.min) + '<span class="dash">&ndash;</span>' + money(c.max) +
+        (c.edited ? '<span class="star">*</span>' : '') + '</div>' +
+      (c.unsure ? '<div class="answer-note"><span class="flag"></span>Not yet confirmed</div>' : '') +
+      (c.edited ? '<div class="edited-tag">Edited</div>' : '');
+  }
+
+  /* Lock the placard to the tallest front or back in the current deck,
+     so drawing a new card never moves anything on the page. */
+  function sizePlacard() {
+    if (!deck.length) { $placard.style.height = ''; return; }
+    $placard.style.height = 'auto';
+    let tallest = 0;
+    for (const c of deck) {
+      $measure.innerHTML = frontHTML(c);
+      tallest = Math.max(tallest, $measure.offsetHeight);
+      $measure.innerHTML = backHTML(c);
+      tallest = Math.max(tallest, $measure.offsetHeight);
+    }
+    $measure.innerHTML = '';
+    $placard.style.height = Math.ceil(tallest) + 'px';
+  }
+
+  /* Flip duration read straight off the stylesheet, so the two can't
+     drift apart — and it lands on 0 under prefers-reduced-motion,
+     where the card doesn't turn at all. */
+  const FLIP_MS = Math.round((parseFloat(getComputedStyle($placard).transitionDuration) || 0) * 1000);
+  let backTimer = null;
+
+  function renderFront() {
+    $front.innerHTML = current
+      ? frontHTML(current)
+      : '<div class="empty">No bets in this selection.</div>';
+  }
+  /* Writing the answer onto the back face is deferred while the card is
+     turning face-down, otherwise the next question's answer sweeps past
+     in the first half of the rotation and gives itself away. The old
+     answer rides the card down, the way the real one would, and the
+     swap happens once the card is face-up again. */
+  function renderBack() {
+    if (backTimer) { clearTimeout(backTimer); backTimer = null; }
+    $back.innerHTML = current ? backHTML(current) : '';
+  }
+  function renderBackAfterFlip() {
+    if (backTimer) clearTimeout(backTimer);
+    if (!FLIP_MS) { renderBack(); return; }
+    backTimer = setTimeout(renderBack, FLIP_MS);
+  }
+  function renderCard() { renderFront(); renderBack(); }
+
+  function renderFooter() {
+    const total = deck.length;
+    if (PREFS.order === 'seq' && total) {
+      $pos.innerHTML = 'Card <b>' + (seqIdx + 1) + '</b> of <b>' + total + '</b>';
+    } else {
+      $pos.innerHTML = '<b>' + total + '</b> card' + (total === 1 ? '' : 's') + ' in the deck';
+    }
+    const seen = SCORE.got + SCORE.missed;
+    $score.innerHTML = seen
+      ? '<b class="good">' + SCORE.got + '</b> got &middot; <b class="bad">' + SCORE.missed + '</b> missed'
+      : 'No answers yet';
+
+    const unsureCount = deck.filter(c => c.sheet
+      ? (c.sheet.main.unsure || c.sheet.sides.some(s => s.unsure))
+      : c.unsure).length;
+    $legend.innerHTML = unsureCount
+      ? '<span class="flag"></span>Not yet confirmed'
+      : '';
+  }
+
+  function renderAll() {
+    renderChips();
+    renderSeg('seg-mode', 'mode');
+    renderSeg('seg-order', 'order');
+    renderCard();
+    renderFooter();
+  }
+
+  /* ============================================================
+     Drawing cards
+     ============================================================ */
+  function weightOf(c) {
+    const w = WEIGHTS[c.key];
+    return (typeof w === 'number' && w > 0) ? w : 1;
+  }
+
+  function drawNext() {
+    const wasFlipped = $placard.classList.contains('flipped');
+    revealed = false;
+    $placard.classList.remove('flipped');
+    $grade.classList.remove('on');
+    $reveal.textContent = 'Reveal';
+    $reveal.className = 'btn btn-reveal';
+
+    if (!deck.length) { current = null; renderCard(); renderFooter(); return; }
+
+    if (PREFS.order === 'seq') {
+      current = deck[seqIdx % deck.length];
+    } else {
+      /* Weighted draw, and never the same card twice running when
+         there's more than one to choose from. */
+      const pool = deck.length > 1 && current
+        ? deck.filter(c => c.key !== current.key)
+        : deck.slice();
+      let total = 0;
+      for (const c of pool) total += weightOf(c);
+      let roll = Math.random() * total;
+      current = pool[pool.length - 1];
+      for (const c of pool) {
+        roll -= weightOf(c);
+        if (roll <= 0) { current = c; break; }
+      }
+    }
+    /* The front is facing away right now, so it can be swapped on the
+       spot; the back has to wait for the turn to finish. */
+    renderFront();
+    if (wasFlipped) renderBackAfterFlip(); else renderBack();
+    renderFooter();
+  }
+
+  function reveal() {
+    if (!current || revealed) return;
+    /* Guard against a fast Next → Reveal: make sure the answer on the
+       back is this card's before turning it over. */
+    renderBack();
+    revealed = true;
+    $placard.classList.add('flipped');
+    $grade.classList.add('on');
+    $reveal.textContent = 'Next card';
+    $reveal.className = 'btn btn-next';
+  }
+
+  function grade(gotIt) {
+    if (!current) return;
+    WEIGHTS[current.key] = gotIt ? 1 : 4;
+    if (gotIt) SCORE.got++; else SCORE.missed++;
+    save();
+    advance();
+  }
+
+  function advance() {
+    if (PREFS.order === 'seq') seqIdx = (seqIdx + 1) % Math.max(deck.length, 1);
+    drawNext();
+  }
+
+  function rebuild(resetPos) {
+    deck = buildDeck(PREFS.gameId, PREFS.mode);
+    if (resetPos) seqIdx = 0;
+    current = null;
+    sizePlacard();
+    drawNext();
+  }
+
+  /* Type reflows on rotate and on width change, so re-measure. */
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(sizePlacard, 140);
+  });
+
+  /* ============================================================
+     The editor
+     ============================================================ */
+  const $editor = document.getElementById('editor');
+  const $edList = document.getElementById('ed-list');
+  const $restore = document.getElementById('btn-restore');
+
+  function defaultFor(gameId, keyName) {
+    const g = DEFAULT_GAMES.find(x => x.id === gameId);
+    if (!g) return null;
+    return keyName === 'main' ? g.main : g.sides.find(s => s.name === keyName);
+  }
+
+  function edRow(gameId, keyName, label, cur) {
+    const key = gameId + ':' + keyName;
+    const d = defaultFor(gameId, keyName) || { min: cur.min, max: cur.max };
+    const fld = (f) =>
+      '<input type="number" inputmode="numeric" min="0" step="1" ' +
+      'data-key="' + esc(key) + '" data-f="' + f + '" ' +
+      'class="' + (cur[f] !== d[f] ? 'changed' : '') + '" ' +
+      'value="' + cur[f] + '" aria-label="' + esc(label + ' ' + f) + '">';
+    return '<div class="ed-row">' +
+      '<span class="ed-label">' + esc(label) +
+        (cur.edited ? '<i class="star">*</i>' : '') + '</span>' +
+      fld('min') + fld('max') +
+    '</div>';
+  }
+
+  function renderEditor() {
+    $edList.innerHTML = GAMES.map(g =>
+      '<div class="ed-game"><h3>' + esc(g.name) + '</h3>' +
+      '<div class="ed-head"><span>Bet</span><span>Min</span><span>Max</span></div>' +
+      edRow(g.id, 'main', 'Main bet', g.main) +
+      g.sides.map(s => edRow(g.id, s.name, s.name, s)).join('') +
+      '</div>'
+    ).join('');
+  }
+
+  /* Rebuild the deck around an edit without losing your place. */
+  function refreshAfterEdit() {
+    applyEdits();
+    const keepKey = current && current.key;
+    deck = buildDeck(PREFS.gameId, PREFS.mode);
+    sizePlacard();
+    const again = keepKey && deck.find(c => c.key === keepKey);
+    if (again) {
+      current = again;
+      renderFront();
+      renderBack();
+    } else {
+      current = null;
+      drawNext();
+    }
+    renderFooter();
+  }
+
+  $edList.addEventListener('input', (e) => {
+    const inp = e.target.closest('input[data-key]');
+    if (!inp) return;
+    const key = inp.dataset.key;
+    const field = inp.dataset.f;
+    const [gameId, keyName] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
+    const d = defaultFor(gameId, keyName);
+    if (!d) return;
+
+    const raw = parseInt(inp.value, 10);
+    if (inp.value === '') return;                  /* mid-typing, leave it */
+    const val = isNaN(raw) || raw < 0 ? 0 : raw;
+
+    const entry = EDITS[key] || { min: d.min, max: d.max };
+    entry[field] = val;
+    /* Back to both printed values? Then it isn't an edit any more. */
+    if (entry.min === d.min && entry.max === d.max) delete EDITS[key];
+    else EDITS[key] = entry;
+
+    inp.classList.toggle('changed', val !== d[field]);
+    const star = inp.closest('.ed-row').querySelector('.ed-label .star');
+    const nowEdited = !!EDITS[key];
+    if (nowEdited && !star) {
+      inp.closest('.ed-row').querySelector('.ed-label').insertAdjacentHTML('beforeend', '<i class="star">*</i>');
+    } else if (!nowEdited && star) {
+      star.remove();
+    }
+    save();
+    refreshAfterEdit();
+  });
+
+  /* A blank field on blur falls back to whatever the sign says. */
+  $edList.addEventListener('blur', (e) => {
+    const inp = e.target.closest && e.target.closest('input[data-key]');
+    if (!inp || inp.value !== '') return;
+    const key = inp.dataset.key;
+    const d = defaultFor(key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1));
+    inp.value = (EDITS[key] && EDITS[key][inp.dataset.f]) != null
+      ? EDITS[key][inp.dataset.f] : (d ? d[inp.dataset.f] : 0);
+  }, true);
+
+  document.getElementById('btn-edit').addEventListener('click', () => {
+    renderEditor();
+    $editor.classList.add('open');
+  });
+  function closeEditor() {
+    $editor.classList.remove('open');
+    resetRestoreButton();
+  }
+  document.getElementById('btn-edit-close').addEventListener('click', closeEditor);
+  document.getElementById('btn-edit-done').addEventListener('click', closeEditor);
+  $editor.addEventListener('click', (e) => { if (e.target === $editor) closeEditor(); });
+
+  /* Restore is destructive and one tap from every number in the app,
+     so it asks once. */
+  let restoreArmed = false, restoreTimer = null;
+  function resetRestoreButton() {
+    restoreArmed = false;
+    clearTimeout(restoreTimer);
+    $restore.textContent = 'Restore defaults';
+    $restore.className = 'btn btn-next';
+  }
+  $restore.addEventListener('click', () => {
+    if (!restoreArmed) {
+      restoreArmed = true;
+      $restore.textContent = 'Tap again to restore';
+      $restore.className = 'btn btn-miss';
+      restoreTimer = setTimeout(resetRestoreButton, 3500);
+      return;
+    }
+    EDITS = {};
+    save();
+    resetRestoreButton();
+    refreshAfterEdit();
+    renderEditor();
+  });
+
+  /* ============================================================
+     Wiring
+     ============================================================ */
+  $chips.addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip');
+    if (!btn) return;
+    PREFS.gameId = btn.dataset.game;
+    save(); renderChips(); rebuild(true);
+  });
+
+  document.getElementById('seg-mode').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    PREFS.mode = btn.dataset.mode;
+    save(); renderSeg('seg-mode', 'mode'); rebuild(true);
+  });
+
+  document.getElementById('seg-order').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    PREFS.order = btn.dataset.order;
+    save(); renderSeg('seg-order', 'order'); rebuild(true);
+  });
+
+  $reveal.addEventListener('click', () => { revealed ? advance() : reveal(); });
+  document.getElementById('btn-got').addEventListener('click',  () => grade(true));
+  document.getElementById('btn-miss').addEventListener('click', () => grade(false));
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    SCORE = { got: 0, missed: 0 };
+    WEIGHTS = {};
+    save(); renderFooter();
+  });
+
+  /* Space or Enter drives the whole drill one-handed; 1 and 2
+     grade it once the answer is up. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $editor.classList.contains('open')) { closeEditor(); return; }
+    if ($editor.classList.contains('open')) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      revealed ? advance() : reveal();
+    } else if (revealed && (e.key === '1' || e.key.toLowerCase() === 'g')) {
+      grade(true);
+    } else if (revealed && (e.key === '2' || e.key.toLowerCase() === 'm')) {
+      grade(false);
+    }
+  });
+
+  /* Tapping the placard itself reveals — it's the biggest target
+     on the screen and the most obvious thing to touch. */
+  $placard.addEventListener('click', () => { if (!revealed) reveal(); });
+
+  load();
+  applyEdits();
+  renderAll();
+  rebuild(true);
+})();
+</script>
+</body>
+</html>
