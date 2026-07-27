@@ -96,13 +96,13 @@ body {
   padding: 10px;
   display: flex; flex-direction: column; gap: 10px;
 }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .chip {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.13);
   color: #e6dcf7;
   border-radius: 999px;
-  padding: 7px 13px;
+  padding: 6px 12px;
   font: 600 0.96rem/1 var(--ui);
   cursor: pointer;
   transition: background 0.13s, border-color 0.13s, color 0.13s;
@@ -138,19 +138,19 @@ body {
   flex: 1 1 auto;
   display: flex; align-items: center; justify-content: center;
   padding: 2px 0;
-  perspective: 1400px;
 }
 .placard {
   position: relative;
   width: min(380px, 100%);
   min-height: 300px;
-  transform-style: preserve-3d;
-  transition: transform 0.55s cubic-bezier(0.3, 0.9, 0.3, 1);
 }
-.placard.flipped { transform: rotateY(180deg); }
+/* No turn — the answer just comes up in place. The two faces are
+   stacked and swapped; the short fade is there so the change doesn't
+   snap, not to animate anything. */
 .face {
   position: absolute; inset: 0;
-  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.13s ease-out, visibility 0s linear 0.13s;
   background: linear-gradient(168deg, var(--card-top) 0%, var(--card) 58%, var(--card-foot) 100%);
   border: 1px solid var(--card-edge);
   border-radius: 5px;
@@ -164,7 +164,9 @@ body {
   align-items: center; justify-content: center;
   text-align: center;
 }
-.face.back { transform: rotateY(180deg); }
+.face.front { opacity: 1; visibility: visible; transition-delay: 0s, 0s; }
+.placard.flipped .face.front { opacity: 0; visibility: hidden; transition-delay: 0s, 0.13s; }
+.placard.flipped .face.back  { opacity: 1; visibility: visible; transition-delay: 0s, 0s; }
 /* Off-screen twin used to size the placard to its tallest card. A
    Baccarat sheet has five side bets and a Pai Gow sheet has two; if
    the card resized per question the whole page would jump between
@@ -172,7 +174,7 @@ body {
 .face.measure {
   inset: 0 0 auto 0; height: auto;
   visibility: hidden; pointer-events: none;
-  backface-visibility: visible; -webkit-backface-visibility: visible;
+  opacity: 0; transition: none;
   box-shadow: none; z-index: -1;
 }
 
@@ -231,7 +233,7 @@ body {
   margin-bottom: 10px;
 }
 .sheet-side {
-  font: 400 clamp(19px, 5.6vw, 23px)/1.45 var(--face);
+  font: 400 clamp(19px, 5.6vw, 23px)/1.38 var(--face);
   font-variant-numeric: tabular-nums;
   color: var(--ink-mid);
 }
@@ -428,7 +430,7 @@ body {
   .title small { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .placard { transition: none; }
+  .face { transition: none; }
 }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 </style>
@@ -444,8 +446,8 @@ body {
   <div class="chips" id="game-chips"></div>
   <div class="toggles">
     <div class="seg" id="seg-mode">
-      <button data-mode="bet"  class="on">One bet</button>
-      <button data-mode="card">Whole card</button>
+      <button data-mode="card" class="on">Whole card</button>
+      <button data-mode="bet">One bet</button>
     </div>
     <div class="seg" id="seg-order">
       <button data-order="seq" class="on">In order</button>
@@ -638,7 +640,7 @@ body {
      picking the app back up mid-shift resumes where it was.
      ============================================================ */
   const STORE = 'table-limits-v2';
-  const DEFAULTS = { gameId: 'all', mode: 'bet', order: 'seq' };
+  const DEFAULTS = { gameId: 'all', mode: 'card', order: 'seq' };
   let PREFS = { ...DEFAULTS };
   /* weight 1 = known, 4 = missed last time. Shuffle mode draws
      against these, so a missed card comes back around sooner. */
@@ -756,10 +758,9 @@ body {
     $placard.style.height = Math.ceil(tallest) + 'px';
   }
 
-  /* Flip duration read straight off the stylesheet, so the two can't
-     drift apart — and it lands on 0 under prefers-reduced-motion,
-     where the card doesn't turn at all. */
-  const FLIP_MS = Math.round((parseFloat(getComputedStyle($placard).transitionDuration) || 0) * 1000);
+  /* Fade duration read straight off the stylesheet, so the two can't
+     drift apart — and it lands on 0 under prefers-reduced-motion. */
+  const FLIP_MS = Math.round((parseFloat(getComputedStyle($front).transitionDuration) || 0) * 1000);
   let backTimer = null;
 
   function renderFront() {
@@ -767,11 +768,9 @@ body {
       ? frontHTML(current)
       : '<div class="empty">No bets in this selection.</div>';
   }
-  /* Writing the answer onto the back face is deferred while the card is
-     turning face-down, otherwise the next question's answer sweeps past
-     in the first half of the rotation and gives itself away. The old
-     answer rides the card down, the way the real one would, and the
-     swap happens once the card is face-up again. */
+  /* Writing the answer onto the back face is deferred until it has
+     finished fading out, otherwise the next question's answer shows
+     through the tail of the fade and gives itself away. */
   function renderBack() {
     if (backTimer) { clearTimeout(backTimer); backTimer = null; }
     $back.innerHTML = current ? backHTML(current) : '';
