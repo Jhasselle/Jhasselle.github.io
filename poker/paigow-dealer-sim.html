@@ -118,18 +118,18 @@ a.home-btn::before {
 .bets-row {
   display: flex; flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   /* Isolated stacking context so settlement halos at z-index: -1 sit
      behind every bet circle in this row (any row), not just their own. */
   isolation: isolate;
 }
 .bets-row .brow {
-  display: flex; gap: 8px; justify-content: center; align-items: center;
+  display: flex; gap: 16px; justify-content: center; align-items: center;
 }
 /* Bet amount label sits ABOVE the chip stack, just outside the circle. */
 .bet {
   position: relative;
-  width: 54px; height: 54px;
+  width: 62px; height: 62px;
   border-radius: 50%;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -230,7 +230,7 @@ a.home-btn::before {
   transform: translateX(-50%);
   /* Match the dealer rack column width (64px) so the wager cheques
      are the same physical size as the chips in the rack. Slightly
-     overflows the 54px bet circle, which is OK and reads as a real
+     overflows the 62px bet circle, which is OK and reads as a real
      stack sitting on top of the bet. */
   width: 64px; height: 1px;
   pointer-events: none;
@@ -1499,7 +1499,9 @@ function evalFive(cards) {
     const u = [...new Set(arr)].sort((a, b) => a - b);
     const all = new Set(u);
     if (u.includes(14)) all.add(1);
-    for (let lo = 1; lo <= 10; lo++) {
+    /* Scan HIGH to low so a joker-completed hand reports its highest
+       straight (6-7-8-9+JKR is a 10-high straight, not 9-high). */
+    for (let lo = 10; lo >= 1; lo--) {
       const need = [lo, lo + 1, lo + 2, lo + 3, lo + 4];
       let miss = 0;
       for (const n of need) if (!all.has(n)) miss++;
@@ -1586,9 +1588,14 @@ function houseWay(cards) {
   const joker = sorted.find(c => c.joker) || null;
   const realAces = real.filter(c => c.rank === 'A');
   function build(back, front, reason) { return { back, front, reason }; }
+  /* FIVE ACES — handled first so the joker-as-Ace grouping below doesn't
+     mask the special case. */
   if (joker && realAces.length === 4) {
     const aaaa = realAces;
     const others = sorted.filter(c => c.rank !== 'A' && !c.joker);
+    /* User rule: only keep five aces together if there is a pair of Kings
+       (or better, e.g. AAA where impossible here) to use in the low hand.
+       Otherwise split AAA back + AA front. */
     const byRankReal = {};
     for (const c of real) (byRankReal[c.rank] = byRankReal[c.rank] || []).push(c);
     const realPairs = Object.values(byRankReal)
@@ -1596,10 +1603,17 @@ function houseWay(cards) {
       .sort((a, b) => rankVal(b[0].rank) - rankVal(a[0].rank));
     const kingsOrBetter = realPairs.find(p => rankVal(p[0].rank) >= 13);
     if (kingsOrBetter) {
-      return build([...aaaa, joker], kingsOrBetter, '');
+      return build([...aaaa, joker], kingsOrBetter,
+        'Five Aces with a pair of Kings: keep AAAAA in back, KK in front.');
     }
-    return build([aaaa[0], aaaa[1], aaaa[2], ...others.slice(0, 2)], [aaaa[3], joker], '');
+    return build(
+      [aaaa[0], aaaa[1], aaaa[2], ...others.slice(0, 2)],
+      [aaaa[3], joker],
+      'Five Aces (no KK to use in low hand): split — AAA in back, AA in front.');
   }
+  /* For pair/trip/quad detection, joker plays as an Ace (Vegas rule).
+     Note: the joker is still tracked separately so it can be assigned to a
+     specific slot, but it counts in the Ace group for grouping decisions. */
   const byRank = {};
   for (const c of real) (byRank[c.rank] = byRank[c.rank] || []).push(c);
   if (joker) (byRank['A'] = byRank['A'] || []).push(joker);
@@ -1609,156 +1623,308 @@ function houseWay(cards) {
   const trips = groups.filter(g => g.length === 3);
   const quads = groups.filter(g => g.length === 4);
   if (quads.length === 1) {
-    const q = quads[0]; const qv = rankVal(q[0].rank);
+    const q = quads[0];
+    const qv = rankVal(q[0].rank);
     const others = sorted.filter(c => !q.includes(c));
-    if (qv <= 5) return build([...q, others[others.length - 1]], others.slice(0, 2), '');
-    return build([q[0], q[1], ...others.slice(0, 3)], [q[2], q[3]], '');
+
+    /* When the quads contain the joker (ace quads = 3 real aces + JKR),
+       any split sends the two REAL aces to the front and keeps the joker
+       in the BACK, choosing the real-ace partner that maximizes the back.
+       The front pair ranks the same either way, but in the back the
+       joker is wild for straights/flushes — e.g. AAA+JKR + K Q 10 makes
+       back A-JKR-K-Q-10, an Ace-high straight. */
+    function splitQuadPlay(backFixed, reason) {
+      if (q.some(c => c.joker)) {
+        const realQ = q.filter(c => !c.joker);
+        const jk = q.find(c => c.joker);
+        let best = null;
+        for (const a of realQ) {
+          const back = [a, jk, ...backFixed];
+          const e = evalFive(back);
+          if (!best || compare(e, best.e) > 0) {
+            best = { back, front: realQ.filter(x => x !== a), e };
+          }
+        }
+        return build(best.back, best.front, reason);
+      }
+      return build([q[2], q[3], ...backFixed], [q[0], q[1]], reason);
+    }
+
+    /* Quads + external pair OR trips: treat as THREE pairs (the quads
+       split into two pairs of the same rank, plus the external pair).
+       A trips group alongside quads (7777+KKK, or quads + AA+JKR where
+       the joker makes the aces a trips group) contributes its top two
+       cards as the external pair and its third card as the singleton.
+       Ace groups list real aces before the joker, so the front pair
+       prefers real cards. Highest of the three pairs goes to the front;
+       the other two pairs + the singleton stay in the back. */
+    const pairGroup = groups.find(g => g !== q && g.length >= 2) || null;
+    if (pairGroup) {
+      const p = pairGroup.slice(0, 2);
+      const pv = rankVal(p[0].rank);
+      const singleton = sorted.filter(c => !q.includes(c) && !p.includes(c));
+      if (pv > qv) {
+        /* External pair beats the quads rank → keep all 4 quads in the
+           back (they're a 4-of-a-kind back); external pair to front. */
+        return build([...q, ...singleton], [...p],
+          'Quads + higher pair (three-pair rule): play the higher pair (' +
+          p[0].rank + p[0].rank + ') in the front; keep four ' +
+          q[0].rank + 's together in the back.');
+      }
+      /* Quads rank is higher → split the quads. One pair of the quads
+         goes to the front; the other pair joins the external pair +
+         singleton in the back. */
+      return splitQuadPlay([...p, ...singleton],
+        'Quads + lower pair (three-pair rule): split the quads — pair of ' +
+        q[0].rank + 's to the front (highest pair); other pair of ' +
+        q[0].rank + 's + ' + p[0].rank + p[0].rank + ' + ' +
+        singleton[0].rank + ' to the back.');
+    }
+
+    if (qv <= 5) {
+      /* Keep quads together. Lowest non-quad fills the 5th back slot;
+         the two highest go to the front for the best low hand. */
+      return build([...q, others[others.length - 1]], others.slice(0, 2),
+        'Low four-of-a-kind (2-5): keep together in back; two highest others in front.');
+    }
+    // 6 and above: always split — pair in front, pair + 3 highest in back
+    return splitQuadPlay(others.slice(0, 3),
+      'Four ' + q[0].rank + 's (6 or higher): split — pair in front, pair + 3 high in back.');
   }
-  if (trips.length === 1 && pairs.length >= 1) {
+  /* Trips + pair (full-house family). SKIPPED when a straight flush /
+     royal exists — house way starts with the highest 5-card hand, so a
+     straight flush beats splitting the full house. Those hands fall
+     through to the SF logic below. (Plain flushes/straights can't
+     coexist with a real full house in 7 cards, so this guard only
+     matters for joker hands like AKJT-suited + JKR + A + J.) */
+  if (trips.length === 1 && pairs.length >= 1 && allStraightFlushes(cards).length === 0) {
     const t = trips[0];
     const tIsAces = t[0].rank === 'A';
+    // Trip aces + 2 pair → split aces: AA front, 1 ace + both pairs back
     if (tIsAces && pairs.length >= 2) {
       const p1 = pairs[0], p2 = pairs[1];
-      return build([t[0], ...p1, ...p2], [t[1], t[2]], '');
+      return build([t[0], ...p1, ...p2], [t[1], t[2]],
+        'Trip aces + two pair: split aces — AA to front, 1 ace + both pairs to back.');
     }
+    // Full house of 2s and 3s (only) with an ace: keep full house together,
+    // play ace + remaining in the front. Triggers for 222+33 or 333+22.
     if (pairs.length === 1) {
       const p = pairs[0];
-      const tv = rankVal(t[0].rank); const pv = rankVal(p[0].rank);
+      const tv = rankVal(t[0].rank);
+      const pv = rankVal(p[0].rank);
       const lowOnly = (tv === 2 || tv === 3) && (pv === 2 || pv === 3) && tv !== pv;
       const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
       const ace = others.find(c => c.rank === 'A' || c.joker);
       if (lowOnly && ace) {
         const otherNonAce = others.find(c => c !== ace);
-        return build([...t, ...p], [ace, otherNonAce], '');
+        return build([...t, ...p], [ace, otherNonAce],
+          'Full house of 2s and 3s with an ace: keep full house together; ace + remaining to front.');
       }
     }
-    const p = pairs[0];
+    // Trips + Two Pair (non-ace trips): trips + LOWER pair → back as full house,
+    // highest pair → front. Trips + just one pair = same code path.
+    const p = pairs[0];  // highest pair → front
     const others = sorted.filter(c => !t.includes(c) && !p.includes(c));
-    return build([...t, ...others.slice(0, 2)], p, '');
+    return build([...t, ...others.slice(0, 2)], p,
+      pairs.length >= 2
+        ? 'Trips + two pair: play the highest pair in the low hand; lower pair joins trips in back as full house.'
+        : 'Full house: trips in back, pair in front.');
   }
   if (trips.length === 2) {
     const hi = trips[0], lo = trips[1];
     const other = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
-    return build([...lo, hi[0], other[0]], [hi[1], hi[2]], '');
+    return build([...lo, hi[0], other[0]], [hi[1], hi[2]],
+      'Two trips: lower trip stays as back, higher trip becomes front pair.');
   }
+  /* THREE PAIR — checked BEFORE the straight/flush and two-pair break
+     rules. A joker+Ace pair counts as one of the three pairs. Highest
+     pair plays in the front; the other two pairs stay in back — even if
+     a straight or flush is available (it gets broken). Per the casino
+     doc this rule does NOT apply to straight flushes: three REAL pairs
+     can't coexist with an SF in 7 cards, but a joker-fake third pair
+     can (e.g. A♥K♥J♥10♥ + JKR + J♦10♦ — the joker is both the royal's
+     Q and the ace's "pair"). So skip when any SF exists and let the
+     SF/royal logic below decide. */
+  if (pairs.length === 3 && allStraightFlushes(cards).length === 0) {
+    const [hi, mid, lo] = pairs;
+    const other = sorted.filter(c => !hi.includes(c) && !mid.includes(c) && !lo.includes(c));
+    return build([...mid, ...lo, other[0]], hi,
+      'Three pair: highest pair to front; lower two pairs in back with the lone card.');
+  }
+  /* Two-pair break rules, in priority order:
+     Rule 1: TWO PAIRS BOTH 6+ — applies to all three (SF/flush/straight).
+     Rule 2: AA + ANY OTHER PAIR — applies ONLY to flushes and straights
+             (NOT to straight flushes / royals). */
   const highPairs = pairs.filter(p => rankVal(p[0].rank) >= 6);
   const hasAcePair = pairs.some(p => p[0].rank === 'A');
   const sfPre = bestStraightFlush(cards);
   const flPre = bestFlush(cards);
   const stPre = bestStraight(cards);
+  /* NEVER break a royal flush, even for two pairs of 6+. The "AA pair" in
+     this kind of case is usually fake (joker grouped with a real ace,
+     while the joker is also needed for the royal). The two-pair break
+     still applies to SFs, regular flushes, and straights. */
   const hasRoyal = sfPre && sfPre.hi === 14;
   if (!hasRoyal && (sfPre || flPre || stPre) && highPairs.length >= 2) {
     const [hi, lo] = highPairs;
     const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
-    return build([...hi, ...others.slice(0, 3)], lo, '');
+    return build([...hi, ...others.slice(0, 3)], lo,
+      'Two pair (both 6+) with a straight/flush available: break the straight/flush, play two pair.');
   }
   if (!sfPre && (flPre || stPre) && pairs.length >= 2 && hasAcePair) {
     const hi = pairs.find(p => p[0].rank === 'A');
     const lo = pairs.find(p => p !== hi);
     const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
-    return build([...hi, ...others.slice(0, 3)], lo, '');
+    return build([...hi, ...others.slice(0, 3)], lo,
+      'Two pair including aces with a straight/flush available: break the straight/flush, play two pair.');
   }
+  /* Helper — score a 2-card front-hand for "give higher low hand" comparisons */
   function frontScore(twoCards) {
     const e = evalTwo(twoCards);
+    // pair beats any high-card combo
     return e.cat * 1000 + (e.key[0] || 0) * 20 + (e.key[1] || 0);
   }
+  /* Pick the best of {straight-flush, flush, straight}, preferring whichever
+     gives the HIGHEST low (front) hand. Royal flush breaks for any pair. */
   let bestPlay = null;
-  function consider(fiveCards) {
+  function consider(fiveCards, label) {
     if (!fiveCards) return;
     const rest = cards.filter(c => !fiveCards.includes(c));
     rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
     const rp = findPair(rest);
     const front = rp || rest.slice(0, 2);
     const score = frontScore(front);
-    if (!bestPlay || score > bestPlay.score) bestPlay = { back: fiveCards, front, score };
+    if (!bestPlay || score > bestPlay.score) {
+      bestPlay = {
+        back: fiveCards, front, score,
+        reason: rp ? (label + ' in back, pair in front.')
+                   : (label + ' in back, two highest others in front.')
+      };
+    }
   }
+  /* Enumerate every possible back-hand category and let consider() pick
+     the variant that leaves the best low (front) hand. Within each level
+     (SF/royal vs flush vs straight) we keep the existing precedence: a
+     higher-category back always wins unless the higher-category variants
+     all give a worse front than a "break". The break-for-pair logic is
+     still applied here by iterating non-SF alternatives when the only
+     SF variants would leave a sub-pair front (handled by the front-score
+     comparison inside consider()). */
   const sfVariants = allStraightFlushes(cards);
   if (sfVariants.length > 0) {
-    const noJokerSFs = sfVariants.filter(v => !v.cards.some(c => c.joker));
-    const pool = noJokerSFs.length > 0 ? noJokerSFs : sfVariants;
-    const maxHi = Math.max(...pool.map(v => v.hi));
-    const topSFs = pool.filter(v => v.hi === maxHi);
+    /* Consider EVERY straight-flush variant — real-card SFs and
+       joker-substitution/extension variants alike. The front-hand score
+       decides between them, so the joker stays OUT of the SF to play as
+       an Ace in the front whenever that gives a better low hand (Vegas
+       rule), and goes INTO the SF when that frees a real card for a
+       better front (the "JKR + 7♣8♣9♣10♣J♣ + 7♦" case — joker in as
+       the 7, real 7♣ pairs with 7♦ in front). Variants are sorted
+       hi-desc so equal fronts keep the HIGHER back — e.g.
+       A♦2♦3♦4♦5♦+JKR plays the joker as the 6 for a 6-high SF with the
+       real ace in front, not the joker. With a 6/7-card straight flush
+       this also "sets for the highest low hand possible". */
+    const maxHi = Math.max(...sfVariants.map(v => v.hi));
     const isRoyal = maxHi === 14;
-    for (const sf of topSFs) consider(sf.cards);
-    const sfFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
-    if (!sfFrontIsPair && noJokerSFs.length > 0) {
-      const jokerSFs = sfVariants.filter(v => v.cards.some(c => c.joker));
-      for (const sf of jokerSFs) {
-        const rest = cards.filter(c => !sf.cards.includes(c));
-        rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
-        if (findPair(rest)) consider(sf.cards);
-      }
+    const poolSorted = sfVariants.slice().sort((a, b) => b.hi - a.hi);
+    for (const sf of poolSorted) {
+      consider(sf.cards, sf.hi === 14 ? 'Royal flush' : 'Straight flush');
     }
+    /* "Keep a flush/straight over a straight flush if you have any pair
+       for the low hand" — only break if an alternative back yields an
+       actual PAIR in front. This applies to ROYALS too: the royal's only
+       break rule is downgrading to a flush/straight that puts a pair in
+       the low hand (two pair 6+ never breaks a royal — guarded above). */
     const sfFrontStillNotPair = bestPlay && evalTwo(bestPlay.front).cat < CAT.PAIR;
-    if (sfFrontStillNotPair && !isRoyal) {
-      function tryBreakAlt(altCards) {
+    if (sfFrontStillNotPair) {
+      function tryBreakAlt(altCards, label) {
         const rest = cards.filter(c => !altCards.includes(c));
         rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
-        if (findPair(rest)) consider(altCards);
+        const rp = findPair(rest);
+        if (!rp) return;  /* Only break for an actual pair in front. */
+        consider(altCards, label);
       }
-      for (const fl of allFlushes(cards)) tryBreakAlt(fl.cards);
-      for (const st of allStraights(cards)) tryBreakAlt(st.cards);
+      const broke = isRoyal ? 'royal flush' : 'straight flush';
+      for (const fl of allFlushes(cards)) {
+        tryBreakAlt(fl.cards, 'Flush (broke ' + broke + ' — pair to front)');
+      }
+      for (const st of allStraights(cards)) {
+        tryBreakAlt(st.cards, 'Straight (broke ' + broke + ' — pair to front)');
+      }
     }
   } else {
+    /* No SF available. Casino doc: "if it's a straight or a flush, play
+       the one that has the higher low hand." So consider every flush AND
+       every straight variant and let the front-hand score decide. Flushes
+       are considered first, so on an exact tie the flush (higher-ranked
+       back) is kept — the straight only wins with a strictly higher low. */
     const flVariants = allFlushes(cards);
     const stVariants = allStraights(cards);
     if (flVariants.length > 0) {
-      for (const fl of flVariants) consider(fl.cards);
-      const flushFrontIsPair = bestPlay && evalTwo(bestPlay.front).cat >= CAT.PAIR;
-      if (!flushFrontIsPair) {
-        for (const st of stVariants) {
-          const rest = cards.filter(c => !st.cards.includes(c));
-          rest.sort((a, b) => (b.joker ? 15 : rankVal(b.rank)) - (a.joker ? 15 : rankVal(a.rank)));
-          if (findPair(rest)) consider(st.cards);
-        }
+      for (const fl of flVariants) consider(fl.cards, 'Flush');
+      for (const st of stVariants) {
+        consider(st.cards, 'Straight (over flush — higher low hand)');
       }
     } else {
-      for (const st of stVariants) consider(st.cards);
+      /* No flush available — just iterate straights. */
+      for (const st of stVariants) consider(st.cards, 'Straight');
     }
   }
-  if (bestPlay) return build(bestPlay.back, bestPlay.front, '');
+  if (bestPlay) {
+    return build(bestPlay.back, bestPlay.front, bestPlay.reason);
+  }
   if (trips.length === 1) {
     const t = trips[0];
     const others = sorted.filter(c => !t.includes(c));
-    if (t[0].rank === 'A') return build([t[0], t[1], ...others.slice(1, 4)], [t[2], others[0]], '');
-    return build([...t, others[2], others[3]], [others[0], others[1]], '');
-  }
-  if (pairs.length === 3) {
-    const [hi, mid, lo] = pairs;
-    const other = sorted.filter(c => !hi.includes(c) && !mid.includes(c) && !lo.includes(c));
-    return build([...mid, ...lo, other[0]], hi, '');
+    if (t[0].rank === 'A') return build([t[0], t[1], ...others.slice(1, 4)], [t[2], others[0]],
+      'Three aces: split — AA in back, A + highest kicker in front.');
+    return build([...t, others[2], others[3]], [others[0], others[1]],
+      'Three of a kind: trips in back, two highest others in front.');
   }
   if (pairs.length === 2) {
     const [hi, lo] = pairs;
     const others = sorted.filter(c => !hi.includes(c) && !lo.includes(c));
-    const hv = rankVal(hi[0].rank); const lv = rankVal(lo[0].rank);
-    const hiIsHigh = hv >= 6; const loIsHigh = lv >= 6;
+    const hv = rankVal(hi[0].rank);
+    const lv = rankVal(lo[0].rank);
+    const hiIsHigh = hv >= 6;  // 6+ is high
+    const loIsHigh = lv >= 6;
     const hasAce = others.some(c => c.rank === 'A' || c.joker);
     const ace = hasAce ? others.find(c => c.rank === 'A' || c.joker) : null;
     const restNoAce = hasAce ? others.filter(c => c !== ace) : others;
+    // Both pairs low (2-5): keep together in back. Ace + highest non-ace to front
+    // if ace present; else two highest others to front.
     if (!hiIsHigh && !loIsHigh) {
       if (hasAce) {
+        // restNoAce has 2 cards (7 = 4 pair + 1 ace + 2 others). Highest joins ace
+        // in the front; lowest stays in the back as the 5th card.
         const naSorted = restNoAce.slice().sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
         const frontKicker = naSorted[0];
         const backKicker = naSorted[1] || naSorted[0];
-        return build([...hi, ...lo, backKicker], [ace, frontKicker], '');
+        return build([...hi, ...lo, backKicker], [ace, frontKicker],
+          'Two low pair (both ≤5) with ace: keep both pairs in back, ace high in front.');
       }
-      return build([...hi, ...lo, others[2]], [others[0], others[1]], '');
+      return build([...hi, ...lo, others[2]], [others[0], others[1]],
+        'Two low pair (both ≤5), no ace: keep both pairs in back, two highest others in front.');
     }
+    // High + Low pair with ace: keep both pairs in back, ace high in front.
     if (hiIsHigh && !loIsHigh && hasAce) {
       const naSorted = restNoAce.slice().sort((a, b) => rankVal(b.rank) - rankVal(a.rank));
       const frontKicker = naSorted[0];
       const backKicker = naSorted[1] || naSorted[0];
-      return build([...hi, ...lo, backKicker], [ace, frontKicker], '');
+      return build([...hi, ...lo, backKicker], [ace, frontKicker],
+        'High pair + low pair with ace: keep both pairs in back, ace high in front.');
     }
-    return build([...hi, ...others.slice(0, 3)], lo, '');
+    // Everything else (high+low w/o ace, high+high any): split
+    return build([...hi, ...others.slice(0, 3)], lo,
+      'Two pair: split — high pair in back, low pair in front.');
   }
   if (pairs.length === 1) {
     const p = pairs[0];
     const others = sorted.filter(c => !p.includes(c));
-    return build([...p, ...others.slice(2, 5)], others.slice(0, 2), '');
+    return build([...p, ...others.slice(2, 5)], others.slice(0, 2),
+      'One pair: pair in back, two highest other cards in front.');
   }
-  return build([sorted[0], ...sorted.slice(3)], [sorted[1], sorted[2]], '');
+  return build([sorted[0], ...sorted.slice(3)], [sorted[1], sorted[2]],
+    'No pair: highest card in back, next two highest in front.');
 }
 function bestStraightFlush(seven) {
   for (const suit of SUITS) {
