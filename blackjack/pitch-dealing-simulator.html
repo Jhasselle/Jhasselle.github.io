@@ -110,6 +110,62 @@
     height: 140px;
     flex: 0 0 auto;
   }
+  /* When a hand is split into two, the .player-cards becomes a flex row
+     of two hand-groups. Cards may leak past the player box's border. */
+  .player-cards.split-hands {
+    display: flex;
+    flex-direction: row;
+    gap: 22px;
+    overflow: visible;
+    /* Splits need real horizontal room: widen the container and scoot it
+       RIGHT so the left hand's cascade doesn't crush into the table edge
+       and the two columns don't overlap each other. */
+    width: 234px;
+    transform: translateX(12px);
+  }
+  @media (max-width: 520px) {
+    .player-cards.split-hands { width: 172px; gap: 14px; }
+    /* Per-seat scoot: most for Player 1 (leftmost), least for Player 3. */
+    #p0-cards.split-hands { transform: translateX(46px); }
+    #p1-cards.split-hands { transform: translateX(30px); }
+    #p2-cards.split-hands { transform: translateX(12px); }
+  }
+  .hand-group {
+    position: relative;
+    flex: 1 1 0;
+    height: 100%;
+    border-radius: 4px;
+    transition: box-shadow 0.18s;
+    overflow: visible;
+  }
+  .hand-group.active-hand::before {
+    content: "";
+    position: absolute;
+    inset: -6px -4px;
+    border-radius: 8px;
+    box-shadow: 0 0 0 2px rgba(56,189,248,0.75), 0 0 14px rgba(56,189,248,0.35);
+    pointer-events: none;
+  }
+  .hand-group.done-hand { opacity: 0.62; }
+  .hand-group.busted-hand .playing-card { filter: grayscale(0.4); }
+  /* Laid-flat card in a split column: a doubled split hand's last card,
+     or a split-ace hand's revealed face-down card. */
+  .player-cards.split-hands .playing-card.doubled-card {
+    transform: rotate(90deg);
+  }
+  /* Face-down split-ace card tucked under its bet substack: rotated and
+     slightly shrunk so the pair reads as two tidy tucked cards. */
+  .player-cards.split-hands .playing-card.ace-tucked {
+    transform: rotate(90deg) scale(0.78);
+  }
+  /* Per-substack settle highlights for split resolution */
+  .bet-substack.target-loser .bet-chip-piece {
+    box-shadow: 0 0 0 2px rgba(248,113,113,0.9), 0 0 12px rgba(248,113,113,0.6);
+  }
+  .bet-substack.target-payout .bet-chip-piece {
+    box-shadow: 0 0 0 2px rgba(52,211,153,0.9), 0 0 12px rgba(52,211,153,0.6);
+  }
+  .bet-substack { cursor: pointer; pointer-events: auto; }
 
   /* ---------- Bet circles ---------- */
   .circle {
@@ -666,7 +722,7 @@
   .chip-stack-tray {
     position: relative;
     width: 64px;
-    height: 168px;
+    height: 104px;
     cursor: pointer;
   }
   .chip-stack-tray .chip-edge {
@@ -855,7 +911,7 @@
     .side-grid { width: 68px; gap: 4px; margin-top: 6px; }
     .side-circle .lbl { font-size: 0.4rem; }
     .dealer-cards { min-width: 160px; min-height: 124px; }
-    .chip-stack-tray { width: 38px; height: 130px; }
+    .chip-stack-tray { width: 38px; height: 92px; }
     .chip-stack-tray .chip-edge { height: 16px; }
     .chip-tray { padding: 5px 4px; gap: 3px; }
     .chip-stack-tray .chip-label { font-size: 0.5rem; }
@@ -898,7 +954,7 @@
     .bet-stack-viz.split-stack { width: 68px; }
     .side-grid { width: 58px; gap: 3px; }
     .players-row { gap: 3px; }
-    .chip-stack-tray { width: 32px; height: 116px; }
+    .chip-stack-tray { width: 32px; height: 84px; }
     .chip-tray { padding: 4px 3px; gap: 2px; }
     .shoe { width: 42px; height: 60px; }
     .red-button { width: 42px; height: 26px; }
@@ -1109,6 +1165,9 @@
     border: 3px solid #dc2626;
   }
   .help-toggle:hover { filter: brightness(1.2); }
+  /* Help button lives in the tray-buttons row now, tray-btn sized. */
+  .tray-btn.help-btn { font-weight: 800; }
+  .tray-btn.help-btn.off { color: #fecaca; border-color: #dc2626; }
 
   /* Chip-stack visualization sitting on the bet circle (largest on bottom, grows upward).
      Anchored slightly below the circle's vertical center so the bottom chip
@@ -1208,9 +1267,11 @@
     transform: rotate(180deg);   /* static finger-down, no movement */
   }
   .player-signal.signal-split { animation: hand-split 1.1s ease-in-out infinite; }
+  /* Split signal shows UPSIDE-DOWN (rotated 180°) — the real table
+     signal is an inverted peace sign behind the cards. */
   @keyframes hand-split {
-    0%, 100% { letter-spacing: 0;    transform: scale(1); }
-    50%      { letter-spacing: 6px;  transform: scale(1.05); }
+    0%, 100% { letter-spacing: 0;    transform: rotate(180deg) scale(1); }
+    50%      { letter-spacing: 6px;  transform: rotate(180deg) scale(1.05); }
   }
 
   /* ---- Insurance betting line (between status and house-rules) ---- */
@@ -1354,13 +1415,12 @@ body::after  { bottom: 0; animation-direction: reverse; }
 
     <!-- 5) Bottom bar: help | chip tray -->
     <div class="bottom-bar">
-      <div class="ctrl-stack help-only">
-        <button class="help-toggle off" id="help-toggle" onclick="Game.toggleHelp()">HELP: OFF</button>
-      </div>
       <div class="chip-tray-wrap">
         <div class="chip-tray" id="chip-tray"><!-- stacks injected by JS --></div>
 
         <div class="tray-buttons">
+          <button class="tray-btn help-btn off" id="help-toggle" onclick="Game.toggleHelp()">HELP: OFF</button>
+          <button class="tray-btn" onclick="Game.newRound()">New Round</button>
           <button class="tray-btn" onclick="Game.openSettings()">Settings</button>
           <button class="tray-btn" onclick="Game.openPayouts()">Payouts</button>
         </div>
@@ -1415,10 +1475,6 @@ body::after  { bottom: 0; animation-direction: reverse; }
     </div>
   </div>
 
-  <div class="action-bar">
-    <button onclick="Game.newRound()">New Round</button>
-    <button class="ghost" onclick="Game.reset()">Reset</button>
-  </div>
 </div>
 
 <script>
@@ -1633,12 +1689,12 @@ function renderPlayerStations() {
 function renderChipTray() {
   const tray = $('chip-tray');
   const stacks = [
-    { color: 'ce-purple', label: '$500', value: 500, count: 20 },
-    { color: 'ce-black',  label: '$100', value: 100, count: 20 },
-    { color: 'ce-green',  label: '$25',  value: 25,  count: 20 },
-    { color: 'ce-red',    label: '$5',   value: 5,   count: 20 },
-    { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 20 },
-    { color: 'ce-white',  label: '$1',   value: 1,   count: 20 },
+    { color: 'ce-purple', label: '$500', value: 500, count: 10 },
+    { color: 'ce-black',  label: '$100', value: 100, count: 10 },
+    { color: 'ce-green',  label: '$25',  value: 25,  count: 10 },
+    { color: 'ce-red',    label: '$5',   value: 5,   count: 10 },
+    { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 10 },
+    { color: 'ce-white',  label: '$1',   value: 1,   count: 10 },
   ];
   tray.innerHTML = '';
   const STEP = 6;
@@ -1714,17 +1770,22 @@ function renderBets(opts) {
   for (let i=0; i<NUM_PLAYERS; i++) {
     const pl = players[i];
     const main = $('p'+i+'-main');
-    if (pl.main > 0) {
-      main.classList.add('has-bet');
-      setMainAmount(main, '$' + pl.main);
+    if (pl.hands.length > 1 || pl.pendingSplitBet) {
+      /* Split (or split pending): substack rendering handles everything. */
+      rerenderMainBet(i);
     } else {
-      main.classList.remove('has-bet');
-      clearMainAmount(main);
-    }
-    if (pl.doubled && pl.mainOriginal > 0) {
-      renderBetStack(main, pl.mainOriginal, true, opts);
-    } else {
-      renderBetStack(main, pl.main, false, opts);
+      if (pl.main > 0) {
+        main.classList.add('has-bet');
+        setMainAmount(main, '$' + pl.main);
+      } else {
+        main.classList.remove('has-bet');
+        clearMainAmount(main);
+      }
+      if (pl.doubled && pl.mainOriginal > 0) {
+        renderBetStack(main, pl.mainOriginal, true, opts);
+      } else {
+        renderBetStack(main, pl.main, false, opts);
+      }
     }
     renderSide(i, 'bust',  pl.bust,  '<span class="lbl dark">BUST<br>BONUS</span>', opts);
     renderSide(i, 'three', pl.three, '<span class="lbl dark">3</span>',             opts);
@@ -1805,23 +1866,25 @@ function animateChipsToRack(containerEl) {
 }
 
 /* ---------------- Render cards ---------------- */
-function makeCardEl(card, idx, faceDown, isDealer, playerIdx) {
+function makeCardEl(card, idx, faceDown, isDealer, playerIdx, isSplitHand) {
   const c = document.createElement('div');
   c.className = 'playing-card ' + (faceDown ? 'face-down' : SUIT_COLOR[card.suit]);
+  if (isSplitHand) c.classList.add('split-card');
   if (!isDealer) {
     // Player cascade: top-right → bottom-left. Horizontal step keeps the
     // rank+suit corner of each card visible but lets them overlap enough
     // that 4–5 cards still fit cleanly inside the player area.
+    // Split hands cascade tighter so two columns fit side by side.
     const narrow = window.innerWidth <= 520;
-    const xStep  = narrow ? 24 : 44;
-    const yStep  = narrow ? 36 : 24;
+    const xStep  = isSplitHand ? (narrow ? 22 : 32) : (narrow ? 24 : 44);
+    const yStep  = isSplitHand ? (narrow ? 28 : 20) : (narrow ? 36 : 24);
     // On mobile the player station is narrow and a leftward cascade pushes
     // the leftmost cards off the screen for Player 1 (and partly Player 2).
     // Shift the whole stack to the RIGHT for the left-side players so even
     // a 4–5 card hand fits cleanly under their own bet circles. Player 3
     // sits on the right edge already so it gets no shift.
     let xOffset = 0;
-    if (narrow && playerIdx !== undefined) {
+    if (!isSplitHand && narrow && playerIdx !== undefined) {
       if (playerIdx === 0) xOffset = -36;
       else if (playerIdx === 1) xOffset = -18;
     }
@@ -1943,12 +2006,151 @@ function detectBustBonus() {
   return 'Pending dealer play';
 }
 
+/* ---------------- Player model: per-hand state for splits ----------------
+   Each player owns an array of hands; each hand has its own cards,
+   faceDown flags, bet, stand/bust/double state and settlement outcome.
+   Live aliases (pl.cards, pl.faceDown, pl.main, pl.stood, ...) read and
+   write the ACTIVE hand so the bulk of the single-hand code keeps
+   working unchanged. */
+function makeHand() {
+  return {
+    cards: [],
+    faceDown: [],
+    bet: 0,
+    stood: false,
+    busted: false,
+    doubled: false,
+    mainOutcome: undefined,
+    mainPayAmount: 0,
+    isSplitAce: false,
+  };
+}
+function makePlayer() {
+  const pobj = {
+    mainOriginal: 0,
+    bust: 0, three: 0, jkp: 0, bjk: 0, insurance: 0,
+    jkpCollected: false, bjkCollected: false,
+    naturalBJ: false,
+    actsStarted: false,
+    pendingSplitBet: false,
+    hands: [makeHand()],
+    activeHandIdx: 0,
+    results: {},
+  };
+  const proxyKeys = ['cards', 'faceDown', 'stood', 'busted', 'doubled', 'mainOutcome', 'mainPayAmount', 'isSplitAce'];
+  proxyKeys.forEach(key => {
+    Object.defineProperty(pobj, key, {
+      get() { return this.hands[this.activeHandIdx][key]; },
+      set(v) { this.hands[this.activeHandIdx][key] = v; },
+      enumerable: false,
+    });
+  });
+  Object.defineProperty(pobj, 'main', {
+    get() { return this.hands[this.activeHandIdx].bet; },
+    set(v) { this.hands[this.activeHandIdx].bet = v; },
+    enumerable: false,
+  });
+  return pobj;
+}
+/* Sum of bets across all hands (plus the pending matching bet while
+   waiting for the dealer to physically split the cards). */
+function playerMainBetTotal(i) {
+  const pl = players[i];
+  let t = pl.hands.reduce((s, h) => s + h.bet, 0);
+  if (pl.pendingSplitBet) t += pl.mainOriginal;
+  return t;
+}
+function playerHasLiveBet(i) { return playerMainBetTotal(i) > 0; }
+/* Re-render the main bet circle to reflect the total across all hands.
+   Splits render as two independently-clickable substacks. */
+function rerenderMainBet(i) {
+  const el = $('p'+i+'-main');
+  if (!el) return;
+  const pl = players[i];
+  const total = playerMainBetTotal(i);
+  if (total <= 0) {
+    clearMainAmount(el);
+    el.classList.remove('has-bet');
+    const oldViz = el.querySelector('.bet-stack-viz');
+    if (oldViz) oldViz.remove();
+    return;
+  }
+  setMainAmount(el, '$' + total);
+  el.classList.add('has-bet');
+  const isUnsplitDouble = pl.hands.length === 1 && pl.hands[0].doubled;
+  const isPendingSplit  = !!pl.pendingSplitBet;
+  const isSplit         = pl.hands.length > 1;
+  if (isSplit || isPendingSplit) {
+    const leftAmt  = pl.hands[0] ? pl.hands[0].bet : 0;
+    const rightAmt = isPendingSplit ? pl.mainOriginal : (pl.hands[1] ? pl.hands[1].bet : 0);
+    renderSplitChips(el, i, leftAmt, rightAmt);
+  } else if (isUnsplitDouble && pl.mainOriginal > 0) {
+    renderBetStack(el, pl.mainOriginal, true);
+  } else {
+    renderBetStack(el, total, false);
+  }
+}
+/* Two independent chip substacks, one per split hand, each clickable
+   (Game.subBetClick) so split resolution clicks land on the right hand. */
+function renderSplitChips(el, playerIdx, leftAmt, rightAmt) {
+  let viz = el.querySelector('.bet-stack-viz');
+  if (viz) viz.remove();
+  viz = document.createElement('div');
+  viz.classList.add('bet-stack-viz', 'split-stack');
+  el.appendChild(viz);
+  const amounts = [leftAmt, rightAmt];
+  const sides = ['left', 'right'];
+  amounts.forEach((amt, hi) => {
+    const sub = document.createElement('div');
+    sub.classList.add('bet-substack', sides[hi]);
+    if (amt > 0) {
+      const chips = chipStackForAmount(amt);
+      const STEP = 6;
+      chips.forEach((chip, j) => {
+        const piece = document.createElement('div');
+        piece.classList.add('bet-chip-piece');
+        piece.classList.add('cp-' + chip.color);
+        piece.style.bottom = (j * STEP) + 'px';
+        piece.style.zIndex = String(j);
+        applyChipStripeOffset(piece);
+        sub.appendChild(piece);
+      });
+    }
+    sub.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      Game.subBetClick(playerIdx, hi);
+    });
+    viz.appendChild(sub);
+  });
+}
+/* Per-side settle highlight; whole-circle ring when unsplit. */
+function markMainBetTarget(playerIdx, handIdx, kind) {
+  const main = $('p'+playerIdx+'-main');
+  if (!main) return;
+  const pl = players[playerIdx];
+  main.classList.remove('collectable-loser', 'payout-target');
+  main.querySelectorAll('.bet-substack').forEach(s =>
+    s.classList.remove('target-loser', 'target-payout'));
+  if (!kind) return;
+  if (!pl || pl.hands.length === 1) {
+    if (kind === 'loser')  main.classList.add('collectable-loser');
+    if (kind === 'payout') main.classList.add('payout-target');
+    return;
+  }
+  const side = handIdx === 0 ? 'left' : 'right';
+  const sub = main.querySelector('.bet-substack.' + side);
+  if (sub) {
+    if (kind === 'loser')  sub.classList.add('target-loser');
+    if (kind === 'payout') sub.classList.add('target-payout');
+  }
+}
+
 /* ---------------- Game controller ---------------- */
 const Game = {
   newRound() {
     players = [];
     for (let i=0; i<NUM_PLAYERS; i++) {
-      players.push({ main:0, mainOriginal:0, bust:0, three:0, jkp:0, bjk:0, insurance:0, jkpCollected:false, bjkCollected:false, cards:[], faceDown:[], actsStarted:false, results:{} });
+      players.push(makePlayer());
     }
     dealer = { cards: [] };
     /* Reset any leftover per-player highlights (next-to-play / active /
@@ -2189,6 +2391,77 @@ function renderPlayerCards(playerIdx, limit) {
   const el = $('p'+playerIdx+'-cards');
   if (!el) return;
   el.innerHTML = '';
+  /* SPLIT: two hand-group columns side by side. Cards render with their
+     own faceDown flags — a split-ace hand's dealt card stays face-down
+     and lies flat (tucked under the bet) until settlement reveal. */
+  if (pl.hands && pl.hands.length > 1) {
+    el.classList.remove('pitch-doubled', 'pitch-stood-hand');
+    el.classList.add('split-hands');
+    pl.hands.forEach((hand, hi) => {
+      const group = document.createElement('div');
+      group.className = 'hand-group hand-' + hi;
+      group.dataset.handIdx = hi;
+      if (hi === pl.activeHandIdx && !hand.stood && !hand.busted) {
+        group.classList.add('active-hand');
+      } else if (hand.stood || hand.busted) {
+        group.classList.add('done-hand');
+      }
+      if (hand.busted) group.classList.add('busted-hand');
+      hand.cards.forEach((c, ci) => {
+        const cardEl = makeCardEl(c, ci, !!hand.faceDown[ci], false, playerIdx, true);
+        cardEl.dataset.handIdx = hi;
+        group.appendChild(cardEl);
+      });
+      const lastShouldLayDown =
+        hand.doubled ||
+        (hand.isSplitAce && hand.cards.length >= 2 && !hand.faceDown[1]);
+      if (lastShouldLayDown) {
+        const lastCard = group.lastElementChild;
+        if (lastCard) lastCard.classList.add('doubled-card');
+      }
+      el.appendChild(group);
+    });
+    /* SPLIT-ACE tuck: while a split-ace hand's dealt card is still FACE
+       DOWN it must sit UNDER the main-bet chips (left substack = hand 1,
+       right substack = hand 2), not out in the card columns. Positions
+       are MEASURED from the live bet-circle rect so this works on both
+       desktop (bets left of cards) and mobile (bets above cards), and
+       under the split container's translateX. Once revealed at
+       settlement the guard fails and the card falls back to the normal
+       laid-flat column position. */
+    const mainEl = $('p'+playerIdx+'-main');
+    if (mainEl) {
+      pl.hands.forEach((hand, hi) => {
+        if (!(hand.isSplitAce && hand.cards.length >= 2 && hand.faceDown[1])) return;
+        const group = el.querySelector('.hand-group[data-hand-idx="' + hi + '"]');
+        const card = group ? group.lastElementChild : null;
+        if (!card) return;
+        const mRect = mainEl.getBoundingClientRect();
+        const gRect = group.getBoundingClientRect();
+        if (!mRect.width || !gRect) return;   // hidden layout — skip
+        /* Center each card on ITS substack (measured, so it's exact on
+           desktop and mobile), spread the two outward a little so they
+           overlap less, and hang them BELOW the chips so the stack
+           covers the card's top edge — "tucked under the bet". */
+        const sub = mainEl.querySelector('.bet-substack.' + (hi === 0 ? 'left' : 'right'));
+        const sRect = sub ? sub.getBoundingClientRect() : null;
+        const baseCx = (sRect && sRect.width)
+          ? (sRect.left + sRect.width / 2)
+          : (mRect.left + mRect.width * (hi === 0 ? 0.30 : 0.70));
+        const targetCx = baseCx + (hi === 0 ? -10 : 10);
+        const targetCy = mRect.top + mRect.height * 1.02;
+        const cardW = card.offsetWidth  || 64;
+        const cardH = card.offsetHeight || 90;
+        card.classList.add('ace-tucked');
+        card.style.right = 'auto';
+        card.style.left = (targetCx - gRect.left - cardW / 2) + 'px';
+        card.style.top  = (targetCy - gRect.top  - cardH / 2) + 'px';
+        card.style.zIndex = '0';
+      });
+    }
+    return;
+  }
+  el.classList.remove('split-hands');
   el.classList.toggle('pitch-doubled', !!pl.doubled);
   /* A stood hand keeps its tucked layout ONLY while its originals are
      still face-down. The moment they're revealed (settlement, 21+3 win,
@@ -2315,7 +2588,7 @@ function renderPlayerCards(playerIdx, limit) {
 /* Reveal every card in a player's hand (face-down → face-up). */
 function revealPlayerHand(playerIdx) {
   const pl = players[playerIdx];
-  for (let i = 0; i < pl.faceDown.length; i++) pl.faceDown[i] = false;
+  pl.hands.forEach(h => { for (let i = 0; i < h.faceDown.length; i++) h.faceDown[i] = false; });
   renderPlayerCards(playerIdx);
 }
 
@@ -2323,7 +2596,7 @@ function revealPlayerHand(playerIdx) {
    21+3 winner has revealed for payment — the dealer "gives the hand back". */
 function coverPlayerHand(playerIdx) {
   const pl = players[playerIdx];
-  for (let i = 0; i < pl.faceDown.length; i++) pl.faceDown[i] = true;
+  pl.hands.forEach(h => { for (let i = 0; i < h.faceDown.length; i++) h.faceDown[i] = true; });
   renderPlayerCards(playerIdx);
 }
 
@@ -3202,10 +3475,25 @@ function decidePlayerAction() {
   const pl = players[currentPlayerIdx];
   const dealerUp = dealer.cards[0];
   let action = lookupStrategy(pl.cards, dealerUp);
-  // SP: not implemented yet, fall back to H
+  // SP: split — only on the initial 2-card pair, and only ONCE per player
+  // (max 2 hands, no re-splitting; aces in particular split only once).
   if (action === 'SP') {
-    showPlayerSignal(currentPlayerIdx, 'split');
-    helpStatus(`Player ${currentPlayerIdx+1}: strategy SPLIT (not implemented yet — treating as HIT). Click shoe.`, `Player ${currentPlayerIdx+1}`);
+    if (pl.hands.length === 1 && isSplittablePair(pl.cards)) {
+      /* Pitch: the player tosses their pair face-UP to ask for the split. */
+      revealPlayerHand(currentPlayerIdx);
+      pl.pendingSplitBet = true;
+      rerenderMainBet(currentPlayerIdx);
+      showPlayerSignal(currentPlayerIdx, 'split');
+      setPhase('awaiting-split-cards');
+      enableShoe(false);
+      const cardsEl = $('p'+currentPlayerIdx+'-cards');
+      cardsEl.classList.add('clickable-cards-area');
+      cardsEl.onclick = () => Game.splitCardsClick(currentPlayerIdx);
+      helpStatus(`Player ${currentPlayerIdx+1}: SPLIT pair of ${pl.cards[0].rank}s — matching bet placed. Click their cards to split them.`, `Player ${currentPlayerIdx+1}`);
+      currentAction = 'SP';
+      return;
+    }
+    // Already split, or not a real pair — treat SP as a hit.
     action = 'H';
   }
   // D after first hit -> H
@@ -3215,20 +3503,22 @@ function decidePlayerAction() {
   const t = handTotal(pl.cards);
   const totDesc = (t.soft ? 'soft ' : '') + t.total;
 
+  const handLabel = pl.hands.length > 1
+    ? `Player ${currentPlayerIdx+1} (hand ${pl.activeHandIdx+1} of ${pl.hands.length})`
+    : `Player ${currentPlayerIdx+1}`;
   if (action === 'S') {
     pl.stood = true;
     showPlayerSignal(currentPlayerIdx, 'stand');
-    helpStatus(`Player ${currentPlayerIdx+1} stands at ${totDesc}.`, `Player ${currentPlayerIdx+1}`);
+    helpStatus(`${handLabel} stands at ${totDesc}.`, handLabel);
     enableShoe(false);
-    setTimeout(endPlayerTurn, 600);   // gated on 21+3 loser collection
+    if (pl.hands.length > 1) renderPlayerCards(currentPlayerIdx);
+    setTimeout(advanceToNextHandOrPlayer, 600);
     return;
   }
   if (action === 'D') {
     pl.doubled = true;
-    pl.main *= 2;
-    const mEl = $('p'+currentPlayerIdx+'-main');
-    setMainAmount(mEl, '$' + pl.main);
-    renderBetStack(mEl, pl.mainOriginal, true);
+    pl.main *= 2;                       // doubles only THIS hand's bet
+    rerenderMainBet(currentPlayerIdx);
     /* Pitch: doubling reveals the player's original two cards — they must
        expose their hand to the table when giving the double signal. */
     revealPlayerHand(currentPlayerIdx);
@@ -3269,11 +3559,124 @@ function dealCardToActive() {
   if (currentAction === 'D') {
     pl.stood = true;
     setStatus(`Player ${currentPlayerIdx+1}: doubled, stands at ${t.soft ? 'soft ' : ''}${t.total}.`);
-    setTimeout(endPlayerTurn, 700);   // gated on 21+3 loser collection
+    setTimeout(advanceToNextHandOrPlayer, 700);
     return;
   }
   // continued HIT — re-decide
   setTimeout(decidePlayerAction, 350);
+}
+
+/* ---- Split machinery ---- */
+/* Splittable pair: same rank, or any two 10-value cards. */
+function isSplittablePair(cards) {
+  if (cards.length !== 2) return false;
+  const a = cards[0].rank, b = cards[1].rank;
+  if (a === b) return true;
+  const tens = ['10','J','Q','K'];
+  return tens.includes(a) && tens.includes(b);
+}
+
+/* Dealer clicks the revealed pair to physically split it. */
+Game.splitCardsClick = function(playerIdx) {
+  if (phase !== 'awaiting-split-cards') return;
+  if (playerIdx !== currentPlayerIdx) return;
+  executeVisualSplit();
+};
+
+function executeVisualSplit() {
+  const pl = players[currentPlayerIdx];
+  const h0 = pl.hands[0];
+  const splitCard = h0.cards.pop();          // move second card out
+  h0.faceDown.pop();
+  h0.faceDown[0] = false;                    // split cards sit face-up
+  const isAcePair = h0.cards[0].rank === 'A';
+  const h1 = makeHand();
+  h1.cards.push(splitCard);
+  h1.faceDown.push(false);
+  h1.bet = pl.mainOriginal;
+  if (isAcePair) { h0.isSplitAce = true; h1.isSplitAce = true; }
+  pl.hands.push(h1);
+  pl.pendingSplitBet = false;
+  pl.activeHandIdx = 0;
+  const cardsEl = $('p'+currentPlayerIdx+'-cards');
+  cardsEl.classList.remove('clickable-cards-area');
+  cardsEl.onclick = null;
+  renderPlayerCards(currentPlayerIdx);
+  rerenderMainBet(currentPlayerIdx);
+  setPhase('awaiting-split-deal-0');
+  enableShoe(true);
+  setStatus(isAcePair
+    ? `Aces split — ONE card each, face down under the bet. Click shoe for the first hand.`
+    : `Cards split — click shoe to deal Player ${currentPlayerIdx+1}'s first hand.`);
+}
+
+/* House procedure: the FIRST split hand is dealt its second card and
+   played to COMPLETION before the second hand receives any card.
+   Split aces get exactly ONE card each, dealt FACE DOWN and tucked
+   under the bet, then auto-stand. */
+function dealSplitCard() {
+  const pl = players[currentPlayerIdx];
+  if (phase === 'awaiting-split-deal-0') {
+    pl.activeHandIdx = 0;
+    const isAce = pl.hands[0].isSplitAce;
+    pl.cards.push(Shoe.draw());
+    pl.faceDown.push(isAce);   /* ace-split card goes FACE DOWN */
+    renderPlayerCards(currentPlayerIdx);
+    enableShoe(false);
+    currentAction = null;
+    setPhase('playing');
+    if (isAce) {
+      pl.hands[0].stood = true;
+      renderPlayerCards(currentPlayerIdx);
+      setStatus(`First ace gets ONE card, face down, tucked under the bet.`);
+      setTimeout(advanceToNextHandOrPlayer, 700);
+      return;
+    }
+    setTimeout(decidePlayerAction, 350);
+    return;
+  }
+  if (phase === 'awaiting-split-deal-1') {
+    pl.activeHandIdx = 1;
+    const isAce = pl.hands[1].isSplitAce;
+    pl.cards.push(Shoe.draw());
+    pl.faceDown.push(isAce);
+    renderPlayerCards(currentPlayerIdx);
+    enableShoe(false);
+    currentAction = null;
+    setPhase('playing');
+    if (isAce) {
+      pl.hands[1].stood = true;
+      renderPlayerCards(currentPlayerIdx);
+      setStatus(`Second ace gets ONE card, face down. Player ${currentPlayerIdx+1} is done.`);
+      setTimeout(advanceToNextHandOrPlayer, 700);
+      return;
+    }
+    setTimeout(decidePlayerAction, 350);
+    return;
+  }
+}
+
+/* After one hand finishes (stand/double/bust): move to the second split
+   hand (dealing its card first — it has only one), or end the player's
+   turn (which is gated on 21+3 loser collection). */
+function advanceToNextHandOrPlayer() {
+  const pl = players[currentPlayerIdx];
+  if (pl && pl.hands.length > 1 && pl.activeHandIdx < pl.hands.length - 1) {
+    pl.activeHandIdx++;
+    renderPlayerCards(currentPlayerIdx);
+    if (pl.cards.length < 2) {
+      setPhase('awaiting-split-deal-1');
+      enableShoe(true);
+      setStatus(`First hand done — click shoe to deal Player ${currentPlayerIdx+1}'s second hand.`);
+      return;
+    }
+    setTimeout(() => {
+      if (pl.stood || pl.busted) { advanceToNextHandOrPlayer(); return; }
+      decidePlayerAction();
+    }, 500);
+    return;
+  }
+  endPlayerTurn();   // gated on 21+3 loser collection
 }
 
 /* ---- Bust cleanup: click main bet, then click each card ---- */
@@ -3284,8 +3687,13 @@ function startBustCleanup() {
   enableShoe(false);
   hideAllSignals();
   const i = currentPlayerIdx;
-  $('p'+i+'-main').classList.add('collectable-loser');
-  setStatus(`Player ${i+1} BUSTED. Click main bet to collect.`);
+  const pl = players[i];
+  markMainBetTarget(i, pl.activeHandIdx, 'loser');
+  const handLabel = pl.hands.length > 1 ? ` hand ${pl.activeHandIdx+1}` : '';
+  const sidePrefix = pl.hands.length > 1
+    ? `Click the ${pl.activeHandIdx === 0 ? 'LEFT' : 'RIGHT'} chips`
+    : 'Click main bet';
+  setStatus(`Player ${i+1}${handLabel} BUSTED. ${sidePrefix} to collect $${pl.main}.`);
 }
 
 Game.mainClick = function(playerIdx) {
@@ -3306,37 +3714,71 @@ function collectBustMain(i) {
   const pl = players[i];
   const el = $('p'+i+'-main');
   animateChipsToRack(el);
-  el.classList.remove('collectable-loser', 'has-bet');
-  clearMainAmount(el);
-  pl.main = 0;
+  markMainBetTarget(i, null, null);
+  pl.main = 0;                // zero just this hand's bet
+  rerenderMainBet(i);         // display reflects remaining hand(s)
   // Make the cards CONTAINER clickable for one-click collect-all
   const cardsEl = $('p'+i+'-cards');
   cardsEl.classList.add('clickable-cards-area');
   cardsEl.onclick = () => collectBustCardsAll(i);
-  helpStatus(`Click Player ${i+1}'s cards to collect them.`, `Player ${i+1}`);
+  const handLabel = pl.hands.length > 1 ? ` hand ${pl.activeHandIdx+1}` : '';
+  helpStatus(`Click Player ${i+1}'s${handLabel} cards to collect them.`, `Player ${i+1}`);
 }
 
 function collectBustCardsAll(i) {
   if (phase !== 'bust-cleanup') return;
   if (i !== currentPlayerIdx) return;
+  const pl = players[i];
   const cardsEl = $('p'+i+'-cards');
   cardsEl.classList.remove('clickable-cards-area');
   cardsEl.onclick = null;
-  // fade out all card elements at once
-  Array.from(cardsEl.querySelectorAll('.playing-card')).forEach(c => c.classList.add('collected-fade'));
+  // When split: fade only the busted (active) hand's cards.
+  let targets;
+  if (pl.hands.length > 1) {
+    const group = cardsEl.querySelector('.hand-group[data-hand-idx="' + pl.activeHandIdx + '"]');
+    targets = group ? Array.from(group.querySelectorAll('.playing-card')) : [];
+  } else {
+    targets = Array.from(cardsEl.querySelectorAll('.playing-card'));
+  }
+  targets.forEach(c => c.classList.add('collected-fade'));
   setTimeout(() => {
-    players[i].cards = [];
-    cardsEl.innerHTML = '';
+    pl.cards = [];             // clears ONLY the active (busted) hand
+    pl.faceDown = [];
+    renderPlayerCards(i);
     setPhase('playing');
-    endPlayerTurn();   // gated on 21+3 loser collection
+    advanceToNextHandOrPlayer();
   }, 320);
 }
+
+/* Sub-stack click during a split: LEFT = hand 0, RIGHT = hand 1. Only
+   the currently-valid side responds; wrong-side clicks get a hint. */
+Game.subBetClick = function(playerIdx, handIdx) {
+  const pl = players[playerIdx];
+  if (!pl) return;
+  if (phase === 'bust-cleanup') {
+    if (playerIdx !== currentPlayerIdx) return;
+    if (handIdx !== pl.activeHandIdx) {
+      flashStatus(`Click the ${pl.activeHandIdx === 0 ? 'LEFT' : 'RIGHT'} stack — that hand busted.`);
+      return;
+    }
+    return collectBustMain(playerIdx);
+  }
+  if (phase === 'combined-payout') return payCombined(playerIdx, 'main');
+  const nextRes = pendingMainResolution.length > 0 ? pendingMainResolution[0] : null;
+  if (!nextRes) return;
+  if (nextRes.i !== playerIdx || (nextRes.handIdx || 0) !== handIdx) {
+    flashStatus(`Click the ${(nextRes.handIdx || 0) === 0 ? 'LEFT' : 'RIGHT'} stack on Player ${nextRes.i+1}.`);
+    return;
+  }
+  if (phase === 'main-loser')  return collectMainLoser(playerIdx);
+  if (phase === 'main-winner') return payMainWinner(playerIdx);
+};
 
 /* ---- Dealer sequence ---- */
 function startDealerSequence() {
   hideAllSignals();
   // Dealer must still play if any main bets OR any Bust Bonus bets exist
-  const anyAliveMain = players.some(pl => pl.main > 0);
+  const anyAliveMain = players.some((pl, idx) => playerHasLiveBet(idx));
   const anyBustBet  = players.some(pl => pl.bust > 0);
   if (!anyAliveMain && !anyBustBet) {
     setStatus('No live bets. Round complete.');
@@ -3882,8 +4324,13 @@ function placeBustBonusBets() {
   setStatus('Players placing Bust Bonus before dealer reveals...');
   for (let i=0; i<NUM_PLAYERS; i++) {
     const pl = players[i];
-    if (pl.main > 0 && Math.random() < Settings.betLikelihood.bust) {
-      pl.bust = randUpToMain(pl.main, Settings.unusualBets);
+    /* House rule: the Bust Bonus can never exceed the player's ORIGINAL
+       main bet — doubling does NOT raise the cap ($55 bet doubled to $110
+       still caps the Bust Bonus at $55). Exception: after a split the cap
+       is the combined original main bets of the split hands. */
+    const bustCap = pl.mainOriginal * pl.hands.length;
+    if (playerHasLiveBet(i) && bustCap > 0 && Math.random() < Settings.betLikelihood.bust) {
+      pl.bust = randUpToMain(bustCap, Settings.unusualBets);
     }
   }
   // Only re-render the bust circles with the drop-in animation; the existing
@@ -3931,19 +4378,23 @@ function settleBustBonus() {
   const dealerBJ   = isBlackjack(dealer.cards);
   for (let i=0; i<NUM_PLAYERS; i++) {
     const pl = players[i];
-    pl.mainOutcome = undefined;
-    pl.mainPayAmount = 0;
-    if (pl.main <= 0) continue;
-    const pt = handTotal(pl.cards).total;
-    let outcome, payAmount = 0;
-    if (pl.naturalBJ && dealerBJ)        outcome = 'PUSH';
-    else if (pl.naturalBJ)               { outcome = 'BJ_WIN'; payAmount = roundPayoutUp(pl.main * 1.5); }
-    else if (dealerBJ)                   outcome = 'LOSE';
-    else if (dealerBust || pt > dt)      { outcome = 'WIN'; payAmount = pl.main; }
-    else if (pt === dt)                  outcome = 'PUSH';
-    else                                 outcome = 'LOSE';
-    pl.mainOutcome = outcome;
-    pl.mainPayAmount = payAmount;
+    for (let h = 0; h < pl.hands.length; h++) {
+      const hand = pl.hands[h];
+      hand.mainOutcome = undefined;
+      hand.mainPayAmount = 0;
+      if (hand.bet <= 0) continue;   // busted hands already collected
+      const pt = handTotal(hand.cards).total;
+      const eligibleForBJ = pl.naturalBJ && pl.hands.length === 1;
+      let outcome, payAmount = 0;
+      if (eligibleForBJ && dealerBJ)       outcome = 'PUSH';
+      else if (eligibleForBJ)              { outcome = 'BJ_WIN'; payAmount = roundPayoutUp(hand.bet * 1.5); }
+      else if (dealerBJ)                   outcome = 'LOSE';
+      else if (dealerBust || pt > dt)      { outcome = 'WIN'; payAmount = hand.bet; }
+      else if (pt === dt)                  outcome = 'PUSH';
+      else                                 outcome = 'LOSE';
+      hand.mainOutcome = outcome;
+      hand.mainPayAmount = payAmount;
+    }
   }
   appendOutcomesToEvalLog();
   setTimeout(() => {
@@ -3963,12 +4414,15 @@ function appendOutcomesToEvalLog() {
       if (r.amount > 0) extra += rowEntry(lbl, `WIN ${r.hand} → $${r.amount}`, 'win');
       else              extra += rowEntry(lbl, r.hand, 'lose');
     }
-    if (pl.mainOutcome !== undefined) {
-      const lbl = `Player ${i+1} Main`;
-      if (pl.mainOutcome === 'BJ_WIN')      extra += rowEntry(lbl, `Blackjack 3:2 → $${pl.mainPayAmount}`, 'win');
-      else if (pl.mainOutcome === 'WIN')    extra += rowEntry(lbl, `WIN → $${pl.mainPayAmount}`, 'win');
-      else if (pl.mainOutcome === 'PUSH')   extra += rowEntry(lbl, 'Push', 'pending');
-      else if (pl.mainOutcome === 'LOSE')   extra += rowEntry(lbl, 'Lose', 'lose');
+    for (let h = 0; h < pl.hands.length; h++) {
+      const hand = pl.hands[h];
+      if (hand.mainOutcome === undefined) continue;
+      const handTag = pl.hands.length > 1 ? ` hand ${h+1}` : '';
+      const lbl = `Player ${i+1}${handTag} Main`;
+      if (hand.mainOutcome === 'BJ_WIN')      extra += rowEntry(lbl, `Blackjack 3:2 → $${hand.mainPayAmount}`, 'win');
+      else if (hand.mainOutcome === 'WIN')    extra += rowEntry(lbl, `WIN → $${hand.mainPayAmount}`, 'win');
+      else if (hand.mainOutcome === 'PUSH')   extra += rowEntry(lbl, 'Push', 'pending');
+      else if (hand.mainOutcome === 'LOSE')   extra += rowEntry(lbl, 'Lose', 'lose');
     }
   }
   if (extra) logEl.innerHTML += extra;
@@ -3979,7 +4433,10 @@ function startCombinedPayout() {
   pendingCombined = [];
   for (let i = NUM_PLAYERS - 1; i >= 0; i--) {
     const pl = players[i];
-    const mainPay = (pl.mainOutcome === 'WIN' || pl.mainOutcome === 'BJ_WIN') ? pl.mainPayAmount : 0;
+    let mainPay = 0;
+    for (const hand of pl.hands) {
+      if (hand.mainOutcome === 'WIN' || hand.mainOutcome === 'BJ_WIN') mainPay += hand.mainPayAmount;
+    }
     const bustPay = (pl.bust > 0 && pl.results.bust && pl.results.bust.win) ? pl.results.bust.amount : 0;
     if (mainPay + bustPay > 0) {
       pendingCombined.push({ i, mainPay, bustPay });
@@ -4008,8 +4465,10 @@ function paySingleCombined() {
   if (t.mainPay > 0) $('p'+t.i+'-main').classList.add('payout-target');
   if (t.bustPay > 0) $('p'+t.i+'-bust').classList.add('payout-target');
   const parts = [];
-  if (pl.mainOutcome === 'BJ_WIN')   parts.push(`BJ pays $${pl.mainPayAmount}`);
-  else if (pl.mainOutcome === 'WIN') parts.push(`Main $${pl.mainPayAmount}`);
+  if (t.mainPay > 0) {
+    const bjLabel = pl.hands.length === 1 && pl.hands[0].mainOutcome === 'BJ_WIN';
+    parts.push(bjLabel ? `BJ pays $${t.mainPay}` : `Main $${t.mainPay}`);
+  }
   if (t.bustPay > 0)                 parts.push(`Bust Bonus $${t.bustPay}`);
   const seq = pendingBets.map(b => labelForKey(b.key)).join(' → ');
   helpStatus(
@@ -4024,9 +4483,13 @@ function payCombined(playerIdx, key) {
   const pl = players[playerIdx];
   if (key === 'main') {
     const el = $('p'+playerIdx+'-main');
-    el.classList.remove('payout-target', 'has-bet');
-    clearMainAmount(el);
-    pl.main = 0;
+    el.classList.remove('payout-target');
+    /* Combined payout pays every winning hand at once — clear them all.
+       (Dealer busted, so no LOSE/PUSH hands can remain with chips.) */
+    pl.hands.forEach(h => {
+      if (h.mainOutcome === 'WIN' || h.mainOutcome === 'BJ_WIN') h.bet = 0;
+    });
+    rerenderMainBet(playerIdx);
   } else if (key === 'bust') {
     const el = $('p'+playerIdx+'-bust');
     el.classList.remove('payout-target', 'has-bet');
@@ -4093,16 +4556,21 @@ function startMainResolution() {
   pendingMainResolution = [];
   for (let i = NUM_PLAYERS - 1; i >= 0; i--) {
     const pl = players[i];
-    if (pl.main <= 0) continue;
-    if (pl.mainOutcome === 'WIN' || pl.mainOutcome === 'BJ_WIN') {
-      pendingMainResolution.push({ i, outcome: pl.mainOutcome });
-    } else if (pl.mainOutcome === 'LOSE') {
-      pendingMainResolution.push({ i, outcome: 'LOSE' });
-    } else if (pl.mainOutcome === 'PUSH') {
-      /* Pitch: push hands are still revealed RTL during settlement so the
-         table can see the matching total. No chip exchange — the auto-clear
-         in finishRound takes care of the bet. */
-      pendingMainResolution.push({ i, outcome: 'PUSH' });
+    /* One queue entry per HAND with chips still down (split-aware).
+       Hand order 0 then 1 within each player. */
+    for (let h = 0; h < pl.hands.length; h++) {
+      const hand = pl.hands[h];
+      if (hand.bet <= 0) continue;
+      if (hand.mainOutcome === 'WIN' || hand.mainOutcome === 'BJ_WIN') {
+        pendingMainResolution.push({ i, handIdx: h, outcome: hand.mainOutcome });
+      } else if (hand.mainOutcome === 'LOSE') {
+        pendingMainResolution.push({ i, handIdx: h, outcome: 'LOSE' });
+      } else if (hand.mainOutcome === 'PUSH') {
+        /* Pitch: push hands are still revealed RTL during settlement so the
+           table can see the matching total. No chip exchange — the auto-clear
+           in finishRound takes care of the bet. */
+        pendingMainResolution.push({ i, handIdx: h, outcome: 'PUSH' });
+      }
     }
   }
   setTimeout(processNextMainResolution, 200);
@@ -4121,6 +4589,11 @@ function processNextMainResolution() {
   }
   const next = pendingMainResolution[0];
   const pl = players[next.i];
+  /* Point the active-hand aliases at the hand being settled. */
+  if (typeof next.handIdx === 'number') pl.activeHandIdx = next.handIdx;
+  const handTag = pl.hands.length > 1 ? ` hand ${(next.handIdx || 0) + 1}` : '';
+  const sideHint = pl.hands.length > 1
+    ? ` (${(next.handIdx || 0) === 0 ? 'LEFT' : 'RIGHT'} stack)` : '';
   /* Pitch: reveal the player's cards at the moment their bet is being
      settled — the dealer turns them up one player at a time so the table
      can see the hand before the chip exchange. */
@@ -4130,7 +4603,7 @@ function processNextMainResolution() {
        cleared in finishRound's wrap-up. */
     setPhase('push-reveal');
     const total = handTotal(pl.cards).total;
-    helpStatus(`Player ${next.i+1}: push at ${total}.`,
+    helpStatus(`Player ${next.i+1}${handTag}: push at ${total}.`,
                `Player ${next.i+1} pushes`);
     pendingMainResolution.shift();
     setTimeout(processNextMainResolution, 1100);
@@ -4142,8 +4615,8 @@ function processNextMainResolution() {
     inHandChips = [];
     currentTarget = null;
     renderInHand();   // clears in-hand-display AND chip-stack-display
-    $('p'+next.i+'-main').classList.add('collectable-loser');
-    helpStatus(`Collect Player ${next.i+1}'s main bet ($${pl.main}) — they lost.`, `Player ${next.i+1}`);
+    markMainBetTarget(next.i, next.handIdx || 0, 'loser');
+    helpStatus(`Collect Player ${next.i+1}'s${handTag} main bet ($${pl.main})${sideHint} — they lost.`, `Player ${next.i+1}`);
   } else {
     setPhase('main-winner');
     enableChipTray(true);
@@ -4153,10 +4626,10 @@ function processNextMainResolution() {
       pendingBets: [{ key: 'main', owed: pl.mainPayAmount }],
       totalOwed: pl.mainPayAmount,
     };
-    $('p'+next.i+'-main').classList.add('payout-target');
+    markMainBetTarget(next.i, next.handIdx || 0, 'payout');
     const desc = next.outcome === 'BJ_WIN' ? 'BJ pays 3:2' : 'pays 1:1';
     helpStatus(
-      `Pay Player ${next.i+1} $${formatMoney(pl.mainPayAmount)} (${desc}). Build chips, then tap the bet.`,
+      `Pay Player ${next.i+1}${handTag} $${formatMoney(pl.mainPayAmount)} (${desc})${sideHint}. Build chips, then tap the bet.`,
       `Player ${next.i+1}`);
     renderInHand();
   }
@@ -4189,11 +4662,13 @@ function collectMainLoser(i) {
   if (pendingMainResolution.length > 0) {
     if (pendingMainResolution[0].i !== i) return;
     const pl = players[i];
+    const next = pendingMainResolution[0];
+    if (typeof next.handIdx === 'number') pl.activeHandIdx = next.handIdx;
     const el = $('p'+i+'-main');
     animateChipsToRack(el);
-    el.classList.remove('collectable-loser', 'has-bet');
-    clearMainAmount(el);
-    pl.main = 0;
+    markMainBetTarget(i, null, null);
+    pl.main = 0;               // zero just this hand's bet
+    rerenderMainBet(i);
     pendingMainResolution.shift();
     processNextMainResolution();
     return;
@@ -4244,15 +4719,20 @@ function payMainWinner(i) {
   if (phase !== 'main-winner') return;
   if (!tryPayNextBet(i, 'main')) return;
   const pl = players[i];
-  const el = $('p'+i+'-main');
-  el.classList.remove('payout-target', 'has-bet');
-  clearMainAmount(el);
-  pl.main = 0;
   if (pendingMainResolution.length > 0 && pendingMainResolution[0].i === i) {
+    const next = pendingMainResolution[0];
+    if (typeof next.handIdx === 'number') pl.activeHandIdx = next.handIdx;
+    markMainBetTarget(i, null, null);
+    pl.main = 0;               // zero just this hand's bet
+    rerenderMainBet(i);
     pendingMainResolution.shift();
     processNextMainResolution();
     return;
   }
+  const el = $('p'+i+'-main');
+  el.classList.remove('payout-target', 'has-bet');
+  clearMainAmount(el);
+  pl.main = 0;
   pendingMainWinners.shift();
   startMainWinnerSettlement();
 }
@@ -4280,14 +4760,14 @@ function finishRound() {
   $('in-hand-display').innerHTML = '';
   const stackEl_fr = $('chip-stack-display');
   if (stackEl_fr) stackEl_fr.innerHTML = '';
-  // Clear pushes (chip stays then auto-clears)
+  // Clear pushes (chip stays then auto-clears) — split-aware
   for (let i=0; i<NUM_PLAYERS; i++) {
-    if (players[i].mainOutcome === 'PUSH') {
-      const el = $('p'+i+'-main');
-      el.classList.remove('has-bet');
-      clearMainAmount(el);
-      players[i].main = 0;
-    }
+    const pl = players[i];
+    let changed = false;
+    pl.hands.forEach(h => {
+      if (h.mainOutcome === 'PUSH' && h.bet > 0) { h.bet = 0; changed = true; }
+    });
+    if (changed) rerenderMainBet(i);
   }
   setStatus('Bets settled. Click each remaining hand of cards (right-to-left), then the dealer\'s.');
   setPhase('end-collect');
@@ -4301,7 +4781,7 @@ let endCollectIdx = -1;  // -1 none, 0..NUM_PLAYERS-1 player, NUM_PLAYERS dealer
 function startEndCardCollection() {
   endCollectIdx = -1;
   for (let i = NUM_PLAYERS - 1; i >= 0; i--) {
-    if (players[i].cards.length > 0) { endCollectIdx = i; break; }
+    if (players[i].hands.some(h => h.cards.length > 0)) { endCollectIdx = i; break; }
   }
   if (endCollectIdx < 0) endCollectIdx = NUM_PLAYERS; // skip straight to dealer
   highlightEndCollectTarget();
@@ -4343,12 +4823,13 @@ function collectEndCards(target) {
   Array.from(el.querySelectorAll('.playing-card')).forEach(c => c.classList.add('collected-fade'));
   setTimeout(() => {
     if (target < NUM_PLAYERS) {
-      players[target].cards = [];
+      players[target].hands.forEach(h => { h.cards = []; h.faceDown = []; });
       el.innerHTML = '';
+      el.classList.remove('split-hands');
       // advance to next rightmost player with cards, else dealer
       let next = -1;
       for (let i = target - 1; i >= 0; i--) {
-        if (players[i].cards.length > 0) { next = i; break; }
+        if (players[i].hands.some(h => h.cards.length > 0)) { next = i; break; }
       }
       endCollectIdx = (next >= 0) ? next : NUM_PLAYERS;
       highlightEndCollectTarget();
@@ -4379,13 +4860,27 @@ function collectEndCards(target) {
   }, 320);
 }
 
+/* Re-render player cards on resize so MEASURED positions (split-ace
+   tuck) and layout-dependent geometry never go stale when switching
+   between desktop and mobile widths. */
+let _resizeRerenderT = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeRerenderT);
+  _resizeRerenderT = setTimeout(() => {
+    if (!players || players.length === 0) return;
+    for (let i = 0; i < NUM_PLAYERS; i++) renderPlayerCards(i);
+  }, 150);
+});
+
 /* ---- Shoe dispatcher: re-route Game.burnCard based on phase ---- */
 const _origBurnCard = Game.burnCard;
 Game.burnCard = function() {
   if ($('shoe').classList.contains('disabled')) return;
-  if (phase === 'awaiting-burn')  return _origBurnCard.call(Game);
-  if (phase === 'playing')        return dealCardToActive();
-  if (phase === 'dealer-play')    return dealerHit();
+  if (phase === 'awaiting-burn')          return _origBurnCard.call(Game);
+  if (phase === 'playing')                return dealCardToActive();
+  if (phase === 'awaiting-split-deal-0')  return dealSplitCard();
+  if (phase === 'awaiting-split-deal-1')  return dealSplitCard();
+  if (phase === 'dealer-play')            return dealerHit();
   // dealer-reveal is now triggered by clicking the dealer's hand, not the shoe
 };
 
