@@ -636,7 +636,7 @@
   .chip-stack-tray {
     position: relative;
     width: 64px;
-    height: 168px;
+    height: 104px;
     cursor: pointer;
   }
   .chip-stack-tray .chip-edge {
@@ -805,9 +805,14 @@
     }
     .player-cards { width: 92px; height: 134px; }
     .playing-card { width: 64px; height: 90px; border-radius: 6px; }
-    .player-cards.split-hands { gap: 12px; }
-    /* Mobile split cards keep mobile-default 64x90 sizing; they'll spill
-       outside the player box, which is acceptable. */
+    /* Mobile splits: widen the container so the two 64px columns have
+       real room, and scoot each seat's split RIGHT so the left column
+       doesn't run off the screen edge — most for Player 1 (leftmost),
+       least for Player 3. */
+    .player-cards.split-hands { width: 172px; gap: 14px; }
+    #p0-cards.split-hands { transform: translateX(46px); }
+    #p1-cards.split-hands { transform: translateX(30px); }
+    #p2-cards.split-hands { transform: translateX(12px); }
     .playing-card .corner-tl,
     .playing-card .corner-br { font-size: 1.05rem; }
     .playing-card .corner small { font-size: 0.95rem; }
@@ -819,7 +824,7 @@
     .side-grid { width: 68px; gap: 4px; margin-top: 6px; }
     .side-circle .lbl { font-size: 0.4rem; }
     .dealer-cards { min-width: 160px; min-height: 124px; }
-    .chip-stack-tray { width: 38px; height: 130px; }
+    .chip-stack-tray { width: 38px; height: 92px; }
     .chip-stack-tray .chip-edge { height: 16px; }
     .chip-tray { padding: 5px 4px; gap: 3px; }
     .chip-stack-tray .chip-label { font-size: 0.5rem; }
@@ -862,7 +867,7 @@
     .bet-stack-viz.split-stack { width: 68px; }
     .side-grid { width: 58px; gap: 3px; }
     .players-row { gap: 3px; }
-    .chip-stack-tray { width: 32px; height: 116px; }
+    .chip-stack-tray { width: 32px; height: 84px; }
     .chip-tray { padding: 4px 3px; gap: 2px; }
     .shoe { width: 46px; height: 38px; }
     .red-button { width: 42px; height: 26px; }
@@ -1066,6 +1071,9 @@
     border: 3px solid #dc2626;
   }
   .help-toggle:hover { filter: brightness(1.2); }
+  /* Help button lives in the tray-buttons row now, tray-btn sized. */
+  .tray-btn.help-btn { font-weight: 800; }
+  .tray-btn.help-btn.off { color: #fecaca; border-color: #dc2626; }
 
   /* Chip-stack visualization sitting on the bet circle (largest on bottom, grows upward).
      Anchored slightly below the circle's vertical center so the bottom chip
@@ -1334,13 +1342,12 @@ body::after  { bottom: 0; animation-direction: reverse; }
 
     <!-- 5) Bottom bar: help | chip tray -->
     <div class="bottom-bar">
-      <div class="ctrl-stack help-only">
-        <button class="help-toggle off" id="help-toggle" onclick="Game.toggleHelp()">HELP: OFF</button>
-      </div>
       <div class="chip-tray-wrap">
         <div class="chip-tray" id="chip-tray"><!-- stacks injected by JS --></div>
 
         <div class="tray-buttons">
+          <button class="tray-btn help-btn off" id="help-toggle" onclick="Game.toggleHelp()">HELP: OFF</button>
+          <button class="tray-btn" onclick="Game.newRound()">New Round</button>
           <button class="tray-btn" onclick="Game.openSettings()">Settings</button>
           <button class="tray-btn" onclick="Game.openPayouts()">Payouts</button>
         </div>
@@ -1405,10 +1412,6 @@ body::after  { bottom: 0; animation-direction: reverse; }
     </div>
   </div>
 
-  <div class="action-bar">
-    <button onclick="Game.newRound()">New Round</button>
-    <button class="ghost" onclick="Game.reset()">Reset</button>
-  </div>
 </div>
 
 <script>
@@ -1585,12 +1588,12 @@ function renderPlayerStations() {
 function renderChipTray() {
   const tray = $('chip-tray');
   const stacks = [
-    { color: 'ce-purple', label: '$500', value: 500, count: 20 },
-    { color: 'ce-black',  label: '$100', value: 100, count: 20 },
-    { color: 'ce-green',  label: '$25',  value: 25,  count: 20 },
-    { color: 'ce-red',    label: '$5',   value: 5,   count: 20 },
-    { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 20 },
-    { color: 'ce-white',  label: '$1',   value: 1,   count: 20 },
+    { color: 'ce-purple', label: '$500', value: 500, count: 10 },
+    { color: 'ce-black',  label: '$100', value: 100, count: 10 },
+    { color: 'ce-green',  label: '$25',  value: 25,  count: 10 },
+    { color: 'ce-red',    label: '$5',   value: 5,   count: 10 },
+    { color: 'ce-pink',   label: '$2.50',value: 2.5, count: 10 },
+    { color: 'ce-white',  label: '$1',   value: 1,   count: 10 },
   ];
   tray.innerHTML = '';
   const STEP = 6;
@@ -3120,12 +3123,18 @@ function advanceToNextHandOrPlayer() {
   if (pl && pl.hands.length > 1 && pl.activeHandIdx < pl.hands.length - 1) {
     pl.activeHandIdx++;
     renderPlayerCards(currentPlayerIdx);
+    /* House procedure: the second split hand has only its original
+       card — it receives its second card ONLY after the first hand is
+       completely finished. Wait for a shoe click to deal it. */
+    if (pl.cards.length < 2) {
+      setPhase('awaiting-split-deal-1');
+      enableShoe(true);
+      setStatus(`First hand done — click shoe to deal Player ${currentPlayerIdx+1}'s second hand.`);
+      return;
+    }
+    /* Defensive fallback (shouldn't occur in the new flow). */
     setTimeout(() => {
-      // Split-Ace hands are auto-stood (one card, no further play).
-      if (pl.stood || pl.busted || pl.isSplitAce) {
-        advanceToNextHandOrPlayer();
-        return;
-      }
+      if (pl.stood || pl.busted) { advanceToNextHandOrPlayer(); return; }
       decidePlayerAction();
     }, 500);
     return;
@@ -3137,9 +3146,11 @@ function advanceToNextHandOrPlayer() {
 /* Step 1 of split — invoked when the dealer clicks the player's pair
    while in 'awaiting-split-cards' phase. Materializes the second hand
    (popping the pair's second card into it) and re-renders into the
-   side-by-side two-hand layout. Each hand now has ONE card; the
-   second card on each is dealt one at a time on subsequent shoe
-   clicks (phases 'awaiting-split-deal-0' then 'awaiting-split-deal-1'). */
+   side-by-side two-hand layout. Each hand now has ONE card. House
+   procedure: the FIRST split hand is dealt its second card and played
+   to COMPLETION (hit / stand / double / bust) before the second hand
+   receives any card — phase 'awaiting-split-deal-0', play out hand 1,
+   then 'awaiting-split-deal-1' for hand 2. */
 Game.splitCardsClick = function(playerIdx) {
   if (phase !== 'awaiting-split-cards') return;
   if (playerIdx !== currentPlayerIdx) return;
@@ -3180,9 +3191,18 @@ function dealSplitCard() {
     pl.activeHandIdx = 0;
     pl.cards.push(Shoe.draw());
     renderPlayerCards(currentPlayerIdx);
-    setPhase('awaiting-split-deal-1');
-    enableShoe(true);
-    setStatus(`Click shoe to deal Player ${currentPlayerIdx+1}'s second hand.`);
+    enableShoe(false);
+    currentAction = null;
+    setPhase('playing');
+    /* Split aces get exactly ONE card each and auto-stand. */
+    if (pl.hands[0].isSplitAce) {
+      pl.hands[0].stood = true;
+      renderPlayerCards(currentPlayerIdx);
+      setTimeout(advanceToNextHandOrPlayer, 500);
+      return;
+    }
+    /* Play hand 1 to COMPLETION — hand 2's card comes only after. */
+    setTimeout(decidePlayerAction, 350);
     return;
   }
   if (phase === 'awaiting-split-deal-1') {
@@ -3190,15 +3210,9 @@ function dealSplitCard() {
     pl.cards.push(Shoe.draw());
     renderPlayerCards(currentPlayerIdx);
     enableShoe(false);
-    setPhase('playing');
     currentAction = null;
-    // Back to hand 0 to start play (unless it's an ace split — both
-    // hands auto-stood with one card each is impossible here because we
-    // just dealt the second card to hand 1; for split-Ace we instead
-    // force-stand both hands now and advance to next player).
-    pl.activeHandIdx = 0;
-    if (pl.hands[0].isSplitAce) {
-      pl.hands[0].stood = true;
+    setPhase('playing');
+    if (pl.hands[1].isSplitAce) {
       pl.hands[1].stood = true;
       renderPlayerCards(currentPlayerIdx);
       setTimeout(() => {
@@ -3207,8 +3221,8 @@ function dealSplitCard() {
       }, 700);
       return;
     }
-    renderPlayerCards(currentPlayerIdx);
     setTimeout(decidePlayerAction, 350);
+    return;
   }
 }
 
@@ -3760,8 +3774,13 @@ function placeBustBonusBets() {
   setStatus('Players placing Bust Bonus before dealer reveals...');
   for (let i=0; i<NUM_PLAYERS; i++) {
     const pl = players[i];
-    if (pl.main > 0 && Math.random() < Settings.betLikelihood.bust) {
-      pl.bust = randUpToMain(pl.main, Settings.unusualBets);
+    /* House rule: the Bust Bonus can never exceed the player's ORIGINAL
+       main bet — doubling does NOT raise the cap ($55 bet doubled to $110
+       still caps the Bust Bonus at $55). Exception: after a split the cap
+       is the combined original main bets of the split hands. */
+    const bustCap = pl.mainOriginal * pl.hands.length;
+    if (playerHasLiveBet(i) && bustCap > 0 && Math.random() < Settings.betLikelihood.bust) {
+      pl.bust = randUpToMain(bustCap, Settings.unusualBets);
     }
   }
   // Only re-render the bust circles with the drop-in animation; the existing
