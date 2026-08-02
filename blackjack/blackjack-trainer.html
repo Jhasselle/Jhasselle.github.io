@@ -858,15 +858,15 @@ button.ghost:hover, .ghost:hover {
     <h1>Blackjack Trainer</h1>
     <div class="sub">Study tools for dealing blackjack</div>
     <div id="main-menu-buttons" class="card">
+      <button class="mode-btn" onclick="Nav.goSection('dealing-section')">
+        <b>Dealing Simulator</b>
+        <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
+        <span class="meta">Choose a variant</span>
+      </button>
       <button class="mode-btn" onclick="Nav.goSection('strategy-section')">
         <b>6-Deck Blackjack Strategy</b>
         <span>Drill the basic strategy chart &mdash; full row, one-at-a-time, or full table.</span>
         <span class="meta">Open drills</span>
-      </button>
-      <button class="mode-btn" onclick="Nav.goSection('flashcard-section')">
-        <b>Terminology Flash Cards</b>
-        <span>Multiple-choice quiz on blackjack table terminology and procedures.</span>
-        <span class="meta">Open flash cards</span>
       </button>
       <button class="mode-btn" onclick="Nav.goSection('pays-section')">
         <b>Blackjack Payouts</b>
@@ -882,11 +882,6 @@ button.ghost:hover, .ghost:hover {
         <b>Side-bet Practice</b>
         <span>21+3 Xtreme, Bust Bonus, and Red &amp; Blue Jackpot &mdash; all shuffled together. See the hand or up-card, recall the payout.</span>
         <span class="meta">Open practice</span>
-      </button>
-      <button class="mode-btn" onclick="Nav.goSection('dealing-section')">
-        <b>Dealing Simulator</b>
-        <span>Three-player table from the dealer's perspective. Burn, take bets, close, deal &mdash; with side bets.</span>
-        <span class="meta">Choose a variant</span>
       </button>
     </div>
   </div>
