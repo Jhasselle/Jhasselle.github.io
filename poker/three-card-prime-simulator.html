@@ -1236,7 +1236,7 @@ body.new-round-curtain #new-round-overlay {
 
     <div class="payout-section">
       <h3>Ante &amp; Play</h3>
-      <p class="ps-note">Player wins both → 1:1 on Ante and Play. Dealer doesn't qualify → Ante pushes, Play still plays.</p>
+      <p class="ps-note">Player wins both → 1:1 on Ante and Play. Dealer doesn't qualify → Play pushes, Ante pays 1:1.</p>
       <table class="payout-table">
         <tr><td>Win</td><td>1 : 1</td></tr>
       </table>
@@ -1901,7 +1901,7 @@ body.new-round-curtain #new-round-overlay {
       return renderBetStack(bets[betKey]);
     }
     /* PUSHED text overlay — appears on the bet circle during settlement
-       when the bet is a push (e.g. the Ante when the dealer doesn't qualify),
+       when the bet is a push (e.g. Play bet when dealer doesn't qualify),
        but only AFTER the dealer has clicked the bet to acknowledge it.
        Cleared in the next round via state reset. */
     function spotPushedLabel(betKey) {
@@ -2269,7 +2269,7 @@ body.new-round-curtain #new-round-overlay {
   }
 
   /* After the dealer reveal: if the dealer does NOT qualify and at
-     least one seat has an unresolved ANTE push, hold for the PUSH ALL
+     least one seat has an unresolved Play push, hold for the PUSH ALL
      button; otherwise go straight into normal settlement. */
   function beginSettlementFlow() {
     prepareSettlement();
@@ -2283,13 +2283,13 @@ body.new-round-curtain #new-round-overlay {
     }
   }
 
-  /* Seats (right-to-left) whose ANTE is an unresolved push — folded
-     seats lose their ante outright (never a push), so they're
-     naturally skipped. */
+  /* Seats (right-to-left) whose Play bet is an unresolved push —
+     folded seats never placed a Play bet, so they're naturally
+     skipped (their play settlement is null / zero-staked). */
   function pushAllSeats() {
     const out = [];
     for (let i = STATE.players.length - 1; i >= 0; i--) {
-      const r = STATE.players[i].settlement && STATE.players[i].settlement.ante;
+      const r = STATE.players[i].settlement && STATE.players[i].settlement.play;
       if (r && !r.resolved && r.outcome === 'push') out.push(i);
     }
     return out;
@@ -2298,9 +2298,9 @@ body.new-round-curtain #new-round-overlay {
   /* ============================================================
      PUSH ALL — dealer does NOT qualify. Automated sequence, one
      seat at a time right-to-left: the carousel centers the seat,
-     the Ante chips clear back to the player and a PUSHED overlay
-     appears over the Ante spot (~900ms per seat). Then normal
-     settlement continues (Play still plays vs the dealer's hand). Tie pushes
+     the Play chips clear back to the player and a PUSHED overlay
+     appears over the Play diamond (~900ms per seat). Then normal
+     settlement continues (Ante still pays 1:1). Tie pushes
      on qualifying rounds keep the manual click-to-acknowledge
      behavior — this sequence only ever runs on a no-qual.
      ============================================================ */
@@ -2326,8 +2326,8 @@ body.new-round-curtain #new-round-overlay {
       renderAll();                     /* carousel centers the seat */
       setTimeout(() => {
         if (STATE.phase !== 'push-all') { pushAllRunning = false; return; }
-        if (p.settlement.ante) {
-          p.settlement.ante.resolved = true;   /* chips clear + PUSHED overlay */
+        if (p.settlement.play) {
+          p.settlement.play.resolved = true;   /* chips clear + PUSHED overlay */
         }
         renderAll();
         setTimeout(step, 450);         /* ≈900ms per seat overall */
@@ -2463,7 +2463,7 @@ body.new-round-curtain #new-round-overlay {
       }
       if (r.outcome === 'push') {
         /* Push: chip stays on the spot, no chip movement. The dealer just
-           taps to acknowledge "this bet pushed". House rule: the ANTE
+           taps to acknowledge "this bet pushed". Confirmed rule: Play
            pushes when the dealer doesn't qualify; Ante/Play push on a tie. */
         r.resolved = true;
         afterStep();
@@ -2716,11 +2716,11 @@ body.new-round-curtain #new-round-overlay {
           s.ante = { staked: b.ante, outcome: 'loss', net,
             detail: aBonusCat ? ('-$' + b.ante + ' +bonus $' + (ANTE_BONUS[aBonusCat]*b.ante)) : '-$' + b.ante };
         } else if (!dealerQual) {
-          /* House rule (casino doc): dealer doesn't qualify → the ANTE
-             pushes; the Play bet stays in action. Ante Bonus still pays
-             on the player's cards regardless. */
-          s.ante = { staked: b.ante, outcome: 'push', net,
-            detail: 'push (D doesn’t qualify)' + (aBonusCat ? ' +bonus $' + (ANTE_BONUS[aBonusCat]*b.ante) : '') };
+          /* Confirmed with trainers 2026-08: dealer doesn't qualify →
+             the Ante pays 1:1 automatically (fold already handled above);
+             the Play bet pushes. Bonus paid as above. */
+          net += b.ante;
+          s.ante = { staked: b.ante, outcome: 'win', net, detail: '+$' + net + ' (D doesn’t qualify)' };
         } else {
           const cmp = cmpEval(e, dealerEval3);
           if (cmp > 0)      { net += b.ante; s.ante = { staked: b.ante, outcome: 'win',  net, detail: '+$' + net }; }
@@ -2731,10 +2731,9 @@ body.new-round-curtain #new-round-overlay {
 
       /* ---------- PLAY ---------- */
       if (b.play > 0) {
-        /* Play stays in ACTION even when the dealer doesn't qualify —
-           house rule: it's the ANTE that pushes on a no-qualify. A fold
-           never placed a Play bet, so this only runs for players in. */
-        {
+        if (!dealerQual) {
+          s.play = { staked: b.play, outcome: 'push', net: 0, detail: 'push' };
+        } else {
           const e = evalThree(p.cards);
           const cmp = cmpEval(e, dealerEval3);
           if (cmp > 0)      s.play = { staked: b.play, outcome: 'win',  net: b.play, detail: '+$' + b.play };
