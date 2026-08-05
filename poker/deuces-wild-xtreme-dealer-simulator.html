@@ -2793,9 +2793,12 @@ window.CM_JOKER_SRC = (function () {
     void clone.offsetWidth;
     clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
     clone.style.opacity = '0.0';
+    /* Fire-and-forget (baccarat pattern): resolve the game state NOW so
+       rapid clicks can never resurrect a taken stack mid-animation; the
+       ghost just glides and removes itself. */
+    onDone && onDone();
     setTimeout(() => {
       if (clone.parentNode) clone.parentNode.removeChild(clone);
-      onDone && onDone();
     }, 580);
   }
   function flyBetToRack(playerIdx, betKey, onDone) {
@@ -2827,9 +2830,12 @@ window.CM_JOKER_SRC = (function () {
     clone.style.transform = 'translate(' + (tgtCenter.x - srcCenter.x) + 'px, ' +
                             (tgtCenter.y - srcCenter.y) + 'px) scale(0.7)';
     clone.style.opacity = '0.0';
+    /* Fire-and-forget (baccarat pattern): resolve the game state NOW so
+       rapid clicks can never resurrect a taken stack mid-animation; the
+       ghost just glides and removes itself. */
+    onDone && onDone();
     setTimeout(() => {
       if (clone.parentNode) clone.parentNode.removeChild(clone);
-      onDone && onDone();
     }, 580);
   }
 
