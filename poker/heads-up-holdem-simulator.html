@@ -363,7 +363,7 @@ body {
   0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(253,224,71,0)); }
   50%      { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 8px rgba(253,224,71,0.85)); }
 }
-body:not(.help-off) .player .cards.collectable {
+.player .cards.collectable {
   animation: cardCollectPulse 2.4s ease-in-out infinite;
 }
 /* ============================================================
@@ -2399,9 +2399,12 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     void clone.offsetWidth;
     clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
     clone.style.opacity = '0.0';
+    /* Fire-and-forget (baccarat pattern): resolve the game state NOW so
+       rapid clicks can never resurrect a taken stack mid-animation; the
+       ghost just glides and removes itself. */
+    onDone && onDone();
     setTimeout(() => {
       if (clone.parentNode) clone.parentNode.removeChild(clone);
-      onDone && onDone();
     }, 580);
   }
   function flyBetToRack(playerIdx, betKey, onDone) {
@@ -2440,9 +2443,12 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
     clone.style.opacity   = '0.0';
 
+    /* Fire-and-forget (baccarat pattern): resolve the game state NOW so
+       rapid clicks can never resurrect a taken stack mid-animation; the
+       ghost just glides and removes itself. */
+    onDone && onDone();
     setTimeout(() => {
       if (clone.parentNode) clone.parentNode.removeChild(clone);
-      onDone && onDone();
     }, 580);
   }
 
