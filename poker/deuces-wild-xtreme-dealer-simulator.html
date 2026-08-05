@@ -2707,7 +2707,14 @@ window.CM_JOKER_SRC = (function () {
     }
 
     if (STATE.subphase === 'pay-winners') {
-      const winners = winnerBets(p);
+      /* Pushes are OPTIONAL clicks: moving on to pay a later bet quietly
+         auto-resolves any pushes sitting ahead of it in the queue. */
+      let winners = winnerBets(p);
+      while (winners.length && winners[0] !== betKey &&
+             p.settlement[winners[0]].outcome === 'push') {
+        p.settlement[winners[0]].resolved = true;
+        winners = winnerBets(p);
+      }
       if (winners[0] !== betKey) {
         flashHint('Pay in order — next: ' + BET_LABEL[winners[0]]);
         return;
@@ -3140,11 +3147,24 @@ window.CM_JOKER_SRC = (function () {
       onBetClick(parseInt(playerEl.dataset.pid, 10), spotEl.dataset.betkey);
       return;
     }
-    if (STATE.phase === 'settle' && STATE.subphase === 'collect-cards') {
+    const onlyPushesLeft = () => {
+      if (STATE.subphase !== 'pay-winners') return false;
+      const p = STATE.players[STATE.currentPlayerIdx];
+      const w = p && winnerBets(p);
+      return w && w.length > 0 && w.every(k => p.settlement[k].outcome === 'push');
+    };
+    if (STATE.phase === 'settle' &&
+        (STATE.subphase === 'collect-cards' || onlyPushesLeft())) {
       const cardEl = e.target.closest('.player[data-pid] .card');
       if (!cardEl) return;
       const pid = parseInt(cardEl.closest('.player[data-pid]').dataset.pid, 10);
       if (pid !== STATE.currentPlayerIdx) return;
+      /* Remaining pushes are optional — collecting the cards resolves them. */
+      if (STATE.subphase === 'pay-winners') {
+        const p = STATE.players[pid];
+        winnerBets(p).forEach(k => { p.settlement[k].resolved = true; });
+        STATE.subphase = 'collect-cards';
+      }
       onCardCollectClick(pid);
     }
   });
