@@ -358,7 +358,7 @@ body:not(.help-off) .hands.collectable {
   width: 14px; text-align: center;
 }
 .pcard {
-  width: 60px; height: 86px;
+  width: 54px; height: 77px;
   background: #f7f7f3;
   border: 1px solid #b9b9b9;
   border-radius: 5px;
@@ -1117,7 +1117,7 @@ body.new-round-curtain #new-round-overlay {
     overflow: hidden;
     /* Just tall enough for the bet rows + 2 hand rows + rank note —
        no dead space inside the player tile. (Cards are 60x86 now.) */
-    min-height: 400px;
+    min-height: 368px;
     padding: 0;
     gap: 0;
   }
@@ -3918,9 +3918,16 @@ function onBuildSubmit() {
   const userHighE = evalFive(high);
   const hwLowE    = evalTwo(hw.front);
   const hwHighE   = evalFive(hw.back);
+  /* Equal STRENGTH is not enough — the joker is its own card, so a
+     Joker+Ace front must not stand in for the house way's Ace+Ace
+     (Jason bug 2026-08-06). Require the front's exact composition
+     (ranks, joker distinct; suits may differ — strength checks catch
+     any suit swap that changes a flush). */
+  const frontComp = cs => cs.map(c => c.joker ? 'JOKER' : c.rank).sort().join(',');
   const matchesHouseWay =
     compare(userLowE,  hwLowE)  === 0 &&
-    compare(userHighE, hwHighE) === 0;
+    compare(userHighE, hwHighE) === 0 &&
+    frontComp(low) === frontComp(hw.front);
 
   if (!matchesHouseWay) {
     showBuildResult(hw);
