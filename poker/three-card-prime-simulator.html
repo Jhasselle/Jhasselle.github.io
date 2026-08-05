@@ -421,7 +421,8 @@ body {
   transform: translateY(-4px) scale(1.04);
   box-shadow: 0 8px 18px rgba(0,0,0,0.6), 0 0 0 2px rgba(253,224,71,0.6);
 }
-/* When Help is on, the collectable cards softly pulse so the dealer
+/* The collect pulse runs whether or not Help is on: it is the cue
+   that the hand is waiting to be picked up. The cards softly pulse so the dealer
    instantly sees they're waiting to be picked up. The pulse is applied
    to the CARDS CONTAINER via filter: drop-shadow so every card glows
    in unison (a single animation timer drives all of them) instead of
@@ -430,7 +431,7 @@ body {
   0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(253,224,71,0)); }
   50%      { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 8px rgba(253,224,71,0.85)); }
 }
-body:not(.help-off) .player .cards.collectable {
+.player .cards.collectable {
   animation: cardCollectPulse 2.4s ease-in-out infinite;
 }
 /* Marker classes on the (empty) cards row while the hand is tucked
@@ -2586,9 +2587,12 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     void clone.offsetWidth;
     clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
     clone.style.opacity = '0.0';
+    /* Fire-and-forget (baccarat pattern): resolve the game state NOW so
+       rapid clicks can never resurrect a taken stack mid-animation; the
+       ghost just glides and removes itself. */
+    onDone && onDone();
     setTimeout(() => {
       if (clone.parentNode) clone.parentNode.removeChild(clone);
-      onDone && onDone();
     }, 580);
   }
   function flyBetToRack(playerIdx, betKey, onDone) {
@@ -2631,9 +2635,12 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     clone.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(0.7)';
     clone.style.opacity   = '0.0';
 
+    /* Fire-and-forget (baccarat pattern): resolve the game state NOW so
+       rapid clicks can never resurrect a taken stack mid-animation; the
+       ghost just glides and removes itself. */
+    onDone && onDone();
     setTimeout(() => {
       if (clone.parentNode) clone.parentNode.removeChild(clone);
-      onDone && onDone();
     }, 580);
   }
 
