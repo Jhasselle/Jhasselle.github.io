@@ -466,8 +466,11 @@ body.help-off .hb-total { display: none; }
   .bcard .center-suit { font-size: 1.4rem; }
   .bcard .corner-tl, .bcard .corner-br { font-size: 0.85rem; }
   .status-line { font-size: 15px; }
-  .chip-tray { padding: 6px; gap: 3px; }
-  .tstack { width: 52px; height: 78px; }
+  .chip-tray { padding: 4px; gap: 2px; }
+  .tstack { width: 42px; height: 74px; }
+  .rack-row { gap: 6px; }
+  .in-hand { min-width: 74px; min-height: 54px; padding: 4px 6px; }
+  .in-hand::after { font-size: 8px; }
   .tray-btn { padding: 8px 10px; font-size: 0.8rem; }
   .burn-stage .burn-text { font-size: 26px; }
   .burn-stage .bcard { width: 52px; height: 74px; }
@@ -753,6 +756,7 @@ let outcome = null;
 
 let inHand = [];           // chip denominations clicked from tray
 let currentPay = null;     // { seat, key, owed }
+let payPool = 0;           // seat-total payout mode: remaining $ loaded for the active seat
 
 /* ---------------- Rendering ---------------- */
 function seatHTML(i) {
@@ -886,12 +890,14 @@ function inHandTotal() { return inHand.reduce((s, v) => s + v, 0); }
 function renderInHand() {
   const el = $('in-hand');
   el.innerHTML = '';
-  if (inHand.length === 0) return;
+  /* Pool mode shows the REMAINING seat total as an optimal stack. */
+  const vals = payPool > 0.001 ? chipStackForAmount(payPool).map(c => c.v) : inHand;
+  if (vals.length === 0) return;
   const stack = document.createElement('div');
   stack.className = 'ih-stack';
   /* Stack the cheques in the order they were pulled from the tray. */
   const lift = chipLift();
-  inHand.slice(0, 14).forEach((v, i) => {
+  vals.slice(0, 14).forEach((v, i) => {
     const d = DENOMS.find(x => x.v === v) || DENOMS[DENOMS.length - 1];
     const chip = makeChip3d(d.color, true);
     chip.style.bottom = (i * lift) + 'px';
@@ -901,7 +907,7 @@ function renderInHand() {
   el.appendChild(stack);
   const t = document.createElement('div');
   t.className = 'ih-total';
-  t.textContent = '$' + formatMoney(inHandTotal());
+  t.textContent = '$' + formatMoney(payPool > 0.001 ? payPool : inHandTotal());
   el.appendChild(t);
 }
 
@@ -979,7 +985,7 @@ Game.newRound = function() {
   playerDone = false; bankerDone = false;
   burnToken++;   // cancel any burn animation still in flight
   outcome = null; settleSeats = []; settleIdx = 0; settleStage = 'losers';
-  inHand = []; currentPay = null;
+  inHand = []; currentPay = null; payPool = 0;
   maybeRigHot();
   $('eval-log').innerHTML = '';
   ['box-player','box-banker'].forEach(id => {
@@ -1367,7 +1373,7 @@ function advanceSettle() {
   seat.winners.forEach(w => spotEl(seat.i, w.key).classList.add('payout-target'));
   const owedList = seat.winners.map(w =>
     `${BETS.find(b => b.key === w.key).label} $${formatMoney(w.owed)}`).join(' · ');
-  helpStatus(`Pay Spot ${seat.i + 1} (any order): ${owedList}. Build each amount, then click that bet.`,
+  helpStatus(`Pay Spot ${seat.i + 1} (any order): ${owedList}. Build each amount — or the spot's grand total — then click each owed bet.`,
              `Pay Spot ${seat.i + 1}.`);
 }
 
@@ -1394,25 +1400,49 @@ Game.spotClick = function(i, key) {
     }
     const w = seat.winners.find(x => x.key === key);
     if (!w) return;
-    if (Math.abs(inHandTotal() - w.owed) > 0.001) {
-      flashStatus(`That bet is owed $${formatMoney(w.owed)} — you have $${formatMoney(inHandTotal())} in hand.`);
+    /* Seat-total pool mode: the dealer loaded the GRAND TOTAL owed to this
+       seat into the outgoing; each owed spot clicked drains its share.
+       (One seat at a time — the pool can never span players.) */
+    if (payPool > 0.001) {
+      flyChips($('in-hand'), spotEl(i, key), chipStackForAmount(w.owed).map(c => c.v));
+      payPool = Math.round((payPool - w.owed) * 100) / 100;
+      seat.winners = seat.winners.filter(x => x.key !== key);
+      spotEl(i, key).classList.remove('payout-target');
+      renderInHand();
+      if (seat.winners.length === 0) { payPool = 0; renderInHand(); settleIdx++; advanceSettle(); }
       return;
     }
-    flyChips($('in-hand'), spotEl(i, key), inHand.slice());
-    inHand = []; renderInHand();
-    seat.winners = seat.winners.filter(x => x.key !== key);
-    spotEl(i, key).classList.remove('payout-target');
-    if (seat.winners.length === 0) { settleIdx++; advanceSettle(); }
+    const seatTotal = Math.round(seat.winners.reduce((s, x) => s + x.owed, 0) * 100) / 100;
+    if (Math.abs(inHandTotal() - w.owed) <= 0.001) {
+      /* Exact single-bet build — the classic flow. */
+      flyChips($('in-hand'), spotEl(i, key), inHand.slice());
+      inHand = []; renderInHand();
+      seat.winners = seat.winners.filter(x => x.key !== key);
+      spotEl(i, key).classList.remove('payout-target');
+      if (seat.winners.length === 0) { settleIdx++; advanceSettle(); }
+      return;
+    }
+    if (seat.winners.length > 1 && Math.abs(inHandTotal() - seatTotal) <= 0.001) {
+      /* Grand total for the whole seat — start pool mode with this click. */
+      flyChips($('in-hand'), spotEl(i, key), chipStackForAmount(w.owed).map(c => c.v));
+      inHand = [];
+      payPool = Math.round((seatTotal - w.owed) * 100) / 100;
+      seat.winners = seat.winners.filter(x => x.key !== key);
+      spotEl(i, key).classList.remove('payout-target');
+      renderInHand();
+      return;
+    }
+    flashStatus(`That bet is owed $${formatMoney(w.owed)} (spot total $${formatMoney(seatTotal)}) — you have $${formatMoney(inHandTotal())} in hand.`);
     return;
   }
 };
 
 Game.trayClick = function(v) {
-  if (phase !== 'settle-winners') return;
+  if (phase !== 'settle-winners' || payPool > 0.001) return;
   inHand.push(v);
   renderInHand();
 };
-Game.clearInHand = function() { inHand = []; renderInHand(); };
+Game.clearInHand = function() { if (payPool > 0.001) return; inHand = []; renderInHand(); };
 
 function endOfRound() {
   clearSpotMarks();
