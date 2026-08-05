@@ -358,7 +358,7 @@ body:not(.help-off) .hands.collectable {
   width: 14px; text-align: center;
 }
 .pcard {
-  width: 38px; height: 54px;
+  width: 60px; height: 86px;
   background: #f7f7f3;
   border: 1px solid #b9b9b9;
   border-radius: 5px;
@@ -797,7 +797,7 @@ body:not([data-phase="build"]) .build-area { display: none; }
   content: '';
   position: absolute;
   left: 0; right: 0;
-  top: 18%;
+  top: 31%;
   bottom: 0;
   background-color: var(--chip-base);
   background-image:
@@ -1116,8 +1116,8 @@ body.new-round-curtain #new-round-overlay {
     position: relative;
     overflow: hidden;
     /* Just tall enough for the bet rows + 2 hand rows + rank note —
-       no dead space inside the player tile. */
-    min-height: 340px;
+       no dead space inside the player tile. (Cards are 60x86 now.) */
+    min-height: 400px;
     padding: 0;
     gap: 0;
   }
@@ -1142,25 +1142,30 @@ body.new-round-curtain #new-round-overlay {
 @media (max-width: 560px) {
   .bottom-bar { gap: 10px; padding: 4px 6px; }
   .chip-tray  { gap: 4px; padding: 6px 8px; border-width: 2px; }
-  .chip-stack-tray { width: 52px; }
-  .chip-stack-tray .chip-edge  { height: 18px; }
-  .chip-stack-tray .chip-label { font-size: 0.6rem; }
-  .close-stack { width: 52px; }
-  .chip-stack-display { width: 52px; }
-  .chip-stack-display .chip-piece { left: 0; right: 0; height: 18px; }
+  .chip-stack-tray { width: 38px; }
+  .chip-stack-tray .chip-edge  { height: 16px; }
+  .chip-stack-tray .chip-label { font-size: 0.55rem; }
+  .close-stack { width: 38px; }
+  .chip-stack-display { width: 38px; }
+  .chip-stack-display .chip-piece { left: 0; right: 0; height: 14px; }
+  .bet .bchips { width: 38px; }
+  .bet .bet-chip-piece { height: 16px; }
+
   .tray-btn { padding: 6px 11px; font-size: 0.72rem; }
   .tray-buttons { gap: 6px; }
   .new-round-text { font-size: 28px; letter-spacing: 0.18em; }
 }
 @media (max-width: 420px) {
+  .bet .bchips { width: 32px; }
+  .bet .bet-chip-piece { height: 14px; }
   .bottom-bar { gap: 6px; padding: 4px 4px; }
   .chip-tray  { gap: 3px; padding: 5px 6px; }
-  .chip-stack-tray { width: 42px; }
-  .chip-stack-tray .chip-edge  { height: 16px; }
-  .chip-stack-tray .chip-label { font-size: 0.55rem; letter-spacing: 0; }
-  .close-stack { width: 42px; }
-  .chip-stack-display { width: 42px; padding: 3px; }
-  .chip-stack-display .chip-piece { left: 0; right: 0; height: 16px; }
+  .chip-stack-tray { width: 32px; }
+  .chip-stack-tray .chip-edge  { height: 14px; }
+  .chip-stack-tray .chip-label { font-size: 0.5rem; letter-spacing: 0; }
+  .close-stack { width: 32px; }
+  .chip-stack-display { width: 32px; padding: 3px; }
+  .chip-stack-display .chip-piece { left: 0; right: 0; height: 14px; }
   .tray-btn { padding: 5px 8px; font-size: 0.68rem; }
 }
 
@@ -3131,7 +3136,7 @@ function renderPlayer(p) {
   return '<div class="player' + cur + dim + done + carousel + '" data-pid="' + p + '">' +
     '<div class="seat-label">Player ' + (p + 1) + '</div>' +
     '<div class="bets-row">' + betsHTML + '</div>' +
-    '<div class="hands' + collectable + '">' + frontHTML + backHTML + '</div>' +
+    '<div class="hands' + collectable + '">' + backHTML + frontHTML + '</div>' +
     note +
   '</div>';
 }
