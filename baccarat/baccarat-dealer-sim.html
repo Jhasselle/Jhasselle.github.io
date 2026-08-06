@@ -208,8 +208,12 @@ body.help-off .hb-total { display: none; }
 .handbox.tiewin { box-shadow: 0 0 0 3px rgba(253,224,71,0.8), 0 0 26px rgba(253,224,71,0.4); }
 
 /* ---------- Cards ---------- */
+:root { --cw: 74px; --ch: 104px; }   /* card width/height — shrink with viewport */
+@media (max-width: 640px) { :root { --cw: 58px; --ch: 82px; } }
+@media (max-width: 430px) { :root { --cw: 48px; --ch: 68px; } }
+@media (max-width: 360px) { :root { --cw: 42px; --ch: 59px; } }
 .bcard {
-  width: 74px; height: 104px;
+  width: var(--cw); height: var(--ch);
   background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 7px;
   position: relative; flex: 0 0 auto;
   box-shadow: -2px 3px 6px rgba(0,0,0,0.45);
@@ -218,6 +222,20 @@ body.help-off .hb-total { display: none; }
 .bcard.imgface { background: transparent; border: none; border-radius: 4px; }
 .bcard.imgface playing-card { display: block; width: 100%; height: 100%; }
 .bcard.imgface img { display: block; width: 100%; height: 100%; }
+/* Cards rest a touch LOWER in their box by default; the WINNING hand's
+   original pair lifts about a quarter-card and STAYS raised until the
+   cards are collected — the physical "this hand won" signal. Positional
+   cue, so it shows regardless of Help. (Third/horizontal cards keep
+   their own rotate transform and don't move.) */
+.handbox .bcard:not(.horiz) { margin-top: 16px; transition: transform 0.35s ease; }
+.handbox.won-lift .bcard:not(.horiz) {
+  transform: translateY(-26px);
+  animation: wonLift 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes wonLift {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-26px); }
+}
 .bcard.anim { animation: cardIn 0.28s ease-out; }
 /* Horizontal (third) cards animate WITH their rotation so they never
    flash vertical first. */
@@ -231,13 +249,20 @@ body.help-off .hb-total { display: none; }
 .bcard.black { color: #111827; }
 /* Third cards sit OUT OF FLOW on the outer side of each box, so the
    two vertical cards never move when the third arrives. */
+/* Third card is a NORMAL flex sibling of the pair — it works at every
+   screen width. rotate(90deg) keeps the element's upright layout box, so
+   the margins below reshape it to the rotated footprint: horizontal
+   margins +((h-w)/2) widen it, vertical margins -((h-w)/2) shorten it.
+   The extra 16px on top makes it ride at the pair's resting height. */
 .bcard.horiz {
-  position: absolute;
   transform: rotate(90deg);
-  top: 30px;
+  margin: calc((var(--cw) - var(--ch)) / 2 + 30px)
+          calc((var(--ch) - var(--cw)) / 2)
+          calc((var(--cw) - var(--ch)) / 2);
 }
-.hb-banker .bcard.horiz { left: 10px; }
-.hb-player .bcard.horiz { right: 10px; }
+/* Banker's pair is anchored to its box's RIGHT edge — the third card
+   slots in on the pair's LEFT (order -1 in the flex row). */
+.hb-banker .bcard.horiz { order: -1; }
 .bcard .corner { position: absolute; font-weight: 700; line-height: 1; text-align: center;
   font-family: "Helvetica Neue", Arial, sans-serif; }
 .bcard .corner-tl { top: 5px; left: 6px; font-size: 1rem; }
@@ -990,7 +1015,7 @@ Game.newRound = function() {
   $('eval-log').innerHTML = '';
   ['box-player','box-banker'].forEach(id => {
     const el = $(id);
-    el.classList.remove('winner','tiewin','clickable','collect-glow');
+    el.classList.remove('winner','tiewin','clickable','collect-glow','won-lift');
     el.onclick = null;
   });
   document.querySelectorAll('.collectable-loser,.payout-target,.push-ring').forEach(el =>
@@ -1226,7 +1251,10 @@ function finishHand() {
   const o = outcome;
   const pBox = $('box-player'), bBox = $('box-banker');
   if (o.winner === 'tie') { pBox.classList.add('tiewin'); bBox.classList.add('tiewin'); }
-  else $(o.winner === 'player' ? 'box-player' : 'box-banker').classList.add('winner');
+  else {
+    const wb = $(o.winner === 'player' ? 'box-player' : 'box-banker');
+    wb.classList.add('winner', 'won-lift');
+  }
   let call;
   if (o.winner === 'tie') call = `TIE — ${o.p} all.`;
   else if (o.bankerPush7) call = `Banker wins ${o.b} over ${o.p} with a THREE-CARD 7 — Banker bets PUSH, Jin Chan 7 pays.`;
