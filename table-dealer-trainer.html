@@ -146,6 +146,18 @@ h1 {
 .terms summary::after { content: "▾"; transition: transform 0.2s ease; }
 .terms[open] summary::after { transform: rotate(180deg); }
 .terms summary:hover { color: rgba(255,255,255,0.75); }
+.bug-report {
+  margin: 26px auto 8px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.55);
+}
+.bug-report a {
+  color: rgba(147,197,253,0.9);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(147,197,253,0.6);
+}
+.bug-report a:hover { color: #bfdbfe; }
 .terms-body {
   margin-top: 14px;
   padding: 18px 20px;
@@ -221,6 +233,9 @@ h1 {
       <p class="fine copyright">© 2026 Jason Hasselle · All rights reserved except as granted above.</p>
     </div>
   </details>
+
+  <p class="bug-report">Found a bug? Send a screenshot and a quick explanation to
+    <a href="mailto:jbhasselle@gmail.com?subject=Table%20Dealer%20Trainer%20bug">jbhasselle@gmail.com</a></p>
 </div>
 
 </body>
