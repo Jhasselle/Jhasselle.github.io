@@ -75,6 +75,9 @@ body.no-help .result .totals{display:none}
 
 /* winner calls live on the felt, right under the cards */
 .felt-actions{margin-top:22px}
+/* feedback + result live right below the buttons — no more looking
+   down at a footer. min-height reserves the space so nothing jumps. */
+.felt-info{margin-top:16px;min-height:150px}
 
 /* help off = flying blind: the toggle goes red as a warning */
 .rules-btn.off{border-color:#e08a7a;color:#e08a7a}
@@ -222,6 +225,28 @@ body.no-help .result .totals{display:none}
 .paper th,.paper td{border:1px solid #b9b19a;padding:5px 8px;text-align:left}
 .paper th{background:#eae4d2;font-weight:600}
 
+/* Desktop scaling — the table reads tiny on a big monitor otherwise.
+   Mobile keeps the compact sizes below. */
+@media (min-width:760px){
+  .layout{max-width:980px}
+  .pcard3d{width:92px;height:130px}
+  .third-slot{width:132px;height:94px}
+  .cards{gap:9px;min-height:134px}
+  .hand h2{font-size:1.05rem}
+  .call{font-size:1.15rem}
+  .call strong{font-size:1.35rem}
+  .options button{font-size:1.05rem;padding:15px 22px;min-width:160px}
+  .felt-actions{margin-top:28px}
+  .result strong{font-size:1.6rem}
+  .result span{font-size:.95rem}
+}
+@media (min-width:1200px){
+  .pcard3d{width:110px;height:156px}
+  .third-slot{width:158px;height:112px}
+  .cards{gap:10px;min-height:160px}
+  .hand h2{font-size:1.15rem}
+}
+
 @media (max-width:480px){
   .rail{padding:8px 14px}
   .rail h1{font-size:1.05rem}
@@ -261,7 +286,6 @@ body.no-help .result .totals{display:none}
 <main class="felt" id="felt"></main>
 
 <!-- Decision strip -->
-<footer class="strip" id="strip"></footer>
 
 <!-- Crib sheet -->
 <aside class="sheet" id="sheet">
@@ -407,7 +431,8 @@ function renderTable() {
       '<button id="wBanker">Banker wins</button>' +
       '<button id="wTie">Tie</button>' +
       '<button id="wPlayer">Player wins</button>' +
-    "</div>";
+    "</div>" +
+    '<div class="felt-info" id="feltInfo"><div class="question"></div></div>';
 
   $("wBanker").addEventListener("click", () => winnerClick("banker"));
   $("wTie").addEventListener("click", () => winnerClick("tie"));
@@ -450,11 +475,11 @@ function placeThirdCard(hand, card, prevTotal) {
 /* The winner calls live on the felt (see renderTable); the strip just
    holds feedback notes during the hand and the result afterwards. */
 function showActions() {
-  $("strip").innerHTML = '<div class="question"></div>';
+  $("feltInfo").innerHTML = '<div class="question"></div>';
 }
 
 function showWrongNote(text) {
-  const box = $("strip").querySelector(".question");
+  const box = $("feltInfo").querySelector(".question");
   if (!box) return;
   const old = box.querySelector(".wrong-note");
   if (old) old.remove(); // remove + re-add so the red flash restarts
@@ -474,7 +499,7 @@ function showResult() {
     : b > p ? "Banker wins " + nat + b + " over " + p
     : natural ? "Tie \u2014 natural " + p
     : "Tie";
-  $("strip").innerHTML =
+  $("feltInfo").innerHTML =
     '<div class="result">' +
       "<strong>" + winner + "</strong>" +
       '<span class="totals">Player shows ' + p + " \u00b7 Banker has " + b + "</span>" +
