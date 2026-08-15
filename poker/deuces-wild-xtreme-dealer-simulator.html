@@ -1240,14 +1240,17 @@ body.new-round-curtain #new-round-overlay {
   transition: color 0.12s;
 }
 .modal-close:hover { color: #fff; }
-/* Footer close — the payouts sheet is long, and on a phone the × in the
-   header is a full scroll away by the time you're reading the last
-   paytable. This gives the same exit right where the reading ends. */
+/* Footer close — floats at the bottom of the payouts sheet (sticky within
+   the scrolling panel) so the exit is always one tap away, no scrolling.
+   The gradient fades the scrolling paytables out underneath it, and the
+   in-flow margin keeps it from ever covering the last rows at full scroll. */
 .modal-foot {
+  position: sticky;
+  bottom: 0;
   display: flex; justify-content: center;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  margin-top: 16px;
+  padding: 14px 0 4px;
+  background: linear-gradient(to top, #0f1020 65%, rgba(15,16,32,0));
 }
 .modal-foot .foot-close {
   background: #1e293b;
