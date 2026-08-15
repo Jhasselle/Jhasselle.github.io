@@ -611,6 +611,32 @@
     padding: 0 6px;
   }
   .modal-close:hover { color: #fff; }
+  /* Footer close — floats at the bottom of the payouts sheet (sticky within
+     the scrolling card) so the exit is always one tap away, no scrolling.
+     The gradient fades the scrolling paytables out underneath it, and the
+     in-flow margin keeps it from ever covering the last rows at full scroll. */
+  .modal-foot {
+    position: sticky;
+    bottom: 0;
+    display: flex; justify-content: center;
+    margin-top: 16px;
+    padding: 14px 0 4px;
+    background: linear-gradient(to top, #1e293b 65%, rgba(30,41,59,0));
+  }
+  .modal-foot .foot-close {
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid #475569;
+    padding: 10px 34px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    line-height: 1;
+    font-family: inherit;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .modal-foot .foot-close:hover { background: #273449; color: #fff; }
   .modal-body { padding: 16px 18px 20px; font-size: 0.88rem; line-height: 1.5; }
   .modal-body h3 { margin: 4px 0 6px; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; color: #fbbf24; }
   .modal-sub { margin: 0 0 12px; color: #94a3b8; font-size: 0.76rem; }
@@ -4544,7 +4570,9 @@ Game.openSettings = function() {
 
 Game.openPayouts = function() {
   const body = $('payouts-body');
-  body.innerHTML = renderPayoutsHTML();
+  body.innerHTML = renderPayoutsHTML() +
+    '<div class="modal-foot"><button class="foot-close" type="button" ' +
+    'onclick="Game.closeModal(\'payouts-modal\')">Close</button></div>';
   $('payouts-modal').classList.add('open');
 };
 
