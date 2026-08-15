@@ -455,6 +455,32 @@ body.help-off .hb-total { display: none; }
 .modal-card h3 { margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
 .modal-close { position: absolute; top: 12px; right: 14px; background: none; border: 0; color: rgba(255,255,255,0.6); font-size: 22px; cursor: pointer; }
 .modal-close:hover { color: #fff; }
+/* Footer close — floats at the bottom of the payouts sheet (sticky within
+   the scrolling card) so the exit is always one tap away, no scrolling.
+   The gradient fades the scrolling content out underneath it, and the
+   in-flow margin keeps it from ever covering the last rows at full scroll. */
+.modal-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex; justify-content: center;
+  margin-top: 16px;
+  padding: 14px 0 4px;
+  background: linear-gradient(to top, #0c0e16 65%, rgba(12,14,22,0));
+}
+.modal-foot .foot-close {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  padding: 10px 34px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  line-height: 1;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.modal-foot .foot-close:hover { background: #273449; color: #fff; }
 .setting-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
 .setting-row label { flex: 0 0 150px; }
 .setting-row input[type=range] { flex: 1; }
@@ -587,6 +613,9 @@ body.help-off .hb-total { display: none; }
       <tr><td>Jin Chan 7 — Banker wins with three-card 7</td><td>40 to 1</td></tr>
     </table>
     <p class="pay-note">On a Tie: Player and Banker main bets push. Main bets are required; side bets ride on the same round. 8-deck shoe, standard third-card tableau.</p>
+    <div class="modal-foot">
+      <button class="foot-close" type="button" onclick="Game.closeModal('payouts-modal')">Close</button>
+    </div>
   </div>
 </div>
 
