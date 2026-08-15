@@ -58,6 +58,28 @@ body.no-help .result .totals{display:none}
 }
 .cards{display:flex;align-items:center;gap:7px;min-height:90px}
 
+/* click-to-draw: the hands themselves are the controls */
+.hand .cards{cursor:pointer;border-radius:10px;padding:4px;transition:box-shadow .2s}
+.hand .cards:hover{box-shadow:0 0 0 2px rgba(201,162,75,.35)}
+.hand .cards.flash-bad{animation:handFlash .6s ease-out}
+@keyframes handFlash{
+  0%,55%{box-shadow:0 0 0 3px rgba(224,110,95,.9),0 0 26px rgba(224,110,95,.5)}
+  100%{box-shadow:none}
+}
+.hand .cards.flash-good{animation:handFlashGood .6s ease-out}
+@keyframes handFlashGood{
+  0%,55%{box-shadow:0 0 0 3px rgba(110,200,140,.9),0 0 26px rgba(110,200,140,.5)}
+  100%{box-shadow:none}
+}
+@media (prefers-reduced-motion: reduce){.hand .cards.flash-bad,.hand .cards.flash-good{animation:none}}
+
+/* winner calls live on the felt, right under the cards */
+.felt-actions{margin-top:22px}
+
+/* help off = flying blind: the toggle goes red as a warning */
+.rules-btn.off{border-color:#e08a7a;color:#e08a7a}
+.rules-btn.off:hover,.rules-btn.off:focus-visible{background:#e08a7a;color:#140b22}
+
 /* reserved slot — third card lies sideways here; row never shifts */
 .third-slot{position:relative;width:90px;height:64px;flex:none}
 .pcard3d.horizontal{
@@ -150,6 +172,9 @@ body.no-help .result .totals{display:none}
   cursor:pointer;letter-spacing:.04em;
 }
 .deal:hover,.deal:focus-visible{background:#dcb75f}
+/* auto-deal countdown state — the button goes green while it ticks down */
+.deal.counting{background:#7cc99a}
+.deal.counting:hover,.deal.counting:focus-visible{background:#8fd0a5}
 
 .feedback{max-width:520px;margin:0 auto;text-align:center;border-radius:10px;padding:14px 16px}
 .feedback.ok{animation:flashGreen .7s ease-out forwards}
@@ -226,6 +251,7 @@ body.no-help .result .totals{display:none}
   <div class="tallies">
     <div class="tally"><label>Score</label><strong id="score">0</strong></div>
     <div class="tally err"><label>Errors</label><strong id="errors">0</strong></div>
+    <button class="rules-btn" id="autoBtn">Auto deal: On</button>
     <button class="rules-btn" id="helpBtn">Help: On</button>
     <button class="rules-btn" id="rulesBtn">House sheet</button>
   </div>
@@ -319,9 +345,11 @@ const S = {
   wrongCount: 0,
   score: 0,
   errors: 0,
-  help: true,         // on by default; persisted in localStorage
+  help: false,        // OFF by default; persisted in localStorage
+  autoDeal: true,     // 3-second auto next hand; persisted in localStorage
 };
-try { S.help = localStorage.getItem("baccarat-help") !== "0"; } catch (e) {}
+try { S.help = localStorage.getItem("baccarat-help") === "1"; } catch (e) {}
+try { S.autoDeal = localStorage.getItem("baccarat-autodeal") !== "0"; } catch (e) {}
 let timers = [];
 const later = (fn, ms) => timers.push(setTimeout(fn, ms));
 const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
@@ -354,7 +382,7 @@ function renderIdle() {
   $("felt").innerHTML =
     '<div class="empty">' +
       "<p>Fresh shoe on the table \u2014 " + S.shoe.length + " cards.</p>" +
-      '<p class="sub">You\u2019re the dealer. Each hand, make three calls: the Player hand, the Banker hand, then the winner. The table always plays out correctly, even if your call was wrong.</p>' +
+      '<p class="sub">You\u2019re the dealer. Click a hand to give it its third card when the rules call for one \u2014 a wrong click flashes red. When no more cards are due, call the winner below.</p>' +
       '<button class="deal" id="dealBtn">Deal</button>' +
     "</div>";
   $("dealBtn").addEventListener("click", deal);
@@ -364,22 +392,35 @@ function renderTable() {
   // Banker (left): reserved third-card slot on the LEFT · Player (right): slot on the RIGHT
   $("felt").innerHTML =
     '<div class="layout">' +
-      '<section class="hand">' +
+      '<section class="hand" id="bHand">' +
         "<h2>Banker</h2>" +
         '<div class="cards"><div class="third-slot" id="bSlot"></div><div id="bCards" style="display:flex;gap:inherit"></div></div>' +
         '<p class="call" id="bCall">Banker has <strong id="bTotal"></strong></p>' +
       "</section>" +
-      '<section class="hand">' +
+      '<section class="hand" id="pHand">' +
         "<h2>Player</h2>" +
         '<div class="cards"><div id="pCards" style="display:flex;gap:inherit"></div><div class="third-slot" id="pSlot"></div></div>' +
         '<p class="call" id="pCall">Player shows <strong id="pTotal"></strong></p>' +
       "</section>" +
+    "</div>" +
+    '<div class="options felt-actions">' +
+      '<button id="wBanker">Banker wins</button>' +
+      '<button id="wTie">Tie</button>' +
+      '<button id="wPlayer">Player wins</button>' +
     "</div>";
+
+  $("wBanker").addEventListener("click", () => winnerClick("banker"));
+  $("wTie").addEventListener("click", () => winnerClick("tie"));
+  $("wPlayer").addEventListener("click", () => winnerClick("player"));
 
   for (let i = 0; i < 2; i++) {
     $("bCards").appendChild(cardEl(S.banker[i], { delay: i === 1 ? 112 : 0 }));
     $("pCards").appendChild(cardEl(S.player[i], { delay: i === 1 ? 112 : 0 }));
   }
+
+  /* Click-to-draw: the hands are the controls. */
+  $("bHand").addEventListener("click", () => handClick("banker"));
+  $("pHand").addEventListener("click", () => handClick("player"));
 }
 
 function reveal(hand) { // "player" | "banker"
@@ -406,54 +447,10 @@ function placeThirdCard(hand, card, prevTotal) {
 }
 
 /* ── Strip rendering ──────────────────────────────────────── */
-function showDealing() {
-  $("strip").innerHTML = '<p class="dealing">Dealing\u2026</p>';
-}
-
-function showGreen() {
-  $("strip").innerHTML = '<div class="feedback ok"><strong>Correct</strong></div>';
-}
-
-function showQuestion() {
-  let prompt, options;
-  if (S.phase === "qPlayer") {
-    prompt = "Both hands are face up. What\u2019s the call?";
-    options = [
-      { key: "natural", label: "Natural \u2014 both stand" },
-      { key: "draw", label: "Player draws" },
-      { key: "stand", label: "Player stands" },
-    ];
-  } else if (S.phase === "qBanker") {
-    prompt = "Does the Banker take a card?";
-    options = [
-      { key: "draw", label: "Banker draws" },
-      { key: "stand", label: "Banker stands" },
-    ];
-  } else { // qWinner
-    prompt = "Call the hand.";
-    options = [
-      { key: "player", label: "Player wins" },
-      { key: "banker", label: "Banker wins" },
-      { key: "tie", label: "Tie" },
-    ];
-  }
-  const box = document.createElement("div");
-  box.className = "question";
-  const p = document.createElement("p");
-  p.className = "q-prompt";
-  p.textContent = prompt;
-  const opts = document.createElement("div");
-  opts.className = "options";
-  options.forEach((o) => {
-    const b = document.createElement("button");
-    b.textContent = o.label;
-    b.addEventListener("click", () => answer(o.key));
-    opts.appendChild(b);
-  });
-  box.appendChild(p);
-  box.appendChild(opts);
-  $("strip").innerHTML = "";
-  $("strip").appendChild(box);
+/* The winner calls live on the felt (see renderTable); the strip just
+   holds feedback notes during the hand and the result afterwards. */
+function showActions() {
+  $("strip").innerHTML = '<div class="question"></div>';
 }
 
 function showWrongNote(text) {
@@ -484,6 +481,20 @@ function showResult() {
       '<button class="deal" id="nextBtn">Next hand</button>' +
     "</div>";
   $("nextBtn").addEventListener("click", deal);
+  if (S.autoDeal) startAutoCountdown();
+}
+
+/* Auto deal: 3-2-1 inside the Next hand button, then the next hand
+   deals itself. Clicking the button skips ahead; toggling Auto deal
+   off (top rail) cancels it. */
+function startAutoCountdown() {
+  const btn = $("nextBtn");
+  if (btn) btn.classList.add("counting");
+  const tick = (n) => { if (btn) btn.textContent = "Next hand — " + n; };
+  tick(3);
+  later(() => tick(2), 1000);
+  later(() => tick(1), 2000);
+  later(deal, 3000);
 }
 
 /* ── Game flow ────────────────────────────────────────────── */
@@ -500,129 +511,135 @@ function deal() {
   S.playerDrew = false;
   S.phase = "reveal";
   renderTable();
-  showDealing();
+  showActions();
 
   // Cards land face down, then: Player reveals → half-second pause → Banker reveals
   later(() => reveal("player"), 640);
   later(() => reveal("banker"), 1520);
-  later(() => { S.phase = "qPlayer"; showQuestion(); }, 2160);
+  later(() => { S.phase = "act"; }, 2160);
 }
 
-function gradeOk(next) {
-  S.score++;
-  $("score").textContent = S.score;
-  showGreen();
-  later(() => advanceTo(next), 900); // green flash, tiny pause, then move on
+/* What the table owes next: "player" | "banker" | "winner". */
+function isNatural() {
+  return S.player.length === 2 && S.banker.length === 2 && (pT() >= 8 || bT() >= 8);
 }
-
-function gradeWrong(text) {
-  S.errors++;
-  $("errors").textContent = S.errors;
-  showWrongNote(text); // red note under the options, try again
-}
-
-function answer(choice) {
-  if (S.phase === "qPlayer") answerPlayer(choice);
-  else if (S.phase === "qBanker") answerBanker(choice);
-  else if (S.phase === "qWinner") answerWinner(choice);
-}
-
-/* Q1 — player hand */
-function answerPlayer(choice) {
-  const correct = playerAction(pT(), bT());
-  if (choice === correct) {
-    gradeOk(correct === "natural" ? "qWinner" : "qBanker");
-    return;
-  }
-  let why;
-  if (correct === "natural")
-    why = "There\u2019s a natural on the table \u2014 a hand of 8 or 9 stands, and no third cards are drawn.";
-  else if (choice === "natural") why = "Neither hand shows 8 or 9, so there\u2019s no natural.";
-  else if (correct === "draw") why = "Player shows " + pT() + " \u2014 Player stands only on 6\u20137.";
-  else why = "Player shows " + pT() + " \u2014 Player draws only on 0\u20135.";
-  gradeWrong(why);
-}
-
-/* Q2 — banker hand */
-function answerBanker(choice) {
+function nextDue() {
+  if (isNatural()) return "winner";
+  if (S.player.length === 2 && pT() <= 5) return "player";
   const p3 = S.playerDrew ? cardValue(S.player[2]) : null;
-  const shouldDraw = bankerDraws(bT(), S.playerDrew, p3);
-  if ((choice === "draw") === shouldDraw) {
-    gradeOk("qWinner");
-    return;
-  }
-  let why;
-  if (!S.playerDrew)
-    why = "Player stood pat, so Banker plays by the Player\u2019s rule \u2014 hit 0\u20135, stand 6\u20137. Banker has " + bT() + ".";
-  else if (bT() <= 2) why = "Banker always hits 0\u20132, and Banker has " + bT() + ".";
-  else if (bT() >= 7) why = "Banker always stands on 7.";
-  else {
-    const table = {
-      3: "hits unless the Player\u2019s third card is 8",
-      4: "hits when the Player\u2019s third card is 2\u20137",
-      5: "hits when the Player\u2019s third card is 4\u20137",
-      6: "hits when the Player\u2019s third card is 6\u20137",
-    };
-    why = "Banker has " + bT() + " and the Player\u2019s third card is worth " + p3 + " \u2014 on " + bT() + ", Banker " + table[bT()] + ".";
-  }
-  gradeWrong(why);
+  if (S.banker.length === 2 && bankerDraws(bT(), S.playerDrew, p3)) return "banker";
+  return "winner";
 }
 
-/* Q3 — call the winner */
-function answerWinner(choice) {
+function markScore() { S.score++; $("score").textContent = S.score; }
+function markError() { S.errors++; $("errors").textContent = S.errors; }
+
+/* Wrong click — red flash on that hand + (help on) an explanation. */
+function flashBad(hand, why) {
+  markError();
+  const inner = hand === "player" ? $("pCards") : $("bCards");
+  const box = inner ? inner.parentElement : null;   /* the .cards wrapper */
+  if (box) {
+    box.classList.remove("flash-bad");
+    void box.offsetWidth;                            /* restart the animation */
+    box.classList.add("flash-bad");
+  }
+  showWrongNote(why);
+}
+
+/* Right click → brief green flash on that hand. */
+function flashGood(hand) {
+  const inner = hand === "player" ? $("pCards") : $("bCards");
+  const box = inner ? inner.parentElement : null;
+  if (!box) return;
+  box.classList.remove("flash-good");
+  void box.offsetWidth;
+  box.classList.add("flash-good");
+}
+
+/* Click on a hand — deals its third card if one is due, fouls if not. */
+function handClick(which) {
+  if (S.phase !== "act") return;
+  const due = nextDue();
+  if (which !== due) { flashBad(which, whyNot(which, due)); return; }
+  const prev = which === "player" ? pT() : bT();
+  const c = drawFrom(1)[0];
+  if (which === "player") { S.player.push(c); S.playerDrew = true; }
+  else S.banker.push(c);
+  placeThirdCard(which, c, prev);
+  flashGood(which);
+  markScore();
+}
+
+function whyNot(which, due) {
+  if (isNatural())
+    return "There’s a natural on the table — a hand of 8 or 9 stands, and no third cards are drawn.";
+  if (which === "player") {
+    if (S.player.length === 3) return "The Player hand already has its third card.";
+    return "Player shows " + pT() + " — Player draws only on 0–5.";
+  }
+  /* Banker clicked out of turn */
+  if (due === "player") return "The Player hand acts first — Player shows " + pT() + " and draws.";
+  if (S.banker.length === 3) return "The Banker hand already has its third card.";
+  if (!S.playerDrew)
+    return "Player stood pat, so Banker plays by the Player’s rule — hit 0–5, stand 6–7. Banker has " + bT() + ".";
+  if (bT() >= 7) return "Banker always stands on 7.";
+  const p3 = cardValue(S.player[2]);
+  const table = {
+    3: "hits unless the Player’s third card is 8",
+    4: "hits when the Player’s third card is 2–7",
+    5: "hits when the Player’s third card is 4–7",
+    6: "hits when the Player’s third card is 6–7",
+  };
+  return "Banker has " + bT() + " and the Player’s third card is worth " + p3 + " — on " + bT() + ", Banker " + (table[bT()] || "stands") + ".";
+}
+
+/* Winner call — always available at the bottom of the screen. */
+function winnerClick(choice) {
+  if (S.phase !== "act") return;
+  const due = nextDue();
+  if (due === "player") { flashBad("player", "Not yet — the Player hand is still due a card."); return; }
+  if (due === "banker") { flashBad("banker", "Not yet — the Banker hand is still due a card."); return; }
   const p = pT(), b = bT();
   const winner = p > b ? "player" : b > p ? "banker" : "tie";
   if (choice === winner) {
-    gradeOk("result");
-    return;
-  }
-  gradeWrong(
-    p === b
-      ? "Player shows " + p + " and Banker has " + b + " \u2014 equal totals are a tie."
-      : "Player shows " + p + ", Banker has " + b + " \u2014 the hand closer to 9 wins."
-  );
-}
-
-/* Continue — apply the correct action and move on */
-function advanceTo(next) {
-  if (next === "qBanker") {
-    const correct = playerAction(pT(), bT());
-    if (correct === "draw") {
-      const prev = pT();
-      const c = drawFrom(1)[0];
-      S.player.push(c);
-      S.playerDrew = true;
-      placeThirdCard("player", c, prev);
-    }
-    S.phase = "qBanker";
-    showQuestion();
-  } else if (next === "qWinner") {
-    if (S.phase === "qBanker") {
-      const p3 = S.playerDrew ? cardValue(S.player[2]) : null;
-      if (bankerDraws(bT(), S.playerDrew, p3)) {
-        const prev = bT();
-        const c = drawFrom(1)[0];
-        S.banker.push(c);
-        placeThirdCard("banker", c, prev);
-      }
-    }
-    S.phase = "qWinner";
-    showQuestion();
-  } else {
+    markScore();
+    if (winner === "tie") { flashGood("player"); flashGood("banker"); }
+    else flashGood(winner);
     S.phase = "result";
     showResult();
+    return;
   }
+  markError();
+  showWrongNote(
+    p === b
+      ? "Player shows " + p + " and Banker has " + b + " — equal totals are a tie."
+      : "Player shows " + p + ", Banker has " + b + " — the hand closer to 9 wins."
+  );
 }
 
 /* ── Help toggle ──────────────────────────────────────────── */
 function applyHelp() {
   document.body.classList.toggle("no-help", !S.help);
   $("helpBtn").textContent = S.help ? "Help: On" : "Help: Off";
+  $("helpBtn").classList.toggle("off", !S.help);
 }
 $("helpBtn").addEventListener("click", () => {
   S.help = !S.help;
   try { localStorage.setItem("baccarat-help", S.help ? "1" : "0"); } catch (e) {}
   applyHelp();
+});
+
+/* ── Auto deal toggle ─────────────────────────────────────── */
+function applyAutoDeal() {
+  $("autoBtn").textContent = S.autoDeal ? "Auto deal: On" : "Auto deal: Off";
+}
+$("autoBtn").addEventListener("click", () => {
+  S.autoDeal = !S.autoDeal;
+  try { localStorage.setItem("baccarat-autodeal", S.autoDeal ? "1" : "0"); } catch (e) {}
+  applyAutoDeal();
+  /* Mid-countdown toggle: cancel (or restart) it in place. */
+  if (S.phase === "result") { clearTimers(); showResult(); }
 });
 
 /* ── Crib sheet ───────────────────────────────────────────── */
@@ -638,6 +655,7 @@ $("paper").addEventListener("click", (e) => e.stopPropagation());
 
 /* ── Boot ─────────────────────────────────────────────────── */
 applyHelp();
+applyAutoDeal();
 renderIdle();
 </script>
 </body>
