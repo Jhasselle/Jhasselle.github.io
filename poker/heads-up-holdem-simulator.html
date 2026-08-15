@@ -965,6 +965,38 @@ body.new-round-curtain #new-round-overlay {
   transition: color 0.12s;
 }
 .modal-close:hover { color: #fff; }
+.settings-group {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font: 700 13px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(255,255,255,0.72);
+}
+.modal-lede.tight { margin: 6px 0 14px; }
+/* Footer close — floats at the bottom of the payouts sheet (sticky within
+   the scrolling panel) so the exit is always one tap away, no scrolling.
+   The gradient fades the scrolling paytables out underneath it, and the
+   in-flow margin keeps it from ever covering the last rows at full scroll. */
+.modal-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex; justify-content: center;
+  margin-top: 16px;
+  padding: 14px 0 4px;
+  background: linear-gradient(to top, #0f1020 65%, rgba(15,16,32,0));
+}
+.modal-foot .foot-close {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  padding: 10px 34px;
+  border-radius: 8px;
+  font: 700 0.82rem/1 "Inter", sans-serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.modal-foot .foot-close:hover { background: #273449; color: #fff; }
 .modal-lede {
   margin: 4px 0 16px; font-size: 12.5px; color: rgba(255,255,255,0.6);
   line-height: 1.45;
@@ -1161,6 +1193,12 @@ body.new-round-curtain #new-round-overlay {
     </div>
     <p class="modal-lede">How often the NPC players take each side bet. 0% = never, 100% = every round.</p>
     <div class="settings-rows" id="settings-rows"><!-- sliders injected by JS --></div>
+
+    <h3 class="settings-group">Hand quality</h3>
+    <p class="modal-lede tight">How often a hand is dealt &ldquo;hot&rdquo; &mdash; stacked toward a paying
+    side-bet hand for one seat, or strong pocket cards for the dealer, instead of taken off the top.
+    Premium hands stay rare even at 100%.</p>
+    <div class="settings-rows" id="settings-rows-hands"><!-- sliders injected by JS --></div>
     <div class="modal-footer">
       <button class="tray-btn" id="btn-settings-reset" type="button">Restore defaults</button>
       <button class="tray-btn primary" id="btn-settings-save" type="button">Save &amp; start round</button>
@@ -1267,6 +1305,9 @@ body.new-round-curtain #new-round-overlay {
         <tr><td>Straight</td><td>$150</td><td class="envy-col">—</td></tr>
         <tr><td>Three of a Kind</td><td>$45</td><td class="envy-col">—</td></tr>
       </table>
+    </div>
+    <div class="modal-foot">
+      <button class="foot-close" id="btn-payouts-close-foot" type="button">Close</button>
     </div>
   </div>
 </div>
@@ -1538,6 +1579,12 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     pocket: 0.55,
     blue:   0.50,
     red:    0.50,
+    /* Chance a hand is dealt "hot" — stacked toward something that
+       pays — instead of taken off the top. These control how OFTEN a
+       hand is rigged, not how big the result is; the category ladder
+       keeps premium hands rare either way. */
+    dealerHot: 0.12,
+    playerHot: 0.18,
   };
   const SETTINGS_KEY = 'huh-sidebet-chances-v1';
   function loadSettings() {
@@ -1560,6 +1607,127 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
   }
   const SETTINGS = loadSettings();
+
+  /* ============================================================
+     Hot-hand rigging — with probability SETTINGS.playerHot one random
+     seat is dealt toward a paying side-bet hand, and with probability
+     SETTINGS.dealerHot the dealer's pocket is dealt strong. Done by
+     rearranging the freshly shuffled deck so the normal dealing loop
+     pops the planted cards; every slot not planted stays random.
+     Deal pop order (13 slots): p0c1 p1c1 p2c1 dc1 p0c2 p1c2 p2c2 dc2
+     then board[0..4] — so seat s owns slots s and s+4, the dealer
+     owns 3 and 7, and the flop (the linked 3) is slots 8-10.
+     ============================================================ */
+  const VAL_RANK = {};
+  for (const r of RANKS) VAL_RANK[RANK_VAL[r]] = r;
+  function randOf(arr) { return arr.length ? arr[Math.floor(Math.random() * arr.length)] : null; }
+  function weightedCat(items) {
+    let t = 0; for (const it of items) t += it[0];
+    let r = Math.random() * t;
+    for (const it of items) { r -= it[0]; if (r <= 0) return it[1]; }
+    return items[items.length - 1][1];
+  }
+  function grabCard(deck, pred) {
+    for (let i = deck.length - 1; i >= 0; i--) {
+      if (pred(deck[i])) return deck.splice(i, 1)[0];
+    }
+    return null;
+  }
+  /* All-or-nothing: on any miss the grabbed cards go back into the
+     deck and null returns — the rig is skipped and the deal stays fair. */
+  function grabAll(deck, preds) {
+    const got = [];
+    for (const pred of preds) {
+      const c = grabCard(deck, pred);
+      if (!c) { deck.push(...got); return null; }
+      got.push(c);
+    }
+    return got;
+  }
+  const byRank = r => c => c.rank === r;
+  const bySuit = s => c => c.suit === s;
+  const byCard = (r, s) => c => c.rank === r && c.suit === s;
+
+  function applyHotRig() {
+    const deck = STATE.deck;
+    const plants = new Array(13).fill(null);
+
+    if (Math.random() < SETTINGS.playerHot) {
+      const seat = Math.floor(Math.random() * 3);
+      const h1 = seat, h2 = seat + 4;
+      const cat = weightedCat([
+        [30, 'set'], [20, 'flush'], [20, 'straight'], [10, 'aceface'],
+        [8, 'aces'], [6, 'boat'], [4, 'quads'], [2, 'sf'],
+      ]);
+      let got = null;
+      if (cat === 'set') {
+        /* Pocket pair + one more on the flop → trips on the linked 5. */
+        const r = randOf(RANKS);
+        got = grabAll(deck, [byRank(r), byRank(r), byRank(r)]);
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; plants[8] = got[2]; }
+      } else if (cat === 'flush') {
+        const st = randOf(SUITS);
+        got = grabAll(deck, [bySuit(st), bySuit(st), bySuit(st), bySuit(st), bySuit(st)]);
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; plants[8] = got[2]; plants[9] = got[3]; plants[10] = got[4]; }
+      } else if (cat === 'straight') {
+        const hi = 6 + Math.floor(Math.random() * 9);   /* 6..A high */
+        const ranks = [hi, hi - 1, hi - 2, hi - 3, hi - 4].map(v => VAL_RANK[v]);
+        got = grabAll(deck, ranks.map(byRank));
+        if (got) {
+          shuffle(got);
+          plants[h1] = got[0]; plants[h2] = got[1]; plants[8] = got[2]; plants[9] = got[3]; plants[10] = got[4];
+        }
+      } else if (cat === 'aceface') {
+        /* Suited A + face → Pocket Bonus 20:1. */
+        const st = randOf(SUITS), face = randOf(['J', 'Q', 'K']);
+        got = grabAll(deck, [byCard('A', st), byCard(face, st)]);
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; }
+      } else if (cat === 'aces') {
+        /* Pocket rockets → Pocket Bonus 25:1. */
+        got = grabAll(deck, [byRank('A'), byRank('A')]);
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; }
+      } else if (cat === 'boat') {
+        const r = randOf(RANKS);
+        const t = randOf(RANKS.filter(x => x !== r));
+        got = grabAll(deck, [byRank(r), byRank(r), byRank(r), byRank(t), byRank(t)]);
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; plants[8] = got[2]; plants[9] = got[3]; plants[10] = got[4]; }
+      } else if (cat === 'quads') {
+        const r = randOf(RANKS);
+        got = grabAll(deck, [byRank(r), byRank(r), byRank(r), byRank(r)]);
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; plants[8] = got[2]; plants[9] = got[3]; }
+      } else if (cat === 'sf') {
+        const st = randOf(SUITS);
+        const hi = 6 + Math.floor(Math.random() * 9);
+        const ranks = [hi, hi - 1, hi - 2, hi - 3, hi - 4].map(v => VAL_RANK[v]);
+        got = grabAll(deck, ranks.map(r => byCard(r, st)));
+        if (got) { plants[h1] = got[0]; plants[h2] = got[1]; plants[8] = got[2]; plants[9] = got[3]; plants[10] = got[4]; }
+      }
+    }
+
+    if (Math.random() < SETTINGS.dealerHot) {
+      /* Dealer pocket only — the rig never counts on the board, so it
+         composes safely with a player rig that planted flop cards. */
+      const cat = weightedCat([[65, 'pair'], [35, 'bigsuited']]);
+      let got = null;
+      if (cat === 'pair') {
+        const cands = ['10', 'J', 'Q', 'K', 'A'].filter(r => deck.filter(c => c.rank === r).length >= 2);
+        const r = randOf(cands);
+        if (r) got = grabAll(deck, [byRank(r), byRank(r)]);
+      } else {
+        const st = randOf(SUITS.filter(s => deck.some(c => c.rank === 'A' && c.suit === s)));
+        if (st) {
+          const face = randOf(['K', 'Q'].filter(f => deck.some(c => c.rank === f && c.suit === st)));
+          if (face) got = grabAll(deck, [byCard('A', st), byCard(face, st)]);
+        }
+      }
+      if (got) { plants[3] = got[0]; plants[7] = got[1]; }
+    }
+
+    /* Rebuild the deck tail so deck.pop() #k yields plants[k]. */
+    const tail = [];
+    for (let k = 0; k < 13; k++) tail.push(plants[k] || deck.pop());
+    for (let k = 12; k >= 0; k--) deck.push(tail[k]);
+  }
 
   function genBets() {
     const ante = pickAnte();
@@ -1736,7 +1904,8 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
       }
     }
     const collectable = (STATE.phase === 'settle'
-                       && STATE.subphase === 'collect-cards'
+                       && (STATE.subphase === 'collect-cards'
+                           || (STATE.subphase === 'pay-winners' && oddsPushOnlyRemaining(p)))
                        && p.id === STATE.currentPlayerIdx
                        && !p.cardsCollected) ? ' collectable' : '';
     let badge = '';
@@ -1954,7 +2123,9 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
           if (r.outcome === 'jackpot') {
             $h.textContent = 'JACKPOT bet — click to announce (no payout)';
           } else if (r.outcome === 'push') {
-            $h.textContent = 'Push — tap the bet to acknowledge (chip stays)';
+            $h.textContent = oddsPushOnlyRemaining(p)
+              ? 'Odds push — just collect the cards (chip stays)'
+              : 'Push — tap the bet to acknowledge (chip stays)';
           } else {
             const totalLeft = winnerBets(p).reduce((sum, k) => {
               const rr = p.settlement[k];
@@ -2020,6 +2191,7 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     pushAllRunning = false;
 
     STATE.deck = shuffle(newDeck());
+    applyHotRig();
 
     /* Place bets */
     for (const p of STATE.players) p.bets = genBets();
@@ -2221,6 +2393,16 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
       const r = p.settlement[k];
       return r && !r.resolved && (r.outcome === 'win' || r.outcome === 'jackpot' || r.outcome === 'push');
     });
+  }
+  /* True when the seat's ONLY remaining settlement action is
+     acknowledging an Odds push — the dealer may skip the tap and just
+     collect the cards (the PUSHED overlay appears on collect). */
+  function oddsPushOnlyRemaining(p) {
+    if (!p || !p.settlement || p.cardsCollected) return false;
+    if (lossBets(p).length > 0) return false;
+    const w = winnerBets(p);
+    return w.length === 1 && w[0] === 'odds' &&
+           p.settlement.odds.outcome === 'push';
   }
 
   function advanceSettlement() {
@@ -2666,10 +2848,19 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
     { key: 'blue',   label: 'Blue Bonus ($1)' },
     { key: 'red',    label: 'Red Bonus ($5)' },
   ];
+  const HAND_QUALITY_LABELS = [
+    { key: 'dealerHot', label: 'Dealer dealt a good hand' },
+    { key: 'playerHot', label: 'Any one player dealt a good hand' },
+  ];
   function renderSettingsRows(draft) {
-    const root = document.getElementById('settings-rows');
+    renderRowGroup('settings-rows', SIDE_BET_LABELS, draft);
+    renderRowGroup('settings-rows-hands', HAND_QUALITY_LABELS, draft);
+  }
+  function renderRowGroup(rootId, defs, draft) {
+    const root = document.getElementById(rootId);
+    if (!root) return;
     root.innerHTML = '';
-    for (const { key, label } of SIDE_BET_LABELS) {
+    for (const { key, label } of defs) {
       const pct = Math.round(draft[key] * 100);
       const row = document.createElement('div');
       row.className = 'settings-row';
@@ -2705,6 +2896,7 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
   const $payouts = document.getElementById('payouts-overlay');
   document.getElementById('btn-payouts').onclick = () => $payouts.classList.add('open');
   document.getElementById('btn-payouts-close').onclick = () => $payouts.classList.remove('open');
+  document.getElementById('btn-payouts-close-foot').onclick = () => $payouts.classList.remove('open');
   $payouts.addEventListener('click', (e) => { if (e.target === $payouts) $payouts.classList.remove('open'); });
   document.getElementById('settings-overlay').addEventListener('click', (e) => {
     if (e.target.id === 'settings-overlay') closeSettings();
@@ -2761,7 +2953,10 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
       onBetClick(pid, key);
       return;
     }
-    if (STATE.phase === 'settle' && STATE.subphase === 'collect-cards') {
+    if (STATE.phase === 'settle' &&
+        (STATE.subphase === 'collect-cards' ||
+         (STATE.subphase === 'pay-winners' &&
+          oddsPushOnlyRemaining(STATE.players[STATE.currentPlayerIdx])))) {
       const cardEl = e.target.closest('.player[data-pid] .card');
       if (!cardEl) return;
       const playerEl = cardEl.closest('.player[data-pid]');
@@ -2773,6 +2968,12 @@ let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suit
   function onCardCollectClick(playerIdx) {
     const p = STATE.players[playerIdx];
     if (!p || p.cardsCollected) return;
+    /* Odds-push shortcut: collecting the cards acknowledges the push —
+       the chip stays with the player and PUSHED shows on the spot. */
+    if (STATE.subphase === 'pay-winners') {
+      if (!oddsPushOnlyRemaining(p)) return;
+      p.settlement.odds.resolved = true;
+    }
     p.cardsCollected = true;
     afterStep();
   }
