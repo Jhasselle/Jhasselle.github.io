@@ -381,6 +381,8 @@ const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 const $ = (id) => document.getElementById(id);
 const pT = () => total(S.player);
 const bT = () => total(S.banker);
+/* House convention: a zero hand is called "nothing", never "0". */
+const say = (t) => (t === 0 ? "nothing" : t);
 
 /* ── Card element ─────────────────────────────────────────── */
 function cardEl(card, { faceUp = false, horizontal = false, delay = 0 } = {}) {
@@ -452,10 +454,10 @@ function reveal(hand) { // "player" | "banker"
   const cardsBox = hand === "player" ? $("pCards") : $("bCards");
   cardsBox.querySelectorAll(".inner").forEach((el) => el.classList.add("up"));
   if (hand === "player") {
-    $("pTotal").textContent = pT();
+    $("pTotal").textContent = say(pT());
     $("pCall").classList.add("shown");
   } else {
-    $("bTotal").textContent = bT();
+    $("bTotal").textContent = say(bT());
     $("bCall").classList.add("shown");
   }
 }
@@ -468,7 +470,7 @@ function placeThirdCard(hand, card, prevTotal) {
   const name = hand === "player" ? "Player" : "Banker";
   const totalId = hand === "player" ? "pTotal" : "bTotal";
   $(hand === "player" ? "pCall" : "bCall").innerHTML =
-    name + " " + verb + ' <strong id="' + totalId + '">' + now + "</strong>";
+    name + " " + verb + ' <strong id="' + totalId + '">' + say(now) + "</strong>";
 }
 
 /* ── Strip rendering ──────────────────────────────────────── */
@@ -495,14 +497,14 @@ function showResult() {
   const natural = S.player.length === 2 && S.banker.length === 2 && (p >= 8 || b >= 8);
   const nat = natural ? "natural " : "";
   const winner =
-    p > b ? "Player wins " + nat + p + " over " + b
-    : b > p ? "Banker wins " + nat + b + " over " + p
+    p > b ? "Player wins " + nat + say(p) + " over " + say(b)
+    : b > p ? "Banker wins " + nat + say(b) + " over " + say(p)
     : natural ? "Tie \u2014 natural " + p
     : "Tie";
   $("feltInfo").innerHTML =
     '<div class="result">' +
       "<strong>" + winner + "</strong>" +
-      '<span class="totals">Player shows ' + p + " \u00b7 Banker has " + b + "</span>" +
+      '<span class="totals">Player shows ' + say(p) + " \u00b7 Banker has " + say(b) + "</span>" +
       '<button class="deal" id="nextBtn">Next hand</button>' +
     "</div>";
   $("nextBtn").addEventListener("click", deal);
@@ -601,13 +603,13 @@ function whyNot(which, due) {
     return "There’s a natural on the table — a hand of 8 or 9 stands, and no third cards are drawn.";
   if (which === "player") {
     if (S.player.length === 3) return "The Player hand already has its third card.";
-    return "Player shows " + pT() + " — Player draws only on 0–5.";
+    return "Player shows " + say(pT()) + " — Player draws only on 0–5.";
   }
   /* Banker clicked out of turn */
-  if (due === "player") return "The Player hand acts first — Player shows " + pT() + " and draws.";
+  if (due === "player") return "The Player hand acts first — Player shows " + say(pT()) + " and draws.";
   if (S.banker.length === 3) return "The Banker hand already has its third card.";
   if (!S.playerDrew)
-    return "Player stood pat, so Banker plays by the Player’s rule — hit 0–5, stand 6–7. Banker has " + bT() + ".";
+    return "Player stood pat, so Banker plays by the Player’s rule — hit 0–5, stand 6–7. Banker has " + say(bT()) + ".";
   if (bT() >= 7) return "Banker always stands on 7.";
   const p3 = cardValue(S.player[2]);
   const table = {
@@ -616,7 +618,7 @@ function whyNot(which, due) {
     5: "hits when the Player’s third card is 4–7",
     6: "hits when the Player’s third card is 6–7",
   };
-  return "Banker has " + bT() + " and the Player’s third card is worth " + p3 + " — on " + bT() + ", Banker " + (table[bT()] || "stands") + ".";
+  return "Banker has " + say(bT()) + " and the Player’s third card is worth " + say(p3) + " — on " + say(bT()) + ", Banker " + (table[bT()] || "stands") + ".";
 }
 
 /* Winner call — always available at the bottom of the screen. */
@@ -638,8 +640,8 @@ function winnerClick(choice) {
   markError();
   showWrongNote(
     p === b
-      ? "Player shows " + p + " and Banker has " + b + " — equal totals are a tie."
-      : "Player shows " + p + ", Banker has " + b + " — the hand closer to 9 wins."
+      ? "Player shows " + say(p) + " and Banker has " + say(b) + " — equal totals are a tie."
+      : "Player shows " + say(p) + ", Banker has " + say(b) + " — the hand closer to 9 wins."
   );
 }
 
