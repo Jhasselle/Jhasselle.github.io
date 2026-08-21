@@ -405,7 +405,51 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
 .trainer-header {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: -6px 0 14px;
+}
+
+/* The two modifiers were buried in Settings and most of the class never
+   opened it, so they sit on the table now — same state, same storage, just
+   reachable without a detour. Off reads as an outline, on reads as filled. */
+.mod-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: rgba(244,244,245,0.72);
+  cursor: pointer;
+  font: 700 13px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: transform 0.12s ease, border-color 0.15s, background 0.15s,
+              color 0.15s, box-shadow 0.18s;
+}
+.mod-btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.34); color: #f4f4f5; }
+.mod-btn:focus-visible { outline: 2px solid #a855f7; outline-offset: 3px; }
+.mod-btn .pip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px; border-radius: 5px;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.18);
+  font-size: 12px; line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.mod-btn.on {
+  background: linear-gradient(135deg, rgba(99,102,241,0.26), rgba(168,85,247,0.26));
+  border-color: rgba(168,85,247,0.7);
+  color: #f4f4f5;
+  box-shadow: 0 6px 16px -5px rgba(99,102,241,0.5);
+}
+.mod-btn.on .pip {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-color: transparent; color: #fff;
+}
+@media (max-width: 520px) {
+  .mod-btn { padding: 8px 11px; font-size: 12px; gap: 5px; }
 }
 .settings-btn-prominent {
   display: inline-flex; align-items: center; gap: 8px;
@@ -450,8 +494,16 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
   <h1>House Way Trainer</h1>
   <div class="trainer">
     <div class="trainer-header">
+      <button class="mod-btn" id="btn-mod-joker" type="button" aria-pressed="false"
+              title="Force the joker into every hand — applies from the next hand">
+        <span class="pip" aria-hidden="true">&#127183;</span><span>Joker</span>
+      </button>
+      <button class="mod-btn" id="btn-mod-ace" type="button" aria-pressed="false"
+              title="Force at least one Ace into every hand — applies from the next hand">
+        <span class="pip" aria-hidden="true">A</span><span>Ace</span>
+      </button>
       <button class="settings-btn-prominent" id="btn-settings" type="button">
-        <span class="gear">⚙</span><span>Settings</span>
+        <span class="gear">⚙</span><span>Hand Settings</span>
       </button>
     </div>
     <div class="section-title">Front hand · 2 cards (low)</div>
@@ -482,7 +534,7 @@ select.category-select option { background: #14161e; color: #f4f4f5; }
 <div class="modal-backdrop" id="settings-modal">
   <div class="modal">
     <button class="close-x" id="settings-close" aria-label="Close">&times;</button>
-    <h3>Trainer Settings</h3>
+    <h3>Hand Settings</h3>
     <div class="group">
       <div class="group-title">Hand source</div>
       <div class="mode-picker">
@@ -1696,6 +1748,16 @@ window.CM_JOKER_SRC = (function () {
     document.getElementById('cat-select').style.opacity = STATE.mode === 'category' ? '1' : '0.5';
     document.getElementById('tog-ace').classList.toggle('on', STATE.requireAce);
     document.getElementById('tog-joker').classList.toggle('on', STATE.requireJoker);
+    syncModButtons();
+  }
+
+  /* The on-table buttons and the Settings switches are two views of the same
+     two flags — whichever one you touch, both have to end up showing it. */
+  function syncModButtons() {
+    const j = document.getElementById('btn-mod-joker');
+    const a = document.getElementById('btn-mod-ace');
+    if (j) { j.classList.toggle('on', STATE.requireJoker); j.setAttribute('aria-pressed', String(!!STATE.requireJoker)); }
+    if (a) { a.classList.toggle('on', STATE.requireAce);   a.setAttribute('aria-pressed', String(!!STATE.requireAce)); }
   }
   document.getElementById('btn-settings').onclick = () => {
     syncSettingsUI();
@@ -1726,6 +1788,12 @@ window.CM_JOKER_SRC = (function () {
   };
   document.getElementById('tog-joker').onclick = () => {
     STATE.requireJoker = !STATE.requireJoker; saveSettings(); syncSettingsUI();
+  };
+  document.getElementById('btn-mod-joker').onclick = () => {
+    STATE.requireJoker = !STATE.requireJoker; saveSettings(); syncSettingsUI();
+  };
+  document.getElementById('btn-mod-ace').onclick = () => {
+    STATE.requireAce = !STATE.requireAce; saveSettings(); syncSettingsUI();
   };
 
   function clearPlacement() {
@@ -2067,6 +2135,11 @@ window.CM_JOKER_SRC = (function () {
   document.addEventListener('touchmove', (e) => {
     if (drag) e.preventDefault();
   }, { passive: false });
+
+  /* Settings state is restored from storage before this runs, so the two
+     on-table buttons have to be told about it — syncSettingsUI only fires
+     when the modal is opened or a switch is thrown. */
+  syncModButtons();
 
   newHand();
 })();
