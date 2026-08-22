@@ -315,6 +315,18 @@
     color: #fff;
   }
 
+  /* PUSH tag over a pushed main bet — the chips stay put with the label on
+     top instead of quietly vanishing (Jason, like the poker games). */
+  .main-circle { position: relative; }
+  .main-circle .aud-push-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: #fbbf24; color: #3b2b06;
+    font-size: 0.6rem; font-weight: 900; letter-spacing: 0.08em;
+    border-radius: 999px; padding: 2px 9px;
+    border: 1px solid #fff; z-index: 7; pointer-events: none;
+  }
+  /* A locked scorecard has no close button — the way on is the way out. */
+  #aud-scorecard.locked .modal-close { display: none; }
   .side-circle .result-badge {
     position: absolute;
     top: -8px;
@@ -5355,7 +5367,12 @@ function settleBustBonus() {
   for (let i=0; i<NUM_PLAYERS; i++) {
     const pl = players[i];
     if (pl.bust > 0) {
-      const res = evaluateBustBonus(pl.bust);
+      /* Caught over 21: the Bust Bonus should never have been up — a busted
+         hand is collected before that bet opens. It pays nothing. */
+      const dead = pl.hands.length === 1 && handTotal(pl.hands[0].cards).total > 21;
+      const res = dead
+        ? { hand: 'Dead hand — player was over 21', amount: 0, mult: 0 }
+        : evaluateBustBonus(pl.bust);
       pl.results.bust = { ...res, win: res.amount > 0, settled: false };
       paintBadge(i, 'bust', res.amount > 0, false);
     }
@@ -5374,7 +5391,10 @@ function settleBustBonus() {
       const pt = handTotal(hand.cards).total;
       const eligibleForBJ = pl.naturalBJ && pl.hands.length === 1;
       let outcome, payAmount = 0;
-      if (eligibleForBJ && dealerBJ)       outcome = 'PUSH';
+      /* A hand that turns over above 21 is dead however the dealer's hand
+         ends — a tucked bust never beats anything (Jason). */
+      if (pt > 21)                         outcome = 'LOSE';
+      else if (eligibleForBJ && dealerBJ)  outcome = 'PUSH';
       else if (eligibleForBJ)              { outcome = 'BJ_WIN'; payAmount = roundPayoutUp(hand.bet * 1.5); }
       else if (dealerBJ)                   outcome = 'LOSE';
       else if (dealerBust || pt > dt)      { outcome = 'WIN'; payAmount = hand.bet; }
@@ -5418,6 +5438,28 @@ function appendOutcomesToEvalLog() {
 
 /* ===== Dealer-bust path: combined main+bust payout, RTL, per player ===== */
 function startCombinedPayout() {
+  /* Any seat caught with a hand over 21 is simply erased: cards shown,
+     chips to the rack, and settlement moves to the next seat (Jason). On
+     this path there is no loser step, so the sweep happens here. */
+  for (let i = NUM_PLAYERS - 1; i >= 0; i--) {
+    const pl = players[i];
+    if (pl.hands.length !== 1) continue;
+    if (handTotal(pl.hands[0].cards).total <= 21) continue;
+    if (pl.hands[0].bet <= 0 && !(pl.bust > 0)) continue;
+    try { revealPlayerHand(i); } catch (e) { /* already shown */ }
+    if (pl.hands[0].bet > 0) {
+      try { animateChipsToRack($('p' + i + '-main')); } catch (e) { /* best effort */ }
+      pl.hands[0].bet = 0;
+      rerenderMainBet(i);
+    }
+    if (pl.bust > 0) {
+      try { animateChipsToRack($('p' + i + '-bust')); } catch (e) { /* best effort */ }
+      if (pl.results.bust) pl.results.bust.settled = true;
+      pl.bust = 0;
+      renderSide(i, 'bust', 0, '<span class="lbl dark">BUST<br>BONUS</span>');
+    }
+    flashStatus('Player ' + (i + 1) + ' was over 21 — dead hand, chips to the rack.');
+  }
   pendingCombined = [];
   for (let i = NUM_PLAYERS - 1; i >= 0; i--) {
     const pl = players[i];
@@ -6336,7 +6378,7 @@ const Aud = {
   current: null,      /* { def, i, info } once injected */
   handResult: null,   /* set by judge(); derived at closeHand() if still null */
   flagUsed: false,
-  testLimits: true,   /* the launcher can turn sign-testing off for a session */
+  testLimits: false,  /* bet-size mistakes are opt-in — the launcher's switch turns them on */
   targeting: false,
   aimSpot: null,
   score: { caught: 0, wrongCall: 0, missed: 0, falseFlags: 0, clean: 0, paidWrong: 0 },
@@ -7369,6 +7411,8 @@ Aud.openScorecard = function(final) {
     '<p class="modal-sub">' + verdictLine + payLine + '</p>' +
     '<div class="aud-rows">' + rows + '</div>' +
     '<div class="modal-foot">' + audScoreFootHTML(final) + '</div>';
+  Aud.scoreLocked = !!(final && audRun);
+  $('aud-scorecard').classList.toggle('locked', Aud.scoreLocked);
   $('aud-scorecard').classList.add('open');
 };
 
@@ -7451,7 +7495,9 @@ const AUD_STEP_LABEL = {
 
 function audLogPayError(kind, seat, key, amount) {
   Aud.payErrors.push({ kind, seat, key, amount, step: AUD_STEP_LABEL[phase] || null });
-  Aud.score.paidWrong++;
+  /* Procedure slips are misses; "paid wrong" is reserved for money. */
+  if (kind === 'note' || kind === 'out-of-order') Aud.score.missed++;
+  else Aud.score.paidWrong++;
   Aud.updateHud();
 }
 
@@ -7481,8 +7527,8 @@ Aud.showOops = function(list) {
       : e.kind === 'left-up'
       ? who + ' lost that bet and it was still on the layout when the round ended.' +
         '<em>$' + formatMoney(e.amount) + ' the house never picked up.</em>'
-      : who + ' won that bet &mdash; it should have been paid.<em>You took $' +
-        formatMoney(e.amount) + ' off a winning player instead.' + when + '</em>';
+      : who + ' won that bet &mdash; it was owed $' + formatMoney(e.amount) +
+        '.<em>Their bet went into the rack instead of being paid.' + when + '</em>';
     return '<div class="aud-oops-item"><span class="amt">' +
       (e.kind === 'raked-winner' ? '+' : '&minus;') + '$' + formatMoney(e.amount) +
       '</span><span>' + line + '</span></div>';
@@ -7826,7 +7872,7 @@ Settings.unusualBets = false;   /* audition reads bets in $5 — no $0.50 noise 
 if (audRun) {
   Aud.handsTarget = audRun.hands;
   Aud.mistakeChance = audRun.chance;
-  Aud.testLimits = audRun.limits !== false;
+  Aud.testLimits = audRun.limits === true;   /* off unless the run says otherwise */
   const legNo = audRun.index + 1, legs = audRun.queue.length;
   const back = document.querySelector('.back-link');
   if (back) { back.href = AUD_MENU_URL; back.innerHTML = '&larr; Audition menu'; }
@@ -7883,6 +7929,56 @@ Game.burnCard = function () {
   const out = audOrigBurnCardFlight.apply(this, arguments);
   if (burning) audBurnFlight();
   return out;
+};
+
+
+/* ==========================================================================
+ * A PUSH LEAVES ITS CHIPS ON THE FELT
+ * The round's books still zero the bet — what stays is a redrawn picture of
+ * the stack with a PUSH tag over it, wiped when the next round begins.
+ * ========================================================================== */
+const audOrigFinishRoundPush = finishRound;
+finishRound = function () {
+  const pushes = {};
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    players[i].hands.forEach(function (h) {
+      if (h.mainOutcome === 'PUSH' && h.bet > 0) pushes[i] = (pushes[i] || 0) + h.bet;
+    });
+  }
+  const out = audOrigFinishRoundPush.apply(this, arguments);
+  Object.keys(pushes).forEach(function (k) {
+    const i = +k;
+    const el = $('p' + i + '-main');
+    if (!el) return;
+    try { renderBetStack(el, pushes[i], false); } catch (e) { /* best effort */ }
+    const old = el.querySelector('.aud-push-badge');
+    if (old) old.remove();
+    const b = document.createElement('span');
+    b.className = 'aud-push-badge';
+    b.textContent = 'PUSH';
+    el.appendChild(b);
+  });
+  return out;
+};
+
+const audOrigNewRoundPushClear = Game.newRound;
+Game.newRound = function () {
+  document.querySelectorAll('.aud-push-badge').forEach(function (b) { b.remove(); });
+  return audOrigNewRoundPushClear.apply(this, arguments);
+};
+
+
+/* ==========================================================================
+ * THE END-OF-GAME SCORECARD CANNOT BE LOST
+ * Mid-run, that card carries the only way forward to the next leg — closing
+ * it by accident stranded the session on a finished game. While a run is
+ * live it simply refuses to close; the button on it is the only exit.
+ * ========================================================================== */
+Aud.scoreLocked = false;
+const audOrigCloseModalLock = Game.closeModal;
+Game.closeModal = function (id) {
+  if (id === 'aud-scorecard' && Aud.scoreLocked) return;
+  return audOrigCloseModalLock.apply(this, arguments);
 };
 
 </script>
