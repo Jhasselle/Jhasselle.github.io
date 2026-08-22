@@ -289,6 +289,16 @@
     color: #fff;
   }
 
+  /* PUSH tag over a pushed main bet — the chips stay put with the label on
+     top instead of quietly vanishing (Jason, like the poker games). */
+  .main-circle { position: relative; }
+  .main-circle .aud-push-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: #fbbf24; color: #3b2b06;
+    font-size: 0.6rem; font-weight: 900; letter-spacing: 0.08em;
+    border-radius: 999px; padding: 2px 9px;
+    border: 1px solid #fff; z-index: 7; pointer-events: none;
+  }
   .side-circle .result-badge {
     position: absolute;
     top: -8px;
@@ -6718,6 +6728,7 @@ Aud.startSession = function() {
   Aud.handsPlayed = 0;
   Aud.score = { caught: 0, wrongCall: 0, missed: 0, falseFlags: 0, clean: 0, paidWrong: 0 };
   Aud.payErrors = [];
+  Aud.mistakeLog = [];
   Aud.log = [];
   Aud.current = null;
   Aud.handResult = null;
@@ -6769,6 +6780,56 @@ Aud.goNext = function() {
   location.href = next ? next.path : AUD_MENU_URL;
 };
 
+/* One plain line per dealer error, for the end-of-session list. */
+function audMistakeLine(e) {
+  const who = (typeof e.seat === 'number') ? 'Player ' + (e.seat + 1) : '';
+  const bet = e.key ? labelForKey(e.key) : '';
+  const when = e.step ? ' (while ' + e.step + ')' : '';
+  if (e.kind === 'note')         return e.text + (e.sub ? ' ' + e.sub : '');
+  if (e.kind === 'out-of-order') return 'Closed the bets before the card was burnt.';
+  if (e.kind === 'unpaid')       return who + ' won the ' + bet + ' and was never paid — $' + formatMoney(e.amount) + ' still owed.';
+  if (e.kind === 'left-up')      return who + '\u2019s losing ' + bet + ' was never picked up — $' + formatMoney(e.amount) + ' left on the layout.';
+  if (e.kind === 'paid-loser')   return 'Paid $' + formatMoney(e.amount) + ' from the rack on ' + who + '\u2019s losing ' + bet + when + '.';
+  if (e.kind === 'raked-winner') return 'Took $' + formatMoney(e.amount) + ' off ' + who + '\u2019s winning ' + bet + when + '.';
+  return who + ' ' + bet + ' was settled wrong.';
+}
+
+function audMistakeCost(e) {
+  if (e.kind === 'note') return e.points ? '\u2212' + e.points : '!';
+  if (e.kind === 'out-of-order') return '!';
+  return '\u2212$' + formatMoney(e.amount || 0);
+}
+
+/* Everything that went wrong this session, in one list: every miss and
+   wrong call on the staged mistakes, and every error of the dealer's own —
+   bets settled the wrong way, money left out, procedure skipped. */
+function audWrongListHTML() {
+  const items = [];
+  (Aud.log || []).forEach(function (h) {
+    if (h.result === 'missed' && h.what) {
+      items.push({ hand: h.hand, cost: 'Missed',
+        text: (h.seat ? 'Player ' + h.seat + ' — ' : '') + h.what + '. Never called.' });
+    } else if (h.result === 'wrongCall' && h.what) {
+      items.push({ hand: h.hand, cost: 'Wrong call',
+        text: (h.seat ? 'Player ' + h.seat + ' — ' : '') + h.what + '. Spotted, but resolved the wrong way.' });
+    } else if (h.falseFlags > 0) {
+      items.push({ hand: h.hand, cost: h.falseFlags > 1 ? h.falseFlags + '\u00d7 false' : 'False flag',
+        text: 'Flagged a bet that was fine.' });
+    }
+  });
+  (Aud.mistakeLog || []).forEach(function (e) {
+    items.push({ hand: e.hand || 0, cost: audMistakeCost(e), text: audMistakeLine(e) });
+  });
+  if (!items.length) return '';
+  items.sort(function (a, b) { return (a.hand || 0) - (b.hand || 0); });
+  return '<p class="modal-sub" style="margin-top:14px"><strong>What went wrong, specifically:</strong></p>' +
+    '<div class="aud-rows">' +
+    items.map(function (it) {
+      return '<div class="aud-row"><span class="n">' + (it.hand ? 'Hand ' + it.hand : '\u2014') +
+        '</span><span class="d">' + it.text + '</span><span class="v missed">' + it.cost + '</span></div>';
+    }).join('') + '</div>';
+}
+
 Aud.openScorecard = function(final) {
   const s = Aud.score;
   const rigged = s.caught + s.wrongCall + s.missed;
@@ -6814,6 +6875,8 @@ Aud.openScorecard = function(final) {
       '<div><b>' + s.clean + '</b><span>Clean hands</span></div>' +
     '</div>' +
     '<p class="modal-sub">' + verdictLine + payLine + '</p>' +
+    (final ? audWrongListHTML() : '') +
+    '<p class="modal-sub" style="margin-top:14px"><strong>Hand by hand:</strong></p>' +
     '<div class="aud-rows">' + rows + '</div>' +
     '<div class="modal-foot">' + audScoreFootHTML(final) + '</div>';
   $('aud-scorecard').classList.add('open');
@@ -6879,6 +6942,7 @@ const AUD_SETTLE_PHASES = ['settle-21-loser', 'bust-cleanup', 'main-loser', 'mai
 const AUD_COLLECTORS = {"collect21Loser": "three", "collectMainLoser": "main", "collectBustMain": "main", "collectInsuranceLoser": "insurance", "collectBustBonusLoser": "bust"};
 
 Aud.payErrors = [];          /* logged, not yet shown */
+Aud.mistakeLog = [];         /* every dealer error this session, for the scorecard */
 Aud.oopsQueue = [];
 let audPayingLoser = false;  /* set while a wrongly-paid bet flies to the player */
 
@@ -6933,6 +6997,12 @@ function audFlushPayErrors(stillOnSeat) {
 }
 
 Aud.showOops = function(list) {
+  /* The scorecard replays these at the end — a mistake told once mid-game
+     is easy to lose track of by hand seven. */
+  list.forEach(function (e) {
+    if (e.hand == null) e.hand = Aud.handsPlayed || 0;
+    Aud.mistakeLog.push(e);
+  });
   Aud.oopsQueue = Aud.oopsQueue.concat(list);
   const body = $('aud-oops-body');
   body.innerHTML = Aud.oopsQueue.map(e => {
@@ -8490,6 +8560,42 @@ startBJPayoutSettlement = function () {
   const out = audOrigStartBJSettleSig.apply(this, arguments);
   setTimeout(audShowOpeningSignal, 60);
   return out;
+};
+
+
+/* ==========================================================================
+ * A PUSH LEAVES ITS CHIPS ON THE FELT
+ * The round's books still zero the bet — what stays is a redrawn picture of
+ * the stack with a PUSH tag over it, wiped when the next round begins.
+ * ========================================================================== */
+const audOrigFinishRoundPush = finishRound;
+finishRound = function () {
+  const pushes = {};
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    players[i].hands.forEach(function (h) {
+      if (h.mainOutcome === 'PUSH' && h.bet > 0) pushes[i] = (pushes[i] || 0) + h.bet;
+    });
+  }
+  const out = audOrigFinishRoundPush.apply(this, arguments);
+  Object.keys(pushes).forEach(function (k) {
+    const i = +k;
+    const el = $('p' + i + '-main');
+    if (!el) return;
+    try { renderBetStack(el, pushes[i], false); } catch (e) { /* best effort */ }
+    const old = el.querySelector('.aud-push-badge');
+    if (old) old.remove();
+    const b = document.createElement('span');
+    b.className = 'aud-push-badge';
+    b.textContent = 'PUSH';
+    el.appendChild(b);
+  });
+  return out;
+};
+
+const audOrigNewRoundPushClear = Game.newRound;
+Game.newRound = function () {
+  document.querySelectorAll('.aud-push-badge').forEach(function (b) { b.remove(); });
+  return audOrigNewRoundPushClear.apply(this, arguments);
 };
 
 </script>
