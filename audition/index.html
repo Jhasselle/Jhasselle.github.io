@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Audition Mode</title>
+<style>
+/* ============================================================
+   AUDITION MODE — run launcher
+   Picks the games, sets the length, and walks the dealer through
+   one audition page after another, keeping a combined scorecard.
+
+   The run lives in localStorage under AUDITION_RUN_KEY. Each
+   game's page in this folder reads it on load, plays its leg,
+   writes its result back, and sends the dealer to the next one.
+   The queue carries {id, name, path} — bare filenames, since every
+   audition page is a sibling of this one.
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(220,38,38,0.14), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.07), transparent 60%),
+    #07080c;
+  background-attachment: fixed;
+  position: relative;
+  overflow-x: hidden;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(800px 400px at 80% 30%, rgba(220,38,38,0.06), transparent 70%),
+    radial-gradient(600px 400px at 20% 80%, rgba(236,72,153,0.05), transparent 70%);
+  animation: bgGlow 18s ease-in-out infinite;
+}
+@keyframes bgGlow {
+  0%, 100% { opacity: 0.85; transform: translate(0, 0); }
+  50%      { opacity: 1;    transform: translate(2%, 1%); }
+}
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 760px; margin: 0 auto;
+  padding: 62px 22px 80px;
+}
+.back {
+  display: inline-block; margin-bottom: 26px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.55); text-decoration: none;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  transition: color .15s, border-color .15s;
+}
+.back:hover { color: #f4f4f5; border-color: rgba(255,255,255,0.28); }
+.greet {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(248,113,113,0.85); font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.greet .mark {
+  display: grid; place-items: center;
+  width: 17px; height: 17px; border-radius: 5px;
+  background: #dc2626; color: #fff; font-weight: 900; font-size: 12px;
+  letter-spacing: 0;
+}
+h1 {
+  margin: 8px 0 10px; font-size: 38px; font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f4f4f5 0%, #c4c4cd 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lede {
+  margin: 0 0 30px; font-size: 14px; color: rgba(255,255,255,0.6);
+  max-width: 58ch; line-height: 1.6;
+}
+
+/* ---------- section heads ---------- */
+.shead {
+  font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 700; color: rgba(255,255,255,0.42);
+  margin: 0 0 12px;
+}
+.shead-row {
+  display: flex; align-items: baseline; justify-content: flex-start;
+  gap: 14px;
+}
+.pick-all {
+  margin: 0 0 12px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.62);
+  cursor: pointer;
+  font: 700 10.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.pick-all:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.3); color: #fff; }
+.pick-all:focus-visible { outline: 2px solid #a855f7; outline-offset: 2px; }
+
+/* ---------- controls ---------- */
+.controls {
+  display: grid; grid-template-columns: auto 1fr; gap: 14px 26px;
+  align-items: center;
+  padding: 18px 20px; margin-bottom: 30px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+}
+/* The label itself stays on one line; the explanation under it must NOT —
+   nowrap on the parent was making this column as wide as its longest
+   sub-line, which pushed the steppers and the slider off the screen. */
+.ctl-label {
+  font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,0.82);
+  white-space: nowrap; min-width: 0;
+}
+.ctl-sub {
+  display: block; font-size: 11.5px; font-weight: 400;
+  color: rgba(255,255,255,0.42); margin-top: 2px;
+  white-space: normal; max-width: 46ch;
+}
+/* Belt and braces: neither column may force the grid wider than the page. */
+.controls > * { min-width: 0; }
+.switch-row { display: flex; align-items: center; gap: 12px; }
+.switch {
+  position: relative; width: 46px; height: 26px; flex: none;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px; cursor: pointer; padding: 0;
+  transition: background 0.16s, border-color 0.16s;
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(255,255,255,0.75);
+  transition: transform 0.16s, background 0.16s;
+}
+.switch.on { background: linear-gradient(135deg, #dc2626, #ef4444); border-color: rgba(248,113,113,0.7); }
+.switch.on::after { transform: translateX(20px); background: #fff; }
+.switch:focus-visible { outline: 2px solid #f87171; outline-offset: 3px; }
+.switch-state { font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); }
+/* A control that's present but not in play yet. */
+.ctl-off { opacity: 0.45; }
+.switch:disabled { cursor: not-allowed; }
+.switch.on + .switch-state { color: #fca5a5; }
+.stepper { display: inline-flex; align-items: center; gap: 4px; }
+.stepper button {
+  width: 32px; height: 32px; border-radius: 9px; cursor: pointer;
+  font: inherit; font-size: 17px; font-weight: 700; line-height: 1;
+  color: #f4f4f5; background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14);
+  transition: background .14s, border-color .14s;
+}
+.stepper button:hover:not(:disabled) { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
+.stepper button:disabled { opacity: 0.3; cursor: default; }
+.stepper b {
+  min-width: 40px; text-align: center; font-size: 19px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+input[type=range] { width: 100%; max-width: 300px; accent-color: #dc2626; }
+.chance-row { display: flex; align-items: center; gap: 14px; }
+.chance-val {
+  font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: #f87171; min-width: 46px;
+}
+
+/* ---------- game picker ---------- */
+.games { display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; }
+.gcard {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; text-align: left; font: inherit; color: inherit;
+  padding: 15px 18px; border-radius: 13px; cursor: pointer;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: transform .16s, border-color .16s, background .16s;
+  user-select: none;
+  position: relative; overflow: hidden;
+}
+.gcard:hover:not(.soon) { transform: translateY(-2px); border-color: rgba(248,113,113,0.4); }
+.gcard.on { border-color: rgba(248,113,113,0.55); background: linear-gradient(180deg, rgba(220,38,38,0.14), rgba(220,38,38,0.05)); }
+.gcard.on::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, #ef4444, #a855f7);
+}
+.gcard.soon { opacity: 0.45; cursor: not-allowed; }
+.box {
+  flex: 0 0 auto; width: 21px; height: 21px; border-radius: 6px;
+  border: 2px solid rgba(255,255,255,0.28);
+  display: grid; place-items: center;
+  transition: background .14s, border-color .14s;
+}
+.gcard.on .box { background: #dc2626; border-color: #ef4444; }
+.box svg { width: 12px; height: 12px; opacity: 0; transition: opacity .14s; }
+.gcard.on .box svg { opacity: 1; }
+.gmeta { flex: 1 1 auto; min-width: 0; }
+.gname { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; }
+.gtag {
+  flex: 0 0 auto; font-size: 10px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px;
+  color: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* ---------- launch bar ---------- */
+.launch {
+  display: flex; flex-direction: column; align-items: center; gap: 13px;
+  padding: 18px 20px; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+}
+/* The start button follows you down the page — with seven games listed you
+   shouldn't have to scroll back to begin. Solid backing, because the list
+   passes underneath it. */
+.launch.floating {
+  position: sticky; bottom: 18px; z-index: 40;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)),
+    rgba(16, 16, 20, 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 18px 40px -18px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,0,0,0.35);
+}
+/* Room to breathe under it — at the end of the scroll the bar drops back into
+   the flow and the last game card sits clear above it. */
+.page { padding-bottom: 46px; }
+.summary { font-size: 13.5px; color: rgba(255,255,255,0.68); font-variant-numeric: tabular-nums; }
+.summary b { color: #f4f4f5; font-weight: 700; }
+.start {
+  font: inherit; font-size: 17px; font-weight: 800; letter-spacing: 0.02em;
+  padding: 16px 44px; border-radius: 12px; cursor: pointer; color: #fff;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border: 1px solid rgba(255,255,255,0.22);
+  box-shadow: 0 10px 26px -12px rgba(220,38,38,0.9);
+  transition: transform .14s, box-shadow .14s, filter .14s;
+}
+.start:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 32px -12px rgba(220,38,38,0.95); }
+.start:disabled { filter: grayscale(1); opacity: 0.4; cursor: default; box-shadow: none; }
+
+/* ---------- results ---------- */
+.results {
+  margin-bottom: 34px; padding: 22px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(248,113,113,0.28);
+}
+.results h2 {
+  margin: 0 0 4px; font-size: 21px; font-weight: 800; letter-spacing: -0.015em;
+}
+.results .verdict { margin: 0 0 18px; font-size: 13.5px; color: rgba(255,255,255,0.62); line-height: 1.55; }
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 9px; margin-bottom: 18px; }
+.totals div {
+  text-align: center; padding: 12px 6px; border-radius: 11px;
+  background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.08);
+}
+.totals b { display: block; font-size: 25px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.totals span {
+  display: block; margin-top: 3px; font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.11em; text-transform: uppercase; color: rgba(255,255,255,0.45);
+}
+.totals .t-good b { color: #4ade80; }
+.totals .t-bad b  { color: #f87171; }
+.totals .t-warn b { color: #fbbf24; }
+.leg {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+  padding: 11px 14px; border-radius: 10px; margin-bottom: 7px;
+  background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.07);
+}
+.leg .lname { font-size: 13.5px; font-weight: 600; }
+.leg .lsub { display: block; font-size: 11.5px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+.leg .lscore { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.leg .lscore .g { color: #4ade80; }
+.leg .lscore .b { color: #f87171; }
+.results .again {
+  margin-top: 16px; font-size: 12.5px; color: rgba(255,255,255,0.5);
+}
+
+@media (max-width: 780px) {
+  .page { padding: 52px 20px 60px; }
+  h1 { font-size: 29px; }
+  .controls { grid-template-columns: 1fr; gap: 16px; }
+  .totals { grid-template-columns: repeat(2, 1fr); }
+  .launch { flex-direction: column; align-items: stretch; }
+  .start { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+
+<div class="page">
+  <a class="back" href="../index.html">&larr; Main menu</a>
+  <a class="back" href="playbook.html" style="margin-left:8px">Playbook &mdash; what to look for</a>
+
+  <div class="greet"><span class="mark">!</span> Audition mode</div>
+  <h1>Run an Audition</h1>
+  <p class="lede">Deal the games you pick with no prompts and nothing lit up: when a player does something wrong, hit the red <strong>!</strong>, point at it, and decide whether they fix it or the floor does &mdash; miss it, call it wrong, or flag a clean bet, and it goes on the scorecard.</p>
+
+  <section class="results" id="results" hidden></section>
+
+  <p class="shead">Session length</p>
+  <div class="controls">
+    <div class="ctl-label">Hands per game<span class="ctl-sub">Each game you pick deals this many.</span></div>
+    <div class="stepper">
+      <button type="button" id="hands-down" aria-label="Fewer hands">&minus;</button>
+      <b id="hands-val">5</b>
+      <button type="button" id="hands-up" aria-label="More hands">+</button>
+    </div>
+
+    <div class="ctl-label">Chance of a mistake<span class="ctl-sub">How often a hand has something in it.</span></div>
+    <div class="chance-row">
+      <input type="range" id="chance" min="0" max="100" step="1" value="66" aria-label="Chance of a mistake">
+      <span class="chance-val" id="chance-val">66%</span>
+    </div>
+
+    <div class="ctl-label ctl-off">Test bet sizes<span class="ctl-sub">Over the max, under the min, or the wrong number for the spot. Held back for now &mdash; every bet is a normal one.</span></div>
+    <div class="switch-row ctl-off">
+      <button class="switch" id="limits-tog" type="button" role="switch" aria-checked="false"
+              aria-label="Test bet sizes" disabled></button>
+      <span class="switch-state" id="limits-state">Off</span>
+    </div>
+  </div>
+
+  <div class="shead-row">
+    <p class="shead">Games</p>
+    <button class="pick-all" id="pick-all" type="button">Select all</button>
+  </div>
+  <div class="games" id="games"></div>
+
+  <div class="launch floating">
+    <div class="summary" id="summary"></div>
+    <button class="start" id="start" type="button">Start audition</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* The one place the game list lives. The queue written into the run carries
+   {id, name, path} so no audition page needs its own copy of this. */
+/* Only the two blackjacks are in the audition for now. The rest stay listed
+   so the shape of the session is visible, marked not-ready so they can't be
+   picked — flip ready back to true to bring one in. */
+const AUDITION_GAMES = [
+  /* The two exchange legs sit above the games because that is where they land
+     in the session: the player changes money in before a card is dealt, and
+     colours up once the first game is done. Picked or not, the games always
+     run in between. */
+  { id: 'ex-change', name: 'Changing money', path: 'exchange-audition.html', exchange: 'open',  ready: true },
+  { id: 'ex-color',  name: 'Coloring up',   path: 'exchange-audition.html', exchange: 'after', ready: true },
+  { id: 'bj-shoe',   name: 'Blackjack — Shoe',   path: 'dealing-simulator-audition.html', ready: true },
+  { id: 'bj-pitch',  name: 'Blackjack — Pitch',  path: 'pitch-dealing-simulator-audition.html', ready: true },
+  { id: 'deuces',    name: 'Deuces Wild Xtreme', path: 'deuces-wild-xtreme-dealer-simulator-audition.html', ready: false },
+  { id: 'prime',     name: 'Three Card Prime',   path: 'three-card-prime-simulator-audition.html', ready: false },
+  { id: 'holdem',    name: "Heads Up Hold'em",   path: 'heads-up-holdem-simulator-audition.html', ready: false },
+  { id: 'paigow',    name: 'Pai Gow Poker',      path: 'paigow-dealer-sim-audition.html', ready: false },
+  { id: 'baccarat',  name: 'Baccarat',           path: 'baccarat-dealer-sim-audition.html', ready: false },
+];
+
+
+const RUN_KEY  = 'tdt-audition-run-v1';
+const PREF_KEY = 'tdt-audition-prefs-v3';
+
+const $ = id => document.getElementById(id);
+
+/* ---------------- preferences ---------------- */
+/* Defaults for a fresh browser: a hard session on the two blackjacks, with
+   bet sizes left alone. Bumping PREF_KEY is what makes these reach anyone who
+   has already used the page — otherwise their stored prefs win forever. */
+let prefs = { hands: 5, chance: 0.66,
+              picked: ['ex-change', 'ex-color', 'bj-shoe', 'bj-pitch'], limits: false };
+try {
+  const raw = localStorage.getItem(PREF_KEY);
+  if (raw) {
+    const d = JSON.parse(raw);
+    if (typeof d.hands === 'number' && d.hands >= 1 && d.hands <= 25) prefs.hands = d.hands;
+    if (typeof d.chance === 'number' && d.chance >= 0 && d.chance <= 1) prefs.chance = d.chance;
+    if (Array.isArray(d.picked)) prefs.picked = d.picked;
+    if (typeof d.limits === 'boolean') prefs.limits = d.limits;
+  }
+} catch (e) { /* private mode — defaults are fine */ }
+
+/* Never leave a game selected that hasn't been built yet. */
+const readyIds = AUDITION_GAMES.filter(g => g.ready).map(g => g.id);
+prefs.picked = prefs.picked.filter(id => readyIds.indexOf(id) >= 0);
+if (!prefs.picked.length) prefs.picked = readyIds.slice(0, 1);
+
+function savePrefs() {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* ignore */ }
+}
+
+/* ---------------- game picker ---------------- */
+const CHECK = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+  '<path d="M3 8.5l3.2 3.2L13 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function renderGames() {
+  renderPickAll();
+  const wrap = $('games');
+  wrap.innerHTML = '';
+  AUDITION_GAMES.forEach(g => {
+    const on = prefs.picked.indexOf(g.id) >= 0;
+    const el = document.createElement(g.ready ? 'button' : 'div');
+    if (g.ready) el.type = 'button';
+    el.className = 'gcard' + (on ? ' on' : '') + (g.ready ? '' : ' soon');
+    el.innerHTML =
+      '<span class="box">' + CHECK + '</span>' +
+      '<span class="gmeta"><span class="gname">' + g.name + '</span></span>' +
+      (g.ready ? '' : '<span class="gtag">Coming soon</span>');
+    if (g.ready) {
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+      el.onclick = () => toggle(g.id);
+    }
+    wrap.appendChild(el);
+  });
+}
+
+/* One button doing both jobs: it offers whichever move is still available.
+   Everything picked -> the only useful action is clearing them. */
+function allPickable() { return AUDITION_GAMES.filter(g => g.ready).map(g => g.id); }
+
+function renderPickAll() {
+  const all = allPickable();
+  const everyOne = all.length > 0 && all.every(id => prefs.picked.indexOf(id) >= 0);
+  const b = $('pick-all');
+  b.textContent = everyOne ? 'Deselect all' : 'Select all';
+  b.setAttribute('aria-label', everyOne
+    ? 'Deselect all games' : 'Select all ' + all.length + ' games');
+}
+
+$('pick-all').onclick = function() {
+  const all = allPickable();
+  const everyOne = all.length > 0 && all.every(id => prefs.picked.indexOf(id) >= 0);
+  prefs.picked = everyOne ? [] : all;
+  savePrefs();
+  renderGames();
+  renderSummary();
+};
+
+function toggle(id) {
+  const at = prefs.picked.indexOf(id);
+  if (at >= 0) prefs.picked.splice(at, 1);
+  else prefs.picked.push(id);
+  savePrefs();
+  renderGames();
+  renderSummary();
+}
+
+function renderSummary() {
+  const chosen = prefs.picked.map(id => AUDITION_GAMES.find(g => g.id === id)).filter(Boolean);
+  const n = chosen.filter(g => !g.exchange).length;
+  const ex = chosen.length - n;
+  const total = n * prefs.hands;
+  const bits = [];
+  if (n) bits.push('<b>' + n + '</b> game' + (n > 1 ? 's' : '') +
+                   ' · <b>' + total + '</b> hand' + (total > 1 ? 's' : ''));
+  if (ex) bits.push('<b>' + ex + '</b> exchange' + (ex > 1 ? 's' : ''));
+  $('summary').innerHTML = bits.length
+    ? bits.join(' · ') + ' · about <b>' +
+      Math.max(1, Math.round(total * 0.75) + ex) + '</b> min'
+    : 'Pick at least one thing to start.';
+  $('start').disabled = !bits.length;
+}
+
+/* ---------------- controls ---------------- */
+function setHands(v) {
+  prefs.hands = Math.max(1, Math.min(25, v));
+  $('hands-val').textContent = prefs.hands;
+  $('hands-down').disabled = prefs.hands <= 1;
+  $('hands-up').disabled = prefs.hands >= 25;
+  savePrefs();
+  renderSummary();
+}
+$('hands-down').onclick = () => setHands(prefs.hands - 1);
+$('hands-up').onclick   = () => setHands(prefs.hands + 1);
+
+function renderLimitsTog() {
+  const b = $('limits-tog');
+  b.classList.toggle('on', prefs.limits);
+  b.setAttribute('aria-checked', String(prefs.limits));
+  $('limits-state').textContent = prefs.limits ? 'On' : 'Off';
+}
+$('limits-tog').onclick = function() {
+  if (this.disabled) return;      /* held back for now */
+  prefs.limits = !prefs.limits;
+  renderLimitsTog();
+  savePrefs();
+};
+
+$('chance').oninput = function() {
+  const pct = Math.max(0, Math.min(100, parseInt(this.value, 10) || 0));
+  prefs.chance = pct / 100;
+  $('chance-val').textContent = pct + '%';
+  savePrefs();
+};
+
+/* ---------------- start a run ---------------- */
+$('start').onclick = function() {
+  const chosen = prefs.picked
+    .map(id => AUDITION_GAMES.find(g => g.id === id))
+    .filter(Boolean);
+  const games = chosen.filter(g => !g.exchange).map(g => ({ id: g.id, name: g.name, path: g.path }));
+  const leg = k => {
+    const g = chosen.find(x => x.exchange === k);
+    return g ? [{ id: g.id, name: g.name, path: g.path }] : [];
+  };
+  if (!games.length && !chosen.length) return;
+  /* Change the player in, deal the first game, colour someone up, carry on.
+     Either exchange can be left out; the order of what remains doesn't move. */
+  const queue = leg('open')
+    .concat(games.slice(0, 1))
+    .concat(leg('after'))
+    .concat(games.slice(1));
+  if (!queue.length) return;
+  const run = {
+    v: 1,
+    hands: prefs.hands,
+    chance: prefs.chance,
+    limits: prefs.limits,
+    queue: queue,
+    index: 0,
+    results: [],
+  };
+  try { localStorage.setItem(RUN_KEY, JSON.stringify(run)); } catch (e) { /* ignore */ }
+  location.href = queue[0].path;
+};
+
+/* ---------------- results from a finished run ---------------- */
+function readRun() {
+  try {
+    const r = JSON.parse(localStorage.getItem(RUN_KEY));
+    return (r && r.v === 1 && Array.isArray(r.queue)) ? r : null;
+  } catch (e) { return null; }
+}
+
+function renderResults() {
+  const run = readRun();
+  if (!run || !run.results || !run.results.length || run.index < run.queue.length) return;
+
+  const t = { caught: 0, wrongCall: 0, missed: 0, falseFlags: 0, clean: 0, paidWrong: 0 };
+  run.results.forEach(r => {
+    t.caught += r.caught || 0; t.wrongCall += r.wrongCall || 0; t.missed += r.missed || 0;
+    t.falseFlags += r.falseFlags || 0; t.clean += r.clean || 0;
+    t.paidWrong += r.paidWrong || 0;
+  });
+  const rigged = t.caught + t.wrongCall + t.missed;
+  const pct = rigged ? Math.round((t.caught / rigged) * 100) : null;
+
+  let verdict;
+  if (pct === null) {
+    verdict = 'Nothing came up across the whole run — every hand was clean. Raise the mistake chance for a harder session.';
+  } else if (pct === 100 && !t.falseFlags) {
+    verdict = 'Clean sweep. Every call right, nothing called on a good hand — that is what a floor supervisor is watching for.';
+  } else {
+    verdict = 'You made the right call on ' + t.caught + ' of ' + rigged + '.' +
+      (t.wrongCall ? ' ' + t.wrongCall + ' time' + (t.wrongCall > 1 ? 's' : '') + ' you spotted it but called it wrong — fixing what the floor should see, or calling the floor to something you could have fixed yourself.' : '') +
+      (t.falseFlags ? ' ' + t.falseFlags + ' false flag' + (t.falseFlags > 1 ? 's' : '') + ' on clean hands — calling a good bet costs you too.' : '');
+  }
+  if (t.paidWrong) {
+    verdict += ' Separately, ' + t.paidWrong + ' bet' + (t.paidWrong > 1 ? 's were' : ' was') +
+      ' settled the wrong way — money out of the rack on a loser, or a winner raked in.';
+  }
+
+  const legs = run.results.map(r => {
+    const legRigged = (r.caught || 0) + (r.wrongCall || 0) + (r.missed || 0);
+    const sub = r.note
+      ? r.note
+      : (legRigged ? legRigged + ' hand' + (legRigged > 1 ? 's' : '') + ' needed a call'
+                   : 'nothing came up');
+    return '<div class="leg"><span class="lname">' + r.name +
+      '<span class="lsub">' + (r.note ? '' : r.hands + ' hands · ') + sub +
+      (r.wrongCall ? ' · ' + r.wrongCall + ' wrong call' + (r.wrongCall > 1 ? 's' : '') : '') +
+      (r.paidWrong ? ' · ' + r.paidWrong + ' settled wrong' : '') +
+      (r.falseFlags ? ' · ' + r.falseFlags + ' false flag' + (r.falseFlags > 1 ? 's' : '') : '') +
+      '</span></span>' +
+      '<span class="lscore"><span class="g">' + (r.caught || 0) + '</span> / ' +
+      '<span class="' + (legRigged > (r.caught || 0) ? 'b' : '') + '">' + legRigged + '</span></span></div>';
+  }).join('');
+
+  $('results').innerHTML =
+    '<h2>Audition complete</h2>' +
+    '<p class="verdict">' + verdict + '</p>' +
+    '<div class="totals">' +
+      '<div class="t-good"><b>' + t.caught + '</b><span>Right call</span></div>' +
+      '<div class="t-warn"><b>' + t.wrongCall + '</b><span>Wrong call</span></div>' +
+      '<div class="t-bad"><b>' + t.missed + '</b><span>Missed</span></div>' +
+      '<div class="t-warn"><b>' + t.falseFlags + '</b><span>False flags</span></div>' +
+      '<div class="t-bad"><b>' + t.paidWrong + '</b><span>Paid wrong</span></div>' +
+      '<div><b>' + t.clean + '</b><span>Clean hands</span></div>' +
+    '</div>' + legs +
+    '<p class="again">Set it up again below and go another round.</p>';
+  $('results').hidden = false;
+}
+
+/* ---------------- boot ---------------- */
+setHands(prefs.hands);
+$('chance').value = Math.round(prefs.chance * 100);
+$('chance-val').textContent = Math.round(prefs.chance * 100) + '%';
+renderGames();
+renderSummary();
+renderLimitsTog();
+renderResults();
+</script>
+
+</body>
+</html>

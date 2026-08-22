@@ -1,0 +1,498 @@
+<title>Audition Mode Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --paper:      #F5F6F9;
+  --surface:    #FFFFFF;
+  --surface-2:  #EDEFF4;
+  --line:       #D5D9E2;
+  --line-soft:  #E4E7EE;
+  --ink:        #151A22;
+  --ink-2:      #3D4654;
+  --slate:      #667186;
+  --flag:       #C62A20;
+  --flag-soft:  #FBEAE8;
+  --brass:      #9A7212;
+  --brass-soft: #F7EFD8;
+  --blue:       #2F5FA8;
+  --blue-soft:  #E6EDF9;
+  --rust:       #A8480F;
+  --rust-soft:  #FAEBE1;
+  --plum:       #6B3A8C;
+  --plum-soft:  #F1E9F7;
+  --jade:       #106854;
+  --jade-soft:  #E1F1EC;
+  --shadow:     0 1px 2px rgba(21,26,34,.06), 0 8px 24px -14px rgba(21,26,34,.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #10141B;
+    --surface:    #171C25;
+    --surface-2:  #1E2531;
+    --line:       #2C3442;
+    --line-soft:  #232B37;
+    --ink:        #EDF0F5;
+    --ink-2:      #C2C9D6;
+    --slate:      #8C97A9;
+    --flag:       #F2867B;
+    --flag-soft:  #37201E;
+    --brass:      #DCB55C;
+    --brass-soft: #302713;
+    --blue:       #8FB4EC;
+    --blue-soft:  #1A2537;
+    --rust:       #EC9C6E;
+    --rust-soft:  #33221A;
+    --plum:       #C79EE0;
+    --plum-soft:  #2A1F35;
+    --jade:       #6FCCB2;
+    --jade-soft:  #14302A;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #10141B;
+  --surface:    #171C25;
+  --surface-2:  #1E2531;
+  --line:       #2C3442;
+  --line-soft:  #232B37;
+  --ink:        #EDF0F5;
+  --ink-2:      #C2C9D6;
+  --slate:      #8C97A9;
+  --flag:       #F2867B;
+  --flag-soft:  #37201E;
+  --brass:      #DCB55C;
+  --brass-soft: #302713;
+  --blue:       #8FB4EC;
+  --blue-soft:  #1A2537;
+  --rust:       #EC9C6E;
+  --rust-soft:  #33221A;
+  --plum:       #C79EE0;
+  --plum-soft:  #2A1F35;
+  --jade:       #6FCCB2;
+  --jade-soft:  #14302A;
+  --shadow:     0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+
+/* ---------- masthead ---------- */
+.masthead { padding: 56px 0 32px; border-bottom: 2px solid var(--ink); }
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--flag); margin: 0 0 14px;
+  display: flex; align-items: center; gap: 9px;
+}
+.eyebrow::before {
+  content: "!"; display: grid; place-items: center;
+  width: 17px; height: 17px; border-radius: 4px;
+  background: var(--flag); color: #fff;
+  font-family: "Archivo", sans-serif; font-weight: 800; font-size: 12px;
+  letter-spacing: 0;
+}
+h1 {
+  font-family: "Archivo", ui-sans-serif, sans-serif;
+  font-weight: 800; letter-spacing: -.028em; line-height: 1.02;
+  font-size: clamp(38px, 6.4vw, 62px);
+  margin: 0 0 18px; text-wrap: balance;
+}
+.standfirst {
+  font-size: 17px; line-height: 1.62; color: var(--ink-2);
+  max-width: 60ch; margin: 0;
+}
+.standfirst strong { color: var(--ink); font-weight: 600; }
+
+/* ---------- sticky nav ---------- */
+.jump {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 44px;
+}
+.jump-inner {
+  max-width: 1080px; margin: 0 auto; padding: 10px 24px;
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin;
+}
+.spec code { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--flag); }
+.jump a {
+  flex: 0 0 auto; text-decoration: none; color: var(--slate);
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 500;
+  letter-spacing: .07em; text-transform: uppercase;
+  padding: 6px 11px; border-radius: 5px; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.jump a:hover, .jump a:focus-visible {
+  color: var(--ink); background: var(--surface-2); border-color: var(--line);
+}
+
+/* ---------- spec strip ---------- */
+.spec {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; margin: 0 0 20px;
+}
+.spec div { background: var(--surface); padding: 16px 18px; }
+.spec dt {
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--slate);
+  margin: 0 0 6px;
+}
+.spec dd { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); font-weight: 500; }
+
+.note {
+  border-left: 3px solid var(--brass); background: var(--brass-soft);
+  padding: 13px 17px; border-radius: 0 8px 8px 0; margin: 0 0 56px;
+  font-size: 14px; color: var(--ink-2);
+}
+.note strong { color: var(--ink); font-weight: 600; }
+
+h2.section {
+  font-family: "Archivo", sans-serif; font-weight: 700;
+  font-size: 13px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--slate); margin: 0 0 18px;
+  padding-bottom: 9px; border-bottom: 1px solid var(--line);
+}
+
+/* ---------- legend ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 56px; }
+
+/* ---------- category chips ---------- */
+.cat {
+  display: inline-block; white-space: nowrap;
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 4px; border: 1px solid;
+}
+.cat-amount   { color: var(--brass); background: var(--brass-soft); border-color: color-mix(in srgb, var(--brass) 32%, transparent); }
+.cat-spot     { color: var(--blue);  background: var(--blue-soft);  border-color: color-mix(in srgb, var(--blue) 32%, transparent); }
+.cat-timing   { color: var(--rust);  background: var(--rust-soft);  border-color: color-mix(in srgb, var(--rust) 32%, transparent); }
+.cat-action   { color: var(--plum);  background: var(--plum-soft);  border-color: color-mix(in srgb, var(--plum) 32%, transparent); }
+.cat-handling { color: var(--jade);  background: var(--jade-soft);  border-color: color-mix(in srgb, var(--jade) 32%, transparent); }
+.cat-missing  { color: var(--flag);  background: var(--flag-soft);  border-color: color-mix(in srgb, var(--flag) 32%, transparent); }
+.cat-claim    { color: var(--flag);  background: var(--flag-soft);  border-color: color-mix(in srgb, var(--flag) 32%, transparent); }
+
+/* ---------- game blocks ---------- */
+.game { margin: 0 0 68px; scroll-margin-top: 68px; }
+.game-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px;
+  padding-bottom: 12px; margin-bottom: 0; border-bottom: 2px solid var(--ink);
+}
+.game-num {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600;
+  color: var(--flag); letter-spacing: .06em;
+}
+.game-head h3 {
+  font-family: "Archivo", sans-serif; font-weight: 800; letter-spacing: -.02em;
+  font-size: clamp(23px, 3.2vw, 30px); margin: 0; flex: 1 1 auto;
+}
+.game-file {
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--slate);
+  word-break: break-all;
+}
+.limits {
+  font-size: 13.5px; color: var(--ink-2); padding: 12px 0 18px;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 0;
+}
+.limits b { font-family: "IBM Plex Mono", monospace; font-weight: 600; color: var(--ink); font-size: 12.5px; }
+
+.tscroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; }
+thead th {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600;
+  letter-spacing: .11em; text-transform: uppercase; color: var(--slate);
+  text-align: left; padding: 13px 12px 9px; border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+tbody td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; font-size: 14px; }
+tbody tr:hover td { background: var(--surface-2); }
+td.id {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600;
+  color: var(--slate); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+td.what { color: var(--ink); font-weight: 500; min-width: 240px; }
+td.rule { color: var(--ink-2); min-width: 230px; }
+td.cat-cell { white-space: nowrap; }
+.star { color: var(--flag); font-weight: 700; }
+
+/* ---------- footer ---------- */
+.foot {
+  border-top: 2px solid var(--ink); padding-top: 24px; margin-top: 12px;
+  font-size: 13.5px; color: var(--slate);
+}
+.foot b { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 620px) {
+  .wrap { padding: 0 16px 72px; }
+  .jump-inner { padding: 10px 16px; }
+  .masthead { padding: 36px 0 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<nav class="jump" aria-label="Jump to game">
+  <div class="jump-inner">
+    <a href="index.html">&larr; Audition menu</a>
+    <a href="#how">How it works</a>
+    <a href="#bj-shoe">BJ Shoe</a>
+    <a href="#bj-pitch">BJ Pitch</a>
+    <a href="#deuces">Deuces Wild</a>
+    <a href="#prime">3 Card Prime</a>
+    <a href="#holdem">Heads Up Hold'em</a>
+    <a href="#paigow">Pai Gow</a>
+    <a href="#baccarat">Baccarat</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Audition Mode &middot; Build Spec</p>
+    <h1>Catch the Mistake</h1>
+    <p class="standfirst">Audition mode runs a short session of hands in each simulator. Most hands play clean. On a rigged hand, exactly one NPC does exactly one thing that needs handling &mdash; and the dealer has to spot it, point at the bet, and make the call: <strong>have the player fix it</strong>, or <strong>call the floor</strong>. Which one is right depends on how fast they caught it.</p>
+  </header>
+
+</div>
+
+<div class="wrap">
+
+  <section id="how" style="scroll-margin-top:68px">
+    <h2 class="section">How the mode behaves</h2>
+    <dl class="spec">
+      <div><dt>Starting a run</dt><dd><code>audition.html</code> &mdash; pick the games, set hands per game, hit start</dd></div>
+      <div><dt>Built</dt><dd>All seven &mdash; both blackjacks, all three poker sims, pai gow, baccarat</dd></div>
+      <div><dt>Session length</dt><dd>Set once, applied to every game in the run</dd></div>
+      <div><dt>Between games</dt><dd>Each leg's scorecard hands off to the next; a combined one waits at the end</dd></div>
+      <div><dt>Mistake rate</dt><dd>25% of hands by default, on a settings slider</dd></div>
+      <div><dt>Per hand</dt><dd>At most one mistake, by one player</dd></div>
+      <div><dt>The flag</dt><dd>A red <span class="star">!</span> box pinned to the right edge, live all session</dd></div>
+      <div><dt>Calling it</dt><dd>Click <span class="star">!</span>, click the bet, then make one of two calls &mdash; <em>fix it</em> or <em>floor</em></dd></div>
+      <div><dt>Fix it</dt><dd>Right answer while you're still on it &mdash; the player corrects the bet and the hand plays on</dd></div>
+      <div><dt>Floor</dt><dd>Right answer once the game has moved past it, and always for a foul or a busted stand</dd></div>
+      <div><dt>On a wrong call</dt><dd>Right bet, wrong call logs as <em>wrong call</em>; wrong bet is a miss, clean hand is a false flag</dd></div>
+      <div><dt>Chips</dt><dd>Never appear &mdash; every bet rides in from the players' side, clean or rigged</dd></div>
+      <div><dt>Help mode</dt><dd>Never available in audition mode</dd></div>
+      <div><dt>End of session</dt><dd>Scorecard: caught, missed, false flags, hand-by-hand</dd></div>
+    </dl>
+    <p class="note"><strong>Rows marked <span class="star">&#9733;</span> are the ones you called out by name.</strong> Every entry below is injectable at a real hook in the existing code &mdash; nothing here needs a rewrite of the sim it lives in. The catalog is deliberately longer than any one session uses: the picker shows the issues for the spot you point at plus plausible decoys, so the dealer can't win by memorising a short menu.</p>
+    <p class="note"><strong>Table limits are provisional.</strong> Every "under the minimum" and "over the maximum" row reads its numbers from one constants block per game. They're currently inferred from each sim's bet generator &mdash; when your min/max sheet arrives it drops straight in and every limit row follows.</p>
+    <p class="note"><strong>Timing decides the call.</strong> Catch a bet that's wrong while you're still on it and the player simply fixes it. Let the game move past that point and it stops being yours to correct &mdash; that's a floor call. Where the window shuts depends on the game: in <strong>blackjack</strong> the bets close when the cards come out, insurance when the line closes, and a double or split when the action leaves that seat; in the <strong>poker sims</strong> a bet is yours until you start settling that seat, since the whole hand is already costed when the curtain lifts; in <strong>pai gow</strong> it runs right through the build phase until you settle the seat; in <strong>baccarat</strong> it closes the moment a card leaves the shoe. A couple of things are never yours to put right however fast you spot them, because there is nothing to correct at the table &mdash; a pai gow <strong>foul</strong>, and a pitch hand that turns over <strong>above 21</strong>. Those are marked <span class="cat cat-missing">Floor only</span>.</p>
+    <p class="note"><strong>Deliberately out of scope.</strong> Bet increments (players may use $2.50, it's just rare) &middot; putting a bet in the wrong circle &middot; betting into a neighbour's spot &middot; anything involving the player's hands &mdash; touching or covering cards, two hands on a hand, passing cards, bending a card &middot; anything the player verbally <em>claims</em> about a payout &middot; insurance taken after the line closed or with no ace showing &middot; <strong>capping</strong> and <strong>pinching</strong> &mdash; a player adding to or pulling off a live bet. All real, none of it in the simulation.</p>
+  </section>
+
+  <section>
+    <h2 class="section">Categories</h2>
+    <p class="note" style="margin-bottom:18px"><strong>Missing</strong> is a bet that can't stand as placed &mdash; a side bet with nothing behind it, a mandatory bet that never went up. <strong>Change</strong> is not an error at all &mdash; it's a duty. A player who tosses $25 at a $5 progressive is buying in: leave the buy-in up, change the rest back. Short of the buy-in is the mirror image &mdash; $2.50 on the $5 Red doesn't play, so it goes back. Either way the dealer has to notice, and both ride the same flag flow. (A Blue progressive can't be short: the buy-in is $1 and there's no chip under it.)</p>
+    <div class="legend">
+      <span class="cat cat-amount">Amount</span>
+      <span class="cat cat-timing">Timing</span>
+      <span class="cat cat-action">Action</span>
+      <span class="cat cat-missing">Missing / Floor only</span>
+      <span class="cat cat-spot">Change</span>
+      <span class="cat cat-handling">Setting</span>
+    </div>
+  </section>
+
+  <!-- ============ BLACKJACK SHOE ============ -->
+  <section class="game" id="bj-shoe">
+    <div class="game-head">
+      <span class="game-num">01</span>
+      <h3>Blackjack &mdash; Shoe</h3>
+      <span class="game-file">dealing-simulator.html</span>
+    </div>
+    <p class="limits"><b>Main</b> $15&ndash;$100 <em>(provisional)</em> &middot; <b>21+3</b> never more than the main &middot; <b>Red</b> plays for $5, <b>Blue</b> for $1 &mdash; more than that is a buy-in and needs change &middot; <b>Bust Bonus</b> placed after all players act, capped at the original main (combined originals after a split) &middot; <b>Insurance</b> never more than half the main</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">BJS-01</td><td class="what">Main bet is short of the table minimum</td><td class="rule">Under the posted minimum for the game</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-01X</td><td class="what">Main bet is over the table maximum</td><td class="rule">Over the posted maximum for the game</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-03</td><td class="what">$50 on 21+3 behind a $25 main</td><td class="rule">21+3 can never exceed the main bet</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-04 <span class="star">&#9733;</span></td><td class="what">Bust Bonus is already out before anyone acts</td><td class="rule">Bust Bonus goes up only after every player has finished acting</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">BJS-05</td><td class="what">Bust Bonus larger than the original main bet</td><td class="rule">Capped at the original main &mdash; a double doesn't raise the cap</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-05D</td><td class="what">Bust Bonus matched to a doubled bet instead of the original</td><td class="rule">Doubling never raises the ceiling; splitting adds the original for each new hand (4 hands at $100 allows $400)</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-06</td><td class="what">Drops the Bust Bonus after the hand already busted</td><td class="rule">The bet is dead once that hand is resolved</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">BJS-07</td><td class="what">Insurance for more than half the main bet</td><td class="rule">Insurance maxes at half the main</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-09</td><td class="what">Drops $25 on the $5 Red, or $5 on the $1 Blue</td><td class="rule">Perfectly legal &mdash; they're buying in. Leave the buy-in up and change the rest back.</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">BJS-09S</td><td class="what">Only $2.50 on the $5 Red</td><td class="rule">Short of the buy-in &mdash; it doesn't play. Hand it back.</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">BJS-10 <span class="star">&#9733;</span></td><td class="what">Doubles down and puts out more than the original bet</td><td class="rule">A double can be for less, never for more</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-11 <span class="star">&#9733;</span></td><td class="what">Splits and puts a different amount on the second hand</td><td class="rule">The split hand must match the original bet exactly</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BJS-12</td><td class="what">Side bet is out with nothing in the main circle</td><td class="rule">Every side bet needs a live main bet behind it</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">BJS-19</td><td class="what">Drops a side bet after the deal has begun</td><td class="rule">Side bets close with the main bet</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">BJS-21</td><td class="what">Grabs the bet back on a push before the dealer releases it</td><td class="rule">The dealer clears the hand before anyone touches chips</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">BJS-22</td><td class="what">Doubles on a hand that already has three cards</td><td class="rule">Doubling is only on the first two cards</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">BJS-23</td><td class="what">Asks to split 9&ndash;10</td><td class="rule">Only a matching pair can be split</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">BJS-24</td><td class="what">Asks to split again into a third hand</td><td class="rule">One split only &mdash; two hands maximum</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">BJS-25</td><td class="what">Asks for another card on a split ace</td><td class="rule">Split aces get exactly one card each</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">BJS-26</td><td class="what">Calls for a hit after already standing</td><td class="rule">A stood hand is finished</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ BLACKJACK PITCH ============ -->
+  <section class="game" id="bj-pitch">
+    <div class="game-head">
+      <span class="game-num">02</span>
+      <h3>Blackjack &mdash; Pitch</h3>
+      <span class="game-file">pitch-dealing-simulator.html</span>
+    </div>
+    <p class="limits">Everything in the shoe list applies except the Red and Blue progressives (BJS&#8209;09), which this game doesn't have. Pitch's own distinctive errors are all card-handling &mdash; two hands on the cards, cards below the table edge, showing a neighbour, bending a card &mdash; and those are <strong>deliberately out of scope</strong>. They're real, and the sim can't depict a pair of hands convincingly, so pitch inherits the shoe catalog and adds one action of its own.</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">BJP-09</td><td class="what">Scratches for a hit after already tucking to stand</td><td class="rule">Once tucked, the hand is closed</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">BJP-11 <span class="star">&#9733;</span></td><td class="what">Turns over a stood hand that totals more than 21</td><td class="rule">They tucked a busted hand. Always a floor call &mdash; nothing to fix at the table.</td><td class="cat-cell"><span class="cat cat-missing">Floor only</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ DEUCES WILD ============ -->
+  <section class="game" id="deuces">
+    <div class="game-head">
+      <span class="game-num">03</span>
+      <h3>Deuces Wild Xtreme</h3>
+      <span class="game-file">deuces-wild-xtreme-dealer-simulator.html</span>
+    </div>
+    <p class="limits"><b>Ante</b> $10&ndash;$200, mandatory &middot; <b>Odds</b> must equal the Ante, mandatory &middot; <b>Play</b> is exactly 2&times; the Ante &middot; <b>Bad Beat</b> to $25 &middot; <b>Trips</b> and <b>Goin' Wild</b> to $100 &middot; <b>GW Progressive</b> $5 flat &middot; <b>Linked</b> $5 flat &middot; No dealer qualifier; a tie pushes all three main bets; Odds pushes on anything under a straight</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">DWX-01 <span class="star">&#9733;</span></td><td class="what">Makes the Play bet at 1&times; the Ante</td><td class="rule">Play is exactly 2&times; the Ante</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-02</td><td class="what">Makes the Play bet at 3&times; the Ante</td><td class="rule">Play is exactly 2&times; the Ante &mdash; no more, no less</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-03</td><td class="what">Odds bet is bigger than the Ante</td><td class="rule">Ante and Odds are always equal</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-04</td><td class="what">Odds bet is smaller than the Ante</td><td class="rule">Ante and Odds are always equal</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-05</td><td class="what">Antes with no Odds bet at all</td><td class="rule">Both are mandatory to get a hand</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">DWX-06</td><td class="what">Antes $5, or antes $300</td><td class="rule">Ante limits are $10 to $200</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-07</td><td class="what">$50 on Bad Beat</td><td class="rule">Bad Beat maxes at $25</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-08</td><td class="what">$200 on Trips or Goin' Wild</td><td class="rule">Both max at $100</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">DWX-09</td><td class="what">Drops $25 on a $5 progressive</td><td class="rule">Leave $5 up and change $20 back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">DWX-09S</td><td class="what">Puts less than the buy-in on a progressive</td><td class="rule">Short doesn't play &mdash; hand it back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">DWX-12</td><td class="what">Side bet out with no Ante or Odds</td><td class="rule">Side bets require the mandatory bets first</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">DWX-13</td><td class="what">Makes the Play bet after the dealer's hand is exposed</td><td class="rule">All decisions come before the reveal</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">DWX-16</td><td class="what">Drops a side bet after the deal</td><td class="rule">Side bets close with the Ante</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">DWX-17</td><td class="what">Folds but leaves the Play wager out</td><td class="rule">A fold means no Play bet, and Ante plus Odds go to the house</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">DWX-19</td><td class="what">Folds, then changes their mind and makes the Play</td><td class="rule">A fold is final once the cards are released</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ THREE CARD PRIME ============ -->
+  <section class="game" id="prime">
+    <div class="game-head">
+      <span class="game-num">04</span>
+      <h3>Three Card Prime</h3>
+      <span class="game-file">three-card-prime-simulator.html</span>
+    </div>
+    <p class="limits"><b>Ante</b> $10&ndash;$500 &middot; <b>Play</b> exactly equal to the Ante &middot; <b>Prime</b> and <b>Pair Plus</b> to $500 &middot; <b>All 6</b> to $100 &middot; <b>Mini Royal</b> $1 flat &middot; <b>Linked</b> $5 flat &middot; Dealer no&#8209;qualify: the Play bet <em>pushes</em> and the Ante pays 1:1</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">TCP-01</td><td class="what">Play bet bigger than the Ante</td><td class="rule">Play must equal the Ante exactly</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">TCP-02</td><td class="what">Play bet smaller than the Ante</td><td class="rule">Play must equal the Ante exactly</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">TCP-03</td><td class="what">Antes $5, or antes above the table max</td><td class="rule">Ante limits are $10 to $500</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">TCP-04</td><td class="what">$250 on All 6</td><td class="rule">All 6 maxes at $100</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">TCP-05</td><td class="what">Drops $25 on Mini Royal or Linked</td><td class="rule">Leave the buy-in up and change the rest back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">TCP-05S</td><td class="what">Puts less than the buy-in on Mini Royal or Linked</td><td class="rule">Short doesn't play &mdash; hand it back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">TCP-08</td><td class="what">Side bet out with no Ante</td><td class="rule">Every side bet needs a live Ante</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">TCP-09</td><td class="what">Makes the Play bet after the dealer's cards are exposed</td><td class="rule">The decision comes before the reveal</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">TCP-11</td><td class="what">Drops a side bet after the cards are out</td><td class="rule">Side bets close with the Ante</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+        <tr><td class="id">TCP-13</td><td class="what">Folds but leaves the Play wager out</td><td class="rule">A fold means no Play bet</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ HEADS UP HOLD'EM ============ -->
+  <section class="game" id="holdem">
+    <div class="game-head">
+      <span class="game-num">05</span>
+      <h3>Heads Up Hold'em</h3>
+      <span class="game-file">heads-up-holdem-simulator.html</span>
+    </div>
+    <p class="limits"><b>Ante</b> mandatory &middot; <b>Odds</b> must equal the Ante, mandatory &middot; <b>Raise</b> is 3&times; pre&#8209;flop, 2&times; on the flop, 1&times; on the river &mdash; one raise per hand &middot; <b>Trips</b> and <b>Pocket Bonus</b> $5&ndash;$25 &middot; <b>Blue</b> $1 flat &middot; <b>Red</b> $5 flat</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">HUH-01</td><td class="what">Raises 2&times; pre-flop</td><td class="rule">The pre-flop raise is 3&times; the Ante</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">HUH-02</td><td class="what">Raises 4&times; pre-flop</td><td class="rule">The pre-flop raise is 3&times; &mdash; there is no bigger option</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">HUH-03</td><td class="what">Raises 3&times; on the flop</td><td class="rule">The flop raise is 2&times;</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">HUH-04</td><td class="what">Raises 2&times; on the river</td><td class="rule">The river raise is 1&times;</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">HUH-05</td><td class="what">Odds bet doesn't match the Ante</td><td class="rule">Ante and Odds are always equal</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">HUH-07</td><td class="what">$50 on Trips or Pocket Bonus</td><td class="rule">Both run $5 to $25</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">HUH-08</td><td class="what">Drops $25 on Blue or Red</td><td class="rule">Leave the buy-in up and change the rest back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">HUH-08S</td><td class="what">Puts less than the buy-in on Blue or Red</td><td class="rule">Short doesn't play &mdash; hand it back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">HUH-11</td><td class="what">Side bet out with no Ante or Odds</td><td class="rule">Side bets require the mandatory bets first</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">HUH-12</td><td class="what">Raises pre-flop, then raises again on the flop</td><td class="rule">One raise per hand</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">HUH-13</td><td class="what">Checks the flop, then puts out a 3&times; raise on the river</td><td class="rule">A 3&times; raise is only live pre-flop</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+        <tr><td class="id">HUH-15</td><td class="what">Folds but leaves the Raise out</td><td class="rule">A fold means no Raise, and Ante plus Odds go to the house</td><td class="cat-cell"><span class="cat cat-action">Action</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ PAI GOW ============ -->
+  <section class="game" id="paigow">
+    <div class="game-head">
+      <span class="game-num">06</span>
+      <h3>Pai Gow Poker</h3>
+      <span class="game-file">paigow-dealer-sim.html</span>
+    </div>
+    <p class="limits"><b>Main</b> from $25 <em>(provisional)</em> &middot; <b>Insurance</b> and <b>Emperor's Treasure</b> to the side&#8209;bet max &middot; <b>Red</b> $5 flat &middot; <b>Blue</b> $1 flat &middot; Emperor's Treasure must be $5 or more to qualify for envy &middot; Two cards in the low hand, five in the high, and the low can never outrank the high &middot; Copies go to the dealer</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">PGP-01 <span class="star">&#9733;</span></td><td class="what">Sets a low hand that outranks the high hand</td><td class="rule">Foul &mdash; the two-card hand can never beat the five-card hand. Always a floor call.</td><td class="cat-cell"><span class="cat cat-missing">Floor only</span></td></tr>
+        <tr><td class="id">PGP-02</td><td class="what">Sets three cards in front and four in back</td><td class="rule">Two in the low hand, five in the high</td><td class="cat-cell"><span class="cat cat-handling">Setting</span></td></tr>
+        <tr><td class="id">PGP-03</td><td class="what">Sets only six cards, or slips a seventh into a hand</td><td class="rule">All seven cards, split two and five</td><td class="cat-cell"><span class="cat cat-handling">Setting</span></td></tr>
+        <tr><td class="id">PGP-04</td><td class="what">Rearranges the hand after setting it</td><td class="rule">Once the hands are set and released, they're final</td><td class="cat-cell"><span class="cat cat-handling">Setting</span></td></tr>
+        <tr><td class="id">PGP-05</td><td class="what">Swaps two cards after the dealer's hand is exposed</td><td class="rule">Nothing moves after the dealer sets</td><td class="cat-cell"><span class="cat cat-handling">Setting</span></td></tr>
+        <tr><td class="id">PGP-08</td><td class="what">Main bet of $20</td><td class="rule">Below the $25 table minimum</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">PGP-10</td><td class="what">Side bet above the table maximum</td><td class="rule">Insurance and Emperor's Treasure are capped</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">PGP-11</td><td class="what">Drops $25 on the $5 Red, or $5 on the $1 Blue</td><td class="rule">Leave the buy-in up and change the rest back</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">PGP-11S</td><td class="what">Only $2.50 on the $5 Red</td><td class="rule">Short of the buy-in &mdash; it doesn't play. Hand it back.</td><td class="cat-cell"><span class="cat cat-spot">Change</span></td></tr>
+        <tr><td class="id">PGP-12</td><td class="what">Side bet out with no main bet</td><td class="rule">Every side bet needs a live main bet</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">PGP-15</td><td class="what">Places insurance after looking at their cards</td><td class="rule">Insurance goes up before the deal</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ BACCARAT ============ -->
+  <section class="game" id="baccarat">
+    <div class="game-head">
+      <span class="game-num">07</span>
+      <h3>EZ Baccarat</h3>
+      <span class="game-file">baccarat-dealer-sim.html</span>
+    </div>
+    <p class="limits"><b>Player</b> or <b>Banker</b> $50&ndash;$4,000, one or the other &middot; <b>Tie</b> to $500 &middot; <b>9/7</b> to $50 &middot; <b>Any 8/6</b>, <b>Koi</b> and <b>Jin</b> to $300 &middot; No commission; a three&#8209;card Banker 7 is a Dragon 7 and pushes all Banker bets</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>What the player does</th><th>The rule they broke</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td class="id">BAC-01</td><td class="what">Bets Player and Banker in the same seat</td><td class="rule">One main bet per seat &mdash; Player or Banker, never both</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">BAC-02</td><td class="what">Main bet of $25</td><td class="rule">Below the $50 table minimum</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BAC-03</td><td class="what">Main bet above $4,000</td><td class="rule">Over the table maximum</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BAC-04</td><td class="what">$1,000 on Tie</td><td class="rule">Tie maxes at $500</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BAC-05</td><td class="what">$100 on 9/7</td><td class="rule">9/7 maxes at $50</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BAC-06</td><td class="what">Over $300 on Any 8/6, Koi or Jin</td><td class="rule">All three cap at $300</td><td class="cat-cell"><span class="cat cat-amount">Amount</span></td></tr>
+        <tr><td class="id">BAC-09</td><td class="what">Side bet out with no Player or Banker bet</td><td class="rule">Side bets need a live main bet</td><td class="cat-cell"><span class="cat cat-missing">Missing</span></td></tr>
+        <tr><td class="id">BAC-12</td><td class="what">Puts a bet out after "no more bets"</td><td class="rule">The call closes the layout</td><td class="cat-cell"><span class="cat cat-timing">Timing</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <p class="foot"><b>Redline this list.</b> Anything that isn't how your house plays it, cross it out or correct it &mdash; the wording here becomes the wording in the picker the dealer reads, so the phrasing matters as much as the rule. Roulette is deliberately excluded.</p>
+
+</div>

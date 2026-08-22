@@ -1,0 +1,3124 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  PAIRED FILE — READ BEFORE EDITING
+  ============================================================================
+  This page is one of a MATCHED PAIR:
+
+      baccarat/baccarat-dealer-sim.html
+      audition/baccarat-dealer-sim-audition.html   <-- you are here
+
+  They are near-identical copies of the same simulator. Everything except the
+  audition layer — the shoe, the tableau rules, the settlement flow, the chip
+  and card rendering, the CSS, the paytables — is DUPLICATED, not shared.
+
+  IF YOU ARE AN AI ASSISTANT WORKING ON THIS FILE:
+  A fix or change you make here almost certainly needs to be made in the other
+  file too, or the pair silently drifts apart. Before you finish, TELL THE USER
+  which of the two files you changed, name the other one, and ASK whether they
+  want the same change applied there. Do not assume either answer.
+
+  The audition layer itself (everything under "AUDITION MODE" in the script,
+  plus the .aud-* CSS and markup) exists ONLY in the audition file. Do not
+  port it back into baccarat-dealer-sim.html.
+  ============================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>EZ Baccarat — Audition</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.16), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(168,85,247,0.12), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(56,189,248,0.08), transparent 60%),
+    #07080c !important;
+  background-attachment: fixed !important;
+  -webkit-user-select: none; user-select: none;
+}
+.top-strip {
+  position: fixed; top: 0; left: 0; right: 0; height: 6px; z-index: 100;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 100%;
+  animation: stripSlide 60s linear infinite;
+}
+@keyframes stripSlide { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+.home-btn {
+  position: fixed; top: 14px; left: 14px; z-index: 200;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px 9px 12px; border-radius: 999px;
+  background: rgba(15,17,24,0.78); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  font: 700 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.05em; text-decoration: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 24px -10px rgba(0,0,0,0.7);
+}
+.home-btn::before { content: "←"; font-size: 14px; }
+.home-btn:hover { border-color: rgba(139,110,247,0.55); color: #fff; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 58px 14px 40px; }
+h1 { margin: 0 0 2px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.sub { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 12px; }
+
+/* ---------- Felt ---------- */
+.felt {
+  background:
+    radial-gradient(900px 420px at 50% -10%, rgba(168,85,247,0.28), transparent 70%),
+    linear-gradient(180deg, #4c1d95 0%, #5b21b6 45%, #4c1d95 100%);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 22px;
+  padding: 16px 14px 14px;
+  box-shadow: 0 18px 40px -20px rgba(0,0,0,0.6), inset 0 0 80px rgba(0,0,0,0.25);
+  position: relative;
+}
+/* The big arc rule text — upside-down homage to the layout */
+.felt-rule {
+  text-align: center;
+  font: 800 11px/1.4 "Inter", sans-serif;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  border-top: 2px solid rgba(255,255,255,0.35);
+  border-bottom: 2px solid rgba(255,255,255,0.35);
+  padding: 6px 8px; margin: 12px 0;
+}
+
+/* ---------- Seats ---------- */
+.seats { display: flex; gap: 12px; justify-content: center; }
+.seat {
+  flex: 1 1 0; max-width: 330px;
+  border: 2px dashed transparent; border-radius: 16px;
+  padding: 8px 8px 10px; position: relative;
+  transition: border-color 0.2s;
+}
+.seat.active { border-color: rgba(253,224,71,0.75); }
+.seat.next-to-play { border-color: rgba(56,189,248,0.7); cursor: pointer; }
+.seat-label {
+  text-align: center; font: 700 10.5px/1 "Inter", sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); margin-bottom: 8px;
+}
+/* Main bet pills: PLAYER on top (far side), BANKER below (dealer side) — table flipped */
+.main-pills { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.pill {
+  position: relative;
+  width: 84%; min-height: 40px;
+  border-radius: 999px;
+  border: 2.5px solid;
+  display: flex; align-items: center; justify-content: center;
+  font: 900 13px/1 "Inter", sans-serif; letter-spacing: 0.18em;
+  cursor: default;
+}
+.pill.p-player { border-color: #facc15; color: #fde047; }
+.pill.p-banker { border-color: #f87171; color: #fca5a5; }
+.pill .amt {
+  position: absolute; top: -8px; right: 10px;
+  font: 800 9.5px/1 "JetBrains Mono", monospace;
+  color: rgba(255,255,255,0.9);
+  background: rgba(0,0,0,0.45); border-radius: 999px; padding: 2px 6px;
+}
+/* Side bets — mirrored Monarch arrangement (dealer view):
+   text spots row: ANY 8/6 · 9/7 · TIE, then the two medallions
+   (JIN CHAN 7 gold, KOI 8 white) nearest the dealer. */
+.side-row { display: flex; gap: 5px; justify-content: center; margin-top: 8px; flex-wrap: nowrap; }
+.medal-row { display: flex; gap: 34px; justify-content: center; margin-top: 10px; }
+.side-row { margin-top: 10px; }
+.scircle {
+  position: relative;
+  border: 2.5px solid; background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; cursor: default; flex: 0 0 auto;
+}
+.scircle.stext {
+  width: 66px; height: 40px; border-radius: 0;
+  border-width: 2px;
+}
+.scircle.medal {
+  width: 48px; height: 48px; border-radius: 50%;
+}
+.scircle .lbl { font: 900 7px/1.15 "Inter", sans-serif; letter-spacing: 0.03em; color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; }
+.scircle .lbl .odds { display: block; font-size: 6px; color: rgba(255,255,255,0.7); }
+.scircle .amt {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  font: 800 8.5px/1 "JetBrains Mono", monospace; color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+}
+.sc-tie  { border-color: #fde047; }
+.sc-97   { border-color: #e879f9; }
+.sc-86   { border-color: #38bdf8; }
+.sc-koi  { border-color: #e5e7eb;
+  background: radial-gradient(circle at 50% 32%, rgba(255,255,255,0.28), rgba(255,255,255,0.05) 70%); }
+.sc-koi .lbl { color: #f9fafb; }
+.sc-jin  { border-color: #f59e0b;
+  background: radial-gradient(circle at 50% 32%, rgba(251,191,36,0.35), rgba(251,146,60,0.08) 70%); }
+.sc-jin .lbl { color: #fde68a; }
+.scircle.dim { opacity: 0.42; }
+/* chip stack on a bet spot */
+.spot-chips { position: absolute; left: 50%; bottom: 45%; transform: translateX(-50%);
+  width: 28px; height: 1px; pointer-events: none; z-index: 3; }
+.spot-chips .chipp {
+  position: absolute; left: 0; right: 0; height: 6px;
+  border-radius: 2px; border-top: 1px solid rgba(0,0,0,0.4);
+}
+.spot-chips .chip-top { height: 9px; }
+/* On the big PLAYER/BANKER pills the cheques sit at the LEFT end so the
+   label stays readable. */
+.pill .spot-chips { left: 15%; transform: none; width: 32px; bottom: 26%; }
+.pill .spot-chips .chipp { height: 7px; }
+/* settle highlights */
+.collectable-loser { box-shadow: 0 0 0 3px rgba(248,113,113,0.8), 0 0 18px rgba(248,113,113,0.5) !important; cursor: pointer !important; }
+.payout-target     { box-shadow: 0 0 0 3px rgba(52,211,153,0.85), 0 0 18px rgba(52,211,153,0.5) !important; cursor: pointer !important; }
+.push-ring         { box-shadow: 0 0 0 3px rgba(253,224,71,0.8), 0 0 16px rgba(253,224,71,0.45) !important; cursor: pointer !important; }
+/* End-of-round collect glow — the ONE cue that survives Help: Off */
+.handbox.collect-glow { box-shadow: 0 0 0 3px rgba(56,189,248,0.85), 0 0 24px rgba(56,189,248,0.5); cursor: pointer; }
+/* With Help off, nothing else glows: no settle rings, no winner halos,
+   no active-seat borders — the dealer must know the order themselves.
+   (Everything stays CLICKABLE; only the visual hints go away.) */
+body.help-off .collectable-loser,
+body.help-off .payout-target,
+body.help-off .push-ring { box-shadow: none !important; }
+body.help-off .handbox.winner,
+body.help-off .handbox.tiewin { box-shadow: none; }
+body.help-off .handbox.clickable:hover { border-color: inherit; }
+body.help-off .seat.active { border-color: transparent; }
+body.help-off .shoe.pulse { box-shadow: none; }
+body.help-off .hb-total { display: none; }
+.pushed-overlay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-12deg);
+  font: 900 10px/1 "Inter", sans-serif; letter-spacing: 0.14em;
+  color: #fde047; background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(253,224,71,0.7); border-radius: 6px;
+  padding: 3px 7px; z-index: 6; pointer-events: none;
+}
+
+/* ---------- Center hand boxes ---------- */
+.hands-zone { display: flex; gap: 26px; justify-content: center; align-items: flex-start; margin-top: 4px; min-height: 168px; }
+.handbox {
+  position: relative;
+  min-width: 288px; min-height: 150px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-radius: 14px;
+  padding: 26px 12px 10px;
+  display: flex; gap: 8px; align-items: flex-start;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+/* The vertical pair sits toward the TABLE CENTER side of its box (fixed
+   there at all times) leaving room for the third card on the outer side. */
+.handbox.hb-banker { justify-content: flex-end;  padding-right: 6px; }
+.handbox.hb-player { justify-content: flex-start; padding-left: 6px; }
+.handbox .hb-label {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  font: 900 11px/1 "Inter", sans-serif; letter-spacing: 0.28em;
+}
+.handbox.hb-player { border-color: rgba(250,204,21,0.55); }
+.handbox.hb-player .hb-label { color: #fde047; }
+.handbox.hb-banker { border-color: rgba(248,113,113,0.55); }
+.handbox.hb-banker .hb-label { color: #fca5a5; }
+.handbox .hb-total {
+  position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+  font: 800 12px/1 "JetBrains Mono", monospace; color: rgba(255,255,255,0.85);
+}
+.handbox.clickable { cursor: pointer; }
+.handbox.clickable:hover { border-color: rgba(56,189,248,0.8); }
+.handbox.winner { box-shadow: 0 0 0 3px rgba(52,211,153,0.8), 0 0 26px rgba(52,211,153,0.4); }
+.handbox.tiewin { box-shadow: 0 0 0 3px rgba(253,224,71,0.8), 0 0 26px rgba(253,224,71,0.4); }
+
+/* ---------- Cards ---------- */
+:root { --cw: 74px; --ch: 104px; }   /* card width/height — shrink with viewport */
+@media (max-width: 640px) { :root { --cw: 58px; --ch: 82px; } }
+@media (max-width: 430px) { :root { --cw: 48px; --ch: 68px; } }
+@media (max-width: 360px) { :root { --cw: 42px; --ch: 59px; } }
+.bcard {
+  width: var(--cw); height: var(--ch);
+  background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 7px;
+  position: relative; flex: 0 0 auto;
+  box-shadow: -2px 3px 6px rgba(0,0,0,0.45);
+}
+/* CardMeister image faces: the SVG card brings its own white face + border */
+.bcard.imgface { background: transparent; border: none; border-radius: 4px; }
+.bcard.imgface playing-card { display: block; width: 100%; height: 100%; }
+.bcard.imgface img { display: block; width: 100%; height: 100%; }
+/* Cards rest a touch LOWER in their box by default; the WINNING hand's
+   original pair lifts about a quarter-card and STAYS raised until the
+   cards are collected — the physical "this hand won" signal. Positional
+   cue, so it shows regardless of Help. (Third/horizontal cards keep
+   their own rotate transform and don't move.) */
+.handbox .bcard:not(.horiz) { margin-top: 16px; transition: transform 0.35s ease; }
+.handbox.won-lift .bcard:not(.horiz) {
+  transform: translateY(-26px);
+  animation: wonLift 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes wonLift {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-26px); }
+}
+.bcard.anim { animation: cardIn 0.28s ease-out; }
+/* Horizontal (third) cards animate WITH their rotation so they never
+   flash vertical first. */
+.bcard.horiz.anim { animation: cardInH 0.28s ease-out; }
+@keyframes cardInH {
+  from { transform: rotate(90deg) translateX(14px); opacity: 0; }
+  to   { transform: rotate(90deg); opacity: 1; }
+}
+@keyframes cardIn { from { transform: translateY(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.bcard.red   { color: #dc2626; }
+.bcard.black { color: #111827; }
+/* Third cards sit OUT OF FLOW on the outer side of each box, so the
+   two vertical cards never move when the third arrives. */
+/* Third card is a NORMAL flex sibling of the pair — it works at every
+   screen width. rotate(90deg) keeps the element's upright layout box, so
+   the margins below reshape it to the rotated footprint: horizontal
+   margins +((h-w)/2) widen it, vertical margins -((h-w)/2) shorten it.
+   The extra 16px on top makes it ride at the pair's resting height. */
+.bcard.horiz {
+  transform: rotate(90deg);
+  margin: calc((var(--cw) - var(--ch)) / 2 + 30px)
+          calc((var(--ch) - var(--cw)) / 2)
+          calc((var(--cw) - var(--ch)) / 2);
+}
+/* Banker's pair is anchored to its box's RIGHT edge — the third card
+   slots in on the pair's LEFT (order -1 in the flex row). */
+.hb-banker .bcard.horiz { order: -1; }
+.bcard .corner { position: absolute; font-weight: 700; line-height: 1; text-align: center;
+  font-family: "Helvetica Neue", Arial, sans-serif; }
+.bcard .corner-tl { top: 5px; left: 6px; font-size: 1rem; }
+.bcard .corner-br { bottom: 5px; right: 6px; font-size: 1rem; transform: rotate(180deg); }
+.bcard .corner small { display: block; font-size: 0.85rem; }
+.bcard .center-suit { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 2.1rem; }
+.bcard.face-down {
+  background: repeating-linear-gradient(135deg, #7f1d1d 0 10px, #991b1b 10px 20px);
+  border: 2px solid #fecaca; border-radius: 7px;
+}
+.collected-fade { transition: opacity 0.3s; opacity: 0; }
+
+/* Opening burn stage — CENTER of the screen with big call text */
+.burn-stage {
+  position: fixed; top: 42%; left: 50%; transform: translate(-50%,-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  z-index: 400; pointer-events: none;
+}
+.burn-stage .burn-cards { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 90vw; }
+.burn-stage .bcard { width: 66px; height: 94px; animation: cardIn 0.25s ease-out; }
+.burn-stage .bcard .center-suit { font-size: 1.8rem; }
+.burn-stage .burn-text {
+  font: 900 40px/1 "Inter", sans-serif; letter-spacing: 0.06em;
+  color: #fde047; text-transform: uppercase;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.9);
+}
+.burn-stage.fade { transition: opacity 0.6s; opacity: 0; }
+
+/* ---------- Dealer strip: shoe / burn / outgoing ---------- */
+.dealer-strip {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 12px; min-height: 110px;
+}
+.shoe {
+  width: 60px; height: 84px; border-radius: 8px;
+  background: repeating-linear-gradient(135deg, #7f1d1d 0 12px, #991b1b 12px 24px);
+  border: 3px solid #fca5a5;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+  cursor: pointer; position: relative;
+  transition: transform 0.1s, filter 0.15s, box-shadow 0.2s;
+}
+.shoe::after {
+  content: "SHOE"; position: absolute; left: 50%; bottom: -18px; transform: translateX(-50%);
+  font: 700 9px/1 "Inter", sans-serif; letter-spacing: 0.22em; color: rgba(255,255,255,0.55);
+}
+.shoe:hover { filter: brightness(1.15); }
+.shoe:active { transform: translateY(1px); }
+.shoe.disabled { cursor: default; filter: grayscale(0.6) brightness(0.6); }
+.shoe.pulse { box-shadow: 0 0 0 3px rgba(56,189,248,0.7), 0 0 22px rgba(56,189,248,0.5); }
+
+
+/* ---------- Chip tray + payment building ---------- */
+.tray-block { display: flex; flex-direction: column; align-items: center; margin-top: 14px; }
+.chip-tray {
+  background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
+  border: 3px solid #000; border-radius: 8px;
+  padding: 8px 10px; display: flex; gap: 6px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), 0 4px 8px rgba(0,0,0,0.5);
+}
+.chip-tray.disabled { pointer-events: none; }   /* no dimming — rack chips stay true-color */
+.tstack { position: relative; width: 60px; height: 46px; cursor: pointer; }
+.tstack .chip3d { top: 8px; }
+.tstack:hover { filter: brightness(1.25); }
+.tstack:active { transform: translateY(1px); }
+/* ---- Single-chip cylinder: elliptical TOP (white center circle),
+        straight WALL with edge spots, elliptical BOTTOM. No side
+        shadows. One chip represents each stack. ---- */
+/* ==== Cheques — ported from the blackjack dealing simulator ====
+   Tiny 3D cylinder seen from a 45-degree downward angle:
+   ::after  = body/rim — vertical wrap stripes, curved bottom edge
+   ::before = flat top-face ellipse with the white inlay center.
+   Per-chip --stripe-offset staggers the stripe phase. */
+.chipx {
+  position: absolute; left: 50%;
+  width: 54px; height: 20px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: transparent;
+}
+.chipx::after {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 31%; bottom: 0;
+  background-color: var(--chip-base);
+  background-image: repeating-linear-gradient(90deg,
+    transparent 0, transparent 8px,
+    var(--chip-stripe) 8px, var(--chip-stripe) 11px);
+  background-position: var(--stripe-offset, 0) 0;
+  border-left: 1px solid rgba(0,0,0,0.65);
+  border-right: 1px solid rgba(0,0,0,0.65);
+  border-bottom: 1.5px solid rgba(0,0,0,0.85);
+  border-radius: 0 0 50% 50% / 0 0 55% 55%;
+  z-index: 1; box-sizing: border-box;
+}
+.chipx::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 62%;
+  border-radius: 50%;
+  background-color: var(--chip-base);
+  background-image: radial-gradient(ellipse at 50% 50%,
+    rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.94) 28%, transparent 32%);
+  background-repeat: no-repeat;
+  border: 1px solid rgba(0,0,0,0.65);
+  z-index: 2; box-sizing: border-box;
+}
+/* Blackjack-sim palette — pink dropped, orange added for the $1K. */
+.chx-orange { --chip-base: #f97316; --chip-stripe: rgba(255,255,255,0.95); }
+.chx-purple { --chip-base: #8b5cf6; --chip-stripe: rgba(255,255,255,0.92); }
+.chx-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
+.chx-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
+.chx-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
+.chx-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
+/* stacked chips get inline bottom offsets; containers just anchor them */
+.spot-chips { bottom: 36%; }
+.tstack { height: 82px; }
+
+.tstack .chip-label {
+  position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
+  font: 800 10px/1 "JetBrains Mono", monospace; color: rgba(255,255,255,0.8);
+}
+
+
+.rack-row { display: flex; align-items: center; gap: 16px; justify-content: center; }
+.in-hand {
+  min-width: 120px; min-height: 64px;
+  border: 2px dashed rgba(255,255,255,0.25); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 6px 10px; cursor: pointer; position: relative;
+}
+.in-hand::after {
+  content: "OUTGOING — click to clear"; position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%);
+  font: 700 8.5px/1 "Inter", sans-serif; letter-spacing: 0.16em; color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+}
+.in-hand .ih-stack { position: relative; width: 44px; height: 60px; }
+.in-hand .ih-stack .chipp {
+  position: absolute; left: 0; right: 0; height: 7px;
+  border-radius: 2px; border-top: 1px solid rgba(0,0,0,0.4);
+}
+.in-hand .ih-stack .chip-top { height: 11px; }
+.in-hand .ih-total { font: 800 13px/1 "JetBrains Mono", monospace; color: #a7f3d0; }
+
+.tray-buttons { display: flex; gap: 8px; margin-top: 12px; }
+.tray-btn {
+  background: #1e293b; color: #f1f5f9;
+  border: 2px solid #475569; padding: 8px 16px; border-radius: 6px;
+  font: 700 0.85rem/1 "Inter", sans-serif; cursor: pointer; letter-spacing: 0.4px;
+}
+.tray-btn:hover { filter: brightness(1.25); }
+.tray-btn.help-btn.off { color: #fecaca; border-color: #dc2626; }
+
+/* ---------- Status + round + log ---------- */
+.status-line {
+  text-align: center; margin: 12px 0 0; min-height: 22px;
+  font: 700 14px/1.4 "Inter", sans-serif; color: #fde047;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+.status-line.flash { animation: stFlash 0.4s ease-in-out 2; }
+/* Full-screen red vignette when the dealer makes a wrong draw call */
+.foul-flash {
+  position: fixed; inset: 0; z-index: 950; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, rgba(248,113,113,0.10) 40%, rgba(220,38,38,0.45));
+  animation: foulFlash 0.6s ease-out forwards;
+}
+@keyframes foulFlash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes stFlash { 50% { color: #f87171; } }
+.round-info { text-align: center; font: 600 11px/1 "JetBrains Mono", monospace; color: rgba(255,255,255,0.55); margin-top: 8px; }
+.eval-log {
+  margin-top: 12px; padding: 10px 14px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+  font: 500 12px/1.7 "JetBrains Mono", monospace; color: rgba(255,255,255,0.75);
+  max-height: 200px; overflow-y: auto;
+}
+.eval-log .win  { color: #6ee7b7; }
+.eval-log .lose { color: #fca5a5; }
+.eval-log .pend { color: #fde68a; }
+
+/* ---------- Modals ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500; background: rgba(5,6,10,0.72);
+  backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 18px;
+}
+.modal-backdrop.open { display: flex; }
+.modal-card {
+  background: linear-gradient(180deg, #14161e 0%, #0c0e16 100%);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+  padding: 20px 22px; width: 100%; max-width: 480px;
+  max-height: 88vh; overflow-y: auto; position: relative;
+}
+.modal-card h2 { margin: 0 0 12px; font-size: 18px; }
+.modal-card h3 { margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+.modal-close { position: absolute; top: 12px; right: 14px; background: none; border: 0; color: rgba(255,255,255,0.6); font-size: 22px; cursor: pointer; }
+.modal-close:hover { color: #fff; }
+/* Footer close — floats at the bottom of the payouts sheet (sticky within
+   the scrolling card) so the exit is always one tap away, no scrolling.
+   The gradient fades the scrolling content out underneath it, and the
+   in-flow margin keeps it from ever covering the last rows at full scroll. */
+.modal-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex; justify-content: center;
+  margin-top: 16px;
+  padding: 14px 0 4px;
+  background: linear-gradient(to top, #0c0e16 65%, rgba(12,14,22,0));
+}
+.modal-foot .foot-close {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  padding: 10px 34px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  line-height: 1;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.modal-foot .foot-close:hover { background: #273449; color: #fff; }
+.setting-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+.setting-row label { flex: 0 0 150px; }
+.setting-row input[type=range] { flex: 1; }
+.lk-val { flex: 0 0 44px; text-align: right; font-family: "JetBrains Mono", monospace; }
+.pay-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pay-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.pay-table td:last-child { text-align: right; font-family: "JetBrains Mono", monospace; color: #a7f3d0; }
+.pay-note { font-size: 11.5px; color: rgba(255,255,255,0.55); margin-top: 8px; line-height: 1.5; }
+
+@media (max-width: 720px) {
+  .wrap { padding: 52px 4px 30px; }
+  .felt { padding: 10px 4px 10px; border-radius: 14px; }
+  .seats { flex-direction: row; gap: 3px; }
+  .seat { padding: 4px 2px 6px; border-radius: 10px; min-width: 0; }
+  .scircle.stext { flex: 1 1 0; width: auto; min-width: 0; max-width: none; }
+  .chipx { width: 40px; height: 15px; }
+  .seat-label { font-size: 11px; letter-spacing: 0.14em; margin-bottom: 5px; }
+  .pill { width: 98%; min-height: 34px; font-size: 13px; letter-spacing: 0.10em; border-width: 2px; }
+  .pill .amt { font-size: 10px; top: -9px; right: 4px; }
+  .main-pills { gap: 4px; }
+  .medal-row { gap: 14px; margin-top: 8px; }
+  .scircle.medal { width: 44px; height: 44px; }
+  .side-row { gap: 3px; margin-top: 8px; }
+  .scircle.stext { height: 42px; }
+  .scircle .lbl { font-size: 8px; }
+  .scircle .lbl .odds { font-size: 7px; }
+  .scircle .amt { font-size: 10px; top: -13px; }
+  .felt-rule { font-size: 9px; letter-spacing: 0.08em; padding: 5px 4px; margin: 8px 0; }
+  .hands-zone { gap: 8px; min-height: 140px; }
+  .handbox { min-width: 47%; min-height: 128px; padding: 22px 6px 8px; }
+  .handbox .hb-label { font-size: 12px; letter-spacing: 0.18em; }
+  .handbox .hb-total { font-size: 13px; }
+  .bcard { width: 52px; height: 74px; }
+  .bcard .center-suit { font-size: 1.4rem; }
+  .bcard .corner-tl, .bcard .corner-br { font-size: 0.85rem; }
+  .status-line { font-size: 15px; }
+  .chip-tray { padding: 4px; gap: 2px; }
+  .tstack { width: 42px; height: 74px; }
+  .rack-row { gap: 6px; }
+  .in-hand { min-width: 74px; min-height: 54px; padding: 4px 6px; }
+  .in-hand::after { font-size: 8px; }
+  .tray-btn { padding: 8px 10px; font-size: 0.8rem; }
+  .burn-stage .burn-text { font-size: 26px; }
+  .burn-stage .bcard { width: 52px; height: 74px; }
+}
+/* ---- chips ride in from the players' side (off the top of the screen) ----
+   Every bet uses this, clean or rigged. If only a rigged bet animated, the
+   animation itself would hand the dealer the answer. --aud-rise is set per
+   chip so the travel always starts above the viewport, wherever the spot is. */
+@keyframes aud-ride-in-bacc {
+  from { margin-bottom: var(--aud-rise, 340px); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { margin-bottom: 0; opacity: 1; }
+}
+@keyframes aud-ride-out {
+  from { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  to   { transform: translate(var(--aud-drift, 0px), var(--aud-rise, -340px)) rotate(var(--aud-spin, -6deg)); opacity: 0; }
+}
+
+/* ---- the red exclamation flag, pinned to the right edge ---- */
+.aud-flag {
+  position: relative;
+  width: 62px;
+  padding: 10px 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(180deg, #dc2626, #991b1b);
+  color: #fff;
+  border: 2px solid #fecaca;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 0 4px rgba(220,38,38,.16);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform .12s ease, box-shadow .12s ease, filter .2s ease;
+}
+.aud-flag:hover:not(:disabled) { transform: scale(1.06); }
+.aud-flag:focus-visible { outline: 3px solid #fde047; outline-offset: 3px; }
+.aud-flag-mark {
+  font-size: 30px; font-weight: 900; line-height: 1;
+  text-shadow: 0 2px 4px rgba(0,0,0,.5);
+}
+.aud-flag-cap { font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.aud-flag:disabled {
+  cursor: default;
+  filter: grayscale(1);
+  opacity: .34;
+  box-shadow: none;
+}
+.aud-flag:not(:disabled) { animation: aud-flag-pulse 2.6s ease-in-out infinite; }
+@keyframes aud-flag-pulse {
+  0%, 100% { box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 0 4px rgba(220,38,38,.16); }
+  50%      { box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 0 11px rgba(220,38,38,.03); }
+}
+body.aud-targeting .aud-flag { animation: none; }
+
+/* ---- the right rail ----
+   Limits sign on top, the flag under it, the counters under that. One flex
+   column, so no two pieces of this furniture can ever end up on top of each
+   other however wide the sign gets. */
+.aud-rail {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.aud-rail > * { pointer-events: auto; }
+
+/* ---- the table's limit sign ----
+   Shows itself for a few seconds when the sign changes, then folds down to a
+   tab. The dealer reads the placard; they don't memorise it. */
+.aud-limits {
+  width: 106px;
+  padding: 8px 9px;
+  background: linear-gradient(168deg, #221a37 0%, #171226 58%, #0e0a19 100%);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 6px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.07) inset;
+  color: #f4f0fa;
+  text-align: center;
+  cursor: pointer;
+  font-family: "Optima", "Candara", "Gill Sans", "Trebuchet MS", system-ui, sans-serif;
+  transition: width .18s ease, border-color .15s ease, background .15s ease;
+}
+.aud-limits:hover { border-color: rgba(217,180,91,.55); }
+.aud-limits:focus-visible { outline: 3px solid #fde047; outline-offset: 3px; }
+.aud-limits.open { width: 158px; }
+.lim-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px;
+  font: 700 8.5px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(244,240,250,.6);
+}
+.aud-limits:hover .lim-bar { color: #d9b45b; }
+/* A chevron that turns — the whole affordance in one character. */
+.lim-chev {
+  width: 0; height: 0; flex: 0 0 auto;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform .18s ease;
+}
+.aud-limits.open .lim-chev { transform: rotate(180deg); }
+.lim-main {
+  display: block; margin-top: 4px;
+  font-size: 15px; line-height: 1.2; color: #d9b45b;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.aud-limits.open .lim-main { font-size: 18px; }
+.lim-more { display: none; }
+.aud-limits.open .lim-more { display: block; }
+.lim-head { display: none; }
+.aud-limits.open .lim-head {
+  display: flex; justify-content: space-between;
+  padding: 0 6px; margin-top: 6px;
+  font-size: 9px; letter-spacing: .05em;
+  color: rgba(244,240,250,.5);
+}
+.lim-row { display: block; }
+.lim-side {
+  display: block; margin-top: 7px; padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.12);
+  font-size: 10.5px; line-height: 1.5;
+  color: rgba(244,240,250,.88);
+  font-variant-numeric: tabular-nums;
+}
+.lim-side .nm { color: rgba(244,240,250,.58); }
+
+/* ---- session HUD ---- */
+.aud-hud {
+  position: relative;
+  width: 62px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  background: rgba(15,23,42,.9);
+  border: 1px solid #334155;
+  border-radius: 10px;
+  text-align: center;
+}
+.aud-hud b {
+  display: block;
+  font-size: 15px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.aud-hud span {
+  display: block;
+  font-size: 8px;
+  letter-spacing: .1em;
+  color: #94a3b8;
+  font-weight: 700;
+}
+.aud-hud .hud-hand b { color: #f8fafc; }
+.aud-hud .hud-good b { color: #4ade80; }
+.aud-hud .hud-bad  b { color: #f87171; }
+
+/* ---- targeting mode: everything pointable gets a dashed ring ---- */
+/* Aiming reaches the whole layout. A dimmed seat is still money on the felt —
+   which is exactly where a bad bet hides — so pointer events come back for as
+   long as the dealer is aiming, and go away again the moment they aren't. */
+body.aud-targeting .player,
+body.aud-targeting .player.dim,
+body.aud-targeting .player.carousel-queued,
+body.aud-targeting .player.carousel-active,
+body.aud-targeting .spot,
+body.aud-targeting .circle,
+body.aud-targeting .ins-bet,
+body.aud-targeting .bet,
+body.aud-targeting .bet-stack-viz,
+body.aud-targeting .bet-chip-piece {
+  pointer-events: auto !important;
+}
+/* Dimmed seats are hard to read at 45%; lift them while aiming so the dealer
+   can see what they are pointing at. */
+body.aud-targeting .player.dim { opacity: 0.85; }
+
+body.aud-targeting { cursor: crosshair; }
+body.aud-targeting .circle,
+body.aud-targeting .ins-bet {
+  outline: 2px dashed rgba(248,113,113,.75);
+  outline-offset: 3px;
+  border-radius: 10px;
+  transition: outline-color .12s ease, background-color .12s ease;
+}
+body.aud-targeting .circle:hover,
+body.aud-targeting .ins-bet:hover {
+  outline: 3px solid #fde047;
+  outline-offset: 3px;
+  background-color: rgba(253,224,71,.12);
+}
+.aud-aim {
+  /* Top centre — clear of the right rail at any width, and clear of the tray. */
+  position: fixed;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  z-index: 900;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(153,27,27,.95);
+  border: 1px solid #fca5a5;
+  border-radius: 999px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.5);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+body.aud-targeting .aud-aim { display: flex; }
+.aud-aim button {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.5);
+  background: rgba(255,255,255,.1);
+  color: #fff;
+  cursor: pointer;
+}
+.aud-aim button:hover { background: rgba(255,255,255,.22); }
+
+/* ---- the issue picker ---- */
+.aud-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(2,6,23,.72);
+}
+.aud-picker.open { display: flex; }
+.aud-picker-card {
+  width: 100%;
+  max-width: 460px;
+  max-height: 88vh;
+  overflow: auto;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.7);
+}
+.aud-picker-head {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid #334155;
+  background: #0f172a;
+  border-radius: 13px 13px 0 0;
+}
+.aud-picker-head .who {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #f87171;
+  margin-bottom: 4px;
+}
+.aud-picker-head h2 { margin: 0; font-size: 17px; color: #f8fafc; }
+.aud-picker-body { padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+.aud-call {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 15px 17px;
+  border-radius: 11px;
+  border: 1px solid #475569;
+  background: #263449;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, transform .12s ease;
+}
+.aud-call:hover { transform: translateY(-1px); }
+.aud-call:focus-visible { outline: 2px solid #fde047; outline-offset: 2px; }
+.aud-call .ct {
+  display: block; font-size: 16px; font-weight: 800; letter-spacing: -.01em;
+}
+.aud-call .cs {
+  display: block; font-size: 12.5px; line-height: 1.45; margin-top: 3px;
+  color: #94a3b8;
+}
+.aud-call.fix { border-color: rgba(74,222,128,.45); background: rgba(20,83,45,.4); }
+.aud-call.fix:hover { background: rgba(20,83,45,.62); border-color: #4ade80; }
+.aud-call.fix .ct { color: #86efac; }
+.aud-call.floor { border-color: rgba(251,191,36,.45); background: rgba(66,32,6,.6); }
+.aud-call.floor:hover { background: rgba(88,44,8,.8); border-color: #fbbf24; }
+.aud-call.floor .ct { color: #fcd34d; }
+.aud-picker-foot { padding: 4px 12px 14px; }
+.aud-back {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  padding: 9px;
+  border-radius: 9px;
+  border: 1px solid #475569;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.aud-back:hover { color: #e2e8f0; border-color: #64748b; }
+
+/* ---- settlement-error notice ---- */
+.aud-oops {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(2,6,23,.74);
+}
+.aud-oops.open { display: flex; }
+.aud-oops-card {
+  width: 100%;
+  max-width: 460px;
+  background: #1e293b;
+  border: 1px solid #fb7185;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.7);
+  overflow: hidden;
+}
+.aud-oops-head {
+  padding: 15px 18px 13px;
+  background: #4c0519;
+  border-bottom: 1px solid rgba(251,113,133,.4);
+}
+.aud-oops-head .kicker {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .15em;
+  text-transform: uppercase; color: #fda4af; margin-bottom: 4px;
+}
+.aud-oops-head h2 { margin: 0; font-size: 18px; color: #ffe4e6; }
+.aud-oops-body { padding: 14px 18px 4px; }
+.aud-oops-item {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 10px 0; border-bottom: 1px solid #334155;
+  font-size: 14px; line-height: 1.45; color: #e2e8f0;
+}
+.aud-oops-item:last-child { border-bottom: 0; }
+.aud-oops-item .amt {
+  flex: 0 0 auto;
+  font-weight: 800; font-variant-numeric: tabular-nums;
+  color: #fda4af; min-width: 62px;
+}
+.aud-oops-item em { font-style: normal; color: #94a3b8; display: block; margin-top: 2px; font-size: 12.5px; }
+.aud-oops-foot { padding: 6px 18px 16px; }
+.aud-oops-ok {
+  width: 100%; font: inherit; font-size: 15px; font-weight: 800;
+  padding: 12px; border-radius: 10px; cursor: pointer;
+  color: #fff; background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border: 1px solid rgba(255,255,255,.22);
+}
+.aud-oops-ok:hover { filter: brightness(1.08); }
+.aud-oops-ok:focus-visible { outline: 3px solid #fde047; outline-offset: 2px; }
+.aud-row .v.paidwrong { background: #4c0519; color: #fda4af; }
+
+/* ---- verdict toast ---- */
+.aud-toast {
+  position: fixed;
+  left: 50%;
+  top: 22px;
+  transform: translate(-50%, -18px);
+  z-index: 1300;
+  max-width: min(560px, 92vw);
+  padding: 13px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+  box-shadow: 0 16px 46px rgba(0,0,0,.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s ease;
+}
+.aud-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.aud-toast.good { background: #14532d; border: 1px solid #4ade80; color: #dcfce7; }
+.aud-toast.bad  { background: #4c0519; border: 1px solid #fb7185; color: #ffe4e6; }
+.aud-toast small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  opacity: .85;
+}
+
+/* ---- scorecard ---- */
+.aud-score-head {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.aud-score-head div {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 11px 6px;
+  text-align: center;
+}
+.aud-score-head b {
+  display: block;
+  font-size: 24px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.aud-score-head span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.aud-score-head .s-good b { color: #4ade80; }
+.aud-score-head .s-bad  b { color: #f87171; }
+.aud-score-head .s-warn b { color: #fbbf24; }
+.aud-rows { display: flex; flex-direction: column; gap: 6px; }
+.aud-row {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  font-size: 13px;
+}
+.aud-row .n {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+.aud-row .d { line-height: 1.4; color: #e2e8f0; }
+.aud-row .d em { font-style: normal; color: #94a3b8; }
+.aud-row .v {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.aud-row .v.caught { background: #14532d; color: #86efac; }
+.aud-row .v.missed { background: #4c0519; color: #fda4af; }
+.aud-row .v.falseflag { background: #422006; color: #fcd34d; }
+.aud-row .v.clean { background: #1e293b; color: #94a3b8; }
+.aud-row .v.wrongcall { background: #422006; color: #fcd34d; }
+
+@media (max-width: 620px) {
+  .aud-flag { width: 50px; right: 8px; padding: 8px 0 6px; }
+  .aud-flag-mark { font-size: 24px; }
+  .aud-flag-cap { font-size: 8px; }
+  .aud-hud { width: 50px; }
+  .aud-rail { right: 8px; gap: 6px; }
+  .aud-limits { width: 92px; padding: 7px 7px 6px; }
+  .aud-limits.open { width: 136px; }
+  .lim-main { font-size: 13px; }
+  .aud-limits.open .lim-main { font-size: 15px; }
+  .lim-side { font-size: 9.5px; }
+  /* Keep the status line clear of the flag rail on narrow screens. */
+  #status-line { padding-left: 64px; padding-right: 64px; }
+  .aud-aim {
+    left: 8px; right: 8px; top: 10px; transform: none;
+    justify-content: space-between; font-size: 12px; padding: 9px 12px;
+  }
+  .aud-score-head { grid-template-columns: repeat(2, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aud-flag:not(:disabled) { animation: none; }
+  .aud-toast { transition: opacity .01s; }
+}
+
+#aud-scorecard.modal-backdrop.open { display: flex; }
+.aud-score-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+.aud-verdict { font-size: 13.5px; color: rgba(255,255,255,0.66); line-height: 1.55; margin: 0 0 16px; }
+body.aud-targeting .pill,
+body.aud-targeting .scircle {
+  outline: 2px dashed rgba(248,113,113,.75);
+  outline-offset: 3px;
+}
+body.aud-targeting .pill:hover,
+body.aud-targeting .scircle:hover {
+  outline: 3px solid #fde047;
+  background-color: rgba(253,224,71,.12);
+}
+  /* ==========================================================================
+     AUDITION: a bare table
+     --------------------------------------------------------------------------
+     Everything that exists to show the dealer where to click goes dark. The
+     classes stay on the elements — the round still uses them to decide what a
+     click means — only the light is taken away.
+     ========================================================================== */
+  body.aud-bare .side-circle.collectable,
+  body.aud-bare .collectable,
+  body.aud-bare .collectable-loser,
+  body.aud-bare .payout-target,
+  body.aud-bare .main-circle.collectable-loser,
+  body.aud-bare .main-circle.payout-target,
+  body.aud-bare .bet-substack.target-loser,
+  body.aud-bare .bet-substack.target-payout,
+  body.aud-bare .ins-bet.collectable-loser,
+  body.aud-bare .ins-bet.payout-target,
+  body.aud-bare .spot.settle-win-next,
+  body.aud-bare .spot.settle-loss,
+  body.aud-bare .spot.settle-push,
+  body.aud-bare .clickable-cards-area,
+  body.aud-bare .player.next-to-play {
+    box-shadow: none !important;
+    outline: none !important;
+    animation: none !important;
+  }
+  body.aud-bare .spot.settle-win-next::after,
+  body.aud-bare .spot.settle-loss::after,
+  body.aud-bare .spot.settle-push::after,
+  body.aud-bare .main-stack.merged::after,
+  body.aud-bare .ante-odds.merged::after { box-shadow: none !important; animation: none !important; }
+  body.aud-bare .side-circle.collectable:hover,
+  body.aud-bare .clickable-cards-area:hover { filter: none !important; }
+  /* Aiming with the flag is the dealer's own move, so that outline stays. */
+
+</style>
+</head>
+<body>
+<div class="top-strip"></div>
+<a class="home-btn" id="aud-home" href="index.html">Audition</a>
+
+<div class="wrap">
+  <h1>Baccarat Dealer Simulator</h1>
+
+  <div class="felt">
+    <!-- Seats: dealer view — PLAYER pill far side, BANKER nearer, side circles nearest dealer -->
+    <div class="seats" id="seats">
+      <!-- seat blocks injected by JS -->
+    </div>
+
+    <div class="felt-rule">Banker pushes with a banker three card 7 win &nbsp;·&nbsp; Player &amp; Banker pay 1 to 1 &nbsp;·&nbsp; Tie pays 8 to 1</div>
+
+    <div class="hands-zone">
+      <div class="handbox hb-banker" id="box-banker">
+        <span class="hb-label">BANKER</span>
+        <span class="hb-total" id="total-banker"></span>
+      </div>
+      <div class="handbox hb-player" id="box-player">
+        <span class="hb-label">PLAYER</span>
+        <span class="hb-total" id="total-player"></span>
+      </div>
+    </div>
+
+    <div class="dealer-strip">
+      <div class="shoe disabled" id="shoe" onclick="Game.shoeClick()"></div>
+      <div style="flex:1"></div>
+    </div>
+
+    <div class="status-line" id="status-line">Click New Round to begin.</div>
+
+    <div class="tray-block">
+      <div class="rack-row">
+        <div class="chip-tray disabled" id="chip-tray"></div>
+        <div class="in-hand" id="in-hand" onclick="Game.clearInHand()"></div>
+      </div>
+      <div class="tray-buttons">
+        <button class="tray-btn" onclick="Aud.startSession()">New Audition</button>
+        <button class="tray-btn" onclick="Aud.openScorecard(false)">Scorecard</button>
+        <button class="tray-btn" onclick="Game.openModal('settings-modal')">Settings</button>
+        <button class="tray-btn" onclick="Game.openModal('payouts-modal')">Payouts</button>
+      </div>
+    </div>
+
+    <div class="round-info" id="round-info">Round 0</div>
+    <div class="eval-log" id="eval-log">Bet results will appear here after each round.</div>
+  </div>
+</div>
+
+<!-- Audition: fixed chrome (outside .page so it never scrolls away) -->
+<div class="aud-rail" id="aud-rail">
+<button class="aud-limits" id="aud-limits" type="button" aria-expanded="false"
+        aria-label="Table limits — tap to expand"></button>
+<button class="aud-flag" id="aud-flag" type="button" onclick="Aud.onFlagClick()" aria-label="Flag a mistake">
+  <span class="aud-flag-mark" aria-hidden="true">!</span>
+  <span class="aud-flag-cap">FLAG</span>
+</button>
+<div class="aud-hud" id="aud-hud" aria-live="polite">
+  <div class="hud-hand"><b id="aud-hud-hand">1/5</b><span>Hand</span></div>
+  <div class="hud-good"><b id="aud-hud-caught">0</b><span>Caught</span></div>
+  <div class="hud-bad"><b id="aud-hud-missed">0</b><span>Missed</span></div>
+  <div class="hud-bad"><b id="aud-hud-paid">0</b><span>Paid</span></div>
+</div>
+</div>
+<div class="aud-aim" id="aud-aim">
+  <span>Click the bet that needs handling.</span>
+  <button type="button" class="aud-cancel" onclick="Aud.cancelAim()">Cancel</button>
+</div>
+<div class="aud-toast" id="aud-toast" role="status" aria-live="polite"></div>
+
+<div class="aud-oops" id="aud-oops">
+  <div class="aud-oops-card" role="alertdialog" aria-labelledby="aud-oops-title">
+    <div class="aud-oops-head">
+      <div class="kicker">Settlement error</div>
+      <h2 id="aud-oops-title">That bet was settled wrong</h2>
+    </div>
+    <div class="aud-oops-body" id="aud-oops-body"></div>
+    <div class="aud-oops-foot">
+      <button class="aud-oops-ok" type="button" onclick="Aud.closeOops()">OK</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="aud-picker" id="aud-picker" onclick="Aud.pickerBackdrop(event)">
+  <div class="aud-picker-card">
+    <div class="aud-picker-head">
+      <div class="who" id="aud-picker-who">Spot 1 · Player</div>
+      <h2>What's the call?</h2>
+    </div>
+    <div class="aud-picker-body">
+      <button class="aud-call fix" type="button" onclick="Aud.call('fix')">
+        <span class="ct">Tell the player to fix it</span>
+        <span class="cs">The cards are still in the shoe — they correct the bet and you deal on.</span>
+      </button>
+      <button class="aud-call floor" type="button" onclick="Aud.call('floor')">
+        <span class="ct">Call the floor</span>
+        <span class="cs">It's past the point where you could put it right yourself.</span>
+      </button>
+    </div>
+    <div class="aud-picker-foot">
+      <button class="aud-back" type="button" onclick="Aud.backToAim()">&larr; Point somewhere else</button>
+    </div>
+  </div>
+</div>
+
+<div id="aud-scorecard" class="modal-backdrop">
+  <div class="modal-card">
+    <button class="modal-close" type="button"
+            onclick="document.getElementById('aud-scorecard').classList.remove('open')">&times;</button>
+    <h2 id="aud-score-title">Audition scorecard</h2>
+    <div id="aud-score-body"></div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settings-modal" onclick="Game.backdropClose(event,'settings-modal')">
+  <div class="modal-card">
+    <button class="modal-close" onclick="Game.closeModal('settings-modal')">×</button>
+    <h2>Settings</h2>
+    <h3>Side bet likelihood</h3>
+    <div class="setting-row"><label>Tie</label><input type="range" id="lk-tie" min="0" max="100" step="5" oninput="Game.onLk('tie',this.value)"><span class="lk-val" id="lk-tie-val">20%</span></div>
+    <div class="setting-row"><label>9/7 (3 cards each)</label><input type="range" id="lk-nine7" min="0" max="100" step="5" oninput="Game.onLk('nine7',this.value)"><span class="lk-val" id="lk-nine7-val">25%</span></div>
+    <div class="setting-row"><label>Any 8/6</label><input type="range" id="lk-any86" min="0" max="100" step="5" oninput="Game.onLk('any86',this.value)"><span class="lk-val" id="lk-any86-val">25%</span></div>
+    <div class="setting-row"><label>Koi 8</label><input type="range" id="lk-koi" min="0" max="100" step="5" oninput="Game.onLk('koi',this.value)"><span class="lk-val" id="lk-koi-val">25%</span></div>
+    <div class="setting-row"><label>Jin Chan 7</label><input type="range" id="lk-jin" min="0" max="100" step="5" oninput="Game.onLk('jin',this.value)"><span class="lk-val" id="lk-jin-val">25%</span></div>
+    <h3>Hot hands</h3>
+    <div class="setting-row"><label>Side-bet friendly deals</label><input type="range" id="lk-hot" min="0" max="100" step="5" oninput="Game.onLk('hot',this.value)"><span class="lk-val" id="lk-hot-val">0%</span></div>
+    <h3>Audition</h3>
+    <div class="setting-row"><label>Hands per session</label><input type="range" id="aud-hands" min="3" max="20" step="1" oninput="Aud.onHandsChange(this.value)"><span class="lk-val" id="aud-hands-val">5</span></div>
+    <div class="setting-row"><label>Chance of a mistake</label><input type="range" id="aud-chance" min="0" max="100" step="5" oninput="Aud.onChanceChange(this.value)"><span class="lk-val" id="aud-chance-val">25%</span></div>
+    <p class="pay-note">Help mode is deliberately unavailable in audition mode — read the cheques.</p>
+    <p class="pay-note">Hot deals stack the shoe toward 8/6, 9/7, Koi 8 or Jin Chan 7 results so settlement practice comes up more often. 0% = honest shoe.</p>
+  </div>
+</div>
+
+<!-- Payouts modal -->
+<div class="modal-backdrop" id="payouts-modal" onclick="Game.backdropClose(event,'payouts-modal')">
+  <div class="modal-card">
+    <button class="modal-close" onclick="Game.closeModal('payouts-modal')">×</button>
+    <h2>Payouts</h2>
+    <table class="pay-table">
+      <tr><td>Player</td><td>1 to 1</td></tr>
+      <tr><td>Banker (commission-free)</td><td>1 to 1</td></tr>
+      <tr><td>Banker wins with three-card 7</td><td>Banker bets PUSH</td></tr>
+      <tr><td>Tie</td><td>8 to 1</td></tr>
+      <tr><td>9/7 — three cards each, totals 9 &amp; 7 (either side)</td><td>200 to 1</td></tr>
+      <tr><td>Any 8/6 — round ends 8 vs 6 (either side)</td><td>25 to 1</td></tr>
+      <tr><td>Koi 8 — Player wins with three-card 8</td><td>25 to 1</td></tr>
+      <tr><td>Jin Chan 7 — Banker wins with three-card 7</td><td>40 to 1</td></tr>
+    </table>
+    <p class="pay-note">On a Tie: Player and Banker main bets push. Main bets are required; side bets ride on the same round. 8-deck shoe, standard third-card tableau.</p>
+    <div class="modal-foot">
+      <button class="foot-close" type="button" onclick="Game.closeModal('payouts-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* CardMeister deck engine (Unlicense) - patched: corner-size knobs + court-corner overlay.
+   Corner index size 58 (jumbo, picked for mobile readability). */
+window.CM_RANK_H = 58; window.CM_RANK_Y = -156;
+window.CM_SUIT_H = 50; window.CM_SUIT_Y = -96;
+!(function(){//! create function is called from SVGcardt
+let c=c=>c.split(","),m=(c,m=",")=>c.includes(m),l=c("cid,suit,rank,letters,suits,courts,norank,backcolor,cardcolor,suitcolor,rankcolor,borderradius,bordercolor,borderline,opacity,courtcolors,backtext,backtextcolor,svg"),t=(c,l=-1,t)=>(t="string"==typeof c?c.split(m(c)?",":""):c,l>-1?t[l]:t),e=c("back,ace,two,three,four,five,six,seven,eight,nine,ten,jack,queen,king"),a=c("spades,hearts,diamonds,clubs"),r=[["M0-500C-100-250-355-100-355 185a150 150 0 00300 0 10 10 0 0120 0c0 200-50 215-95 315H130C85 400 35 385 35 185a10 10 0 0120 0 150 150 0 00300 0C355-100 100-250 0-500","m0-300c0-100 100-200 200-200S400-400 400-250C400 0 0 400 0 500 0 400-400 0-400-250c0-150 100-250 200-250S0-400 0-300","m-400 0C-350 0 0-450 0-500 0-450 350 0 400 0 350 0 0 450 0 500 0 450-350 0-400 0","M40 150a10 10 0 0120 0A210 210 0 10135-50 10 10 0 01120-65a210 210 0 10-220 0 10 10 0 01-15 15 210 210 0 1075 200 10 10 0 0120 0c0 250 0 250-100 350H130C30 400 30 400 30 150"],["","M120 130H-120M270 460H110m90-10L0-460-200 450m90 10H-270","m-225-225c-20-40 25-235 225-235S225-325 225-225c0 200-450 385-450 685H225V300","M-260 300s30 160 230 160S250 350 250 150C250 0 200-120 0-120c-50 0-100 30-110 40L200-460H-250v140","M270 200H-300V175L150-460V460m100 0H50","M-255 285s35 175 235 175S255 320 255 120 100-200 0-200c-200 0-210 85-210 85l35-345H170","m-250 100a250 250 0 01500 0V210a250 250 0 01-500 0V-210A250 250 0 010-460c150 0 180 60 200 85","M-90 460c0-360 225-660 355-920H-265v140","m-1-50a205 205 0 112 0H-1a255 255 0 102 0z","m250-100a250 250 0 01-500 0V-210a250 250 0 01500 0V210A250 250 0 010 460c-150 0-180-60-200-85","M-50 310a150 150 0 00300 0V-310a150 150 0 00-300 0V0ZM-260-430V430","M-250 220v30a100 100 0 00400 0V-460m100 0H50","m-260 100c350 0 220 360 520 360M-175 0V-285a175 175 0 01350 0V285a175 175 0 01-350 0z","M-10-70 185 440m100 20H85M-170 155 185-440m100-20H85M-85 460H-285m100 0V-460m100 0H-285"],[[["","M0 27v75l60 73V654l45-31V332c48 14 58 60 60 113 42-79 7-103-10-140 22-7 44-16 60-40-20-21-40-27-60-35 46-70 20-97-2-126 4 34 6 68-47 117l-1-66Zm616 93c-90 0-177 16-250 36-51 122 18 219-46 324 20-55-82-75-75 5l20 28-45 31L0 696v30L235 564l-15-20L498 903v17H803V903c28-118 72-224 144-320L843 507c-19 21-36 43-51 66l3-3H410c-15-21-79-101-38-50H831l13-13-24-17H413c35-6 69-14 96-32l71-68c60-120-20-130 64-269Zm547 345c-23-1-52 9-73 25-40 30-80 15-75-25-70 30-5 140 65 95 42-27 105-40 115-5 32-65 6-90-32-90ZM793 574c-66 98-97 213-126 328L413 574l10 11H785Zm507 504c-197-80-275-244-248-416l-14-11-19-14c-52 66-91 137-120 213l22 24c28-80 65-154 117-223-5 27-8 55-8 84-22 137 49 236 158 317-45 116-116 226-186 304l14 17c73-76 146-188 196-307 30 26 63 26 88 30v-18m0-93V954c-86-24-149-113-149-219v-2l-25-17-1 20c0 123 75 226 175 249M833 802 803 903c82 59 104 171 51 256l67 88c58-68 81-159 64-246-17-83-73-158-152-199Z"],["","M200 0 356 159c128-37 303-61 459-9L960 0H874L802 88c-38-7-73-12-111-15l7-73H630V71c-44 0-82 3-122 8L493 0H415l33 88-92 21L284 0Zm96 0 65 97c23-6 48-11 74-16L405 0ZM503 0l13 68c33-4 68-7 104-7V0ZM708 0l-6 64c31 2 63 7 96 13L861 0ZM0 102V696l60-42V175ZM495 529c-6 0-12 3-5 11 3-2 7-2 10 0 7-8 1-11-5-11Zm5 11c2 3 2 7 0 10 15 14 15-24 0-10Zm0 10c-3 4-7 3-10 0-14 15 24 15 10 0Zm-10 0c-4-3-3-7 0-10-15-14-15 24 0 10Zm114-21c-6 0-12 3-5 11 3-2 7-2 10 0 7-8 1-11-5-11Zm5 11c2 3 2 7 0 10 15 14 15-24 0-10Zm0 10c-3 4-7 3-10 0-14 15 24 15 10 0Zm-10 0c-4-3-3-7 0-10-15-14-15 24 0 10Zm114-21c-6 0-12 3-5 11 3-3 8-3 11 0 7-8 1-11-6-11Zm6 11h-1Zc2 3 2 7 0 10 14 14 14-24 0-10Zm0 10h-1Zc-3 4-8 4-11 0-14 15 25 15 11 0Zm-11 0c-2-3-2-7 0-10-14-14-14 24 0 10ZM470 600 655 840c17-85 45-165 85-240Zm681 133v2c0 106 63 195 149 219V892c-46-18-82-63-93-118ZM855 852c-5 0-10 2-15 8l-19 23 34 30 20-23c11-14-3-39-20-38Zm49 53c-4 1-8 2-12 5l-26 16 25 39 25-16c17-11 8-44-12-44Zm-101 2c0 30-1 48-1 79 42 40 29 85 16 130l36 47c54-85 32-198-51-256Zm130 64-7 1-29 7 13 45 27-7c21-5 21-46-4-46Zm-20 71-1 46 26 1c23 1 34-45 2-46Zm-5 68-14 44 28 7c23 5 43-37 12-45Zm-20 55-15 24 26 33c17-4 32-25 13-39Z"],["","m1011 1310-48-64a320 320 0 00-18-381l84-190c1 183 54 292 137 358-39 100-95 200-156 277zM748 366c20-3 43-24 48-33 4 0 14 8 14 14-20 10-48 22-62 19m-61-142c2 3 66-39 77-43 14-5 27 7 26 6v11s-14-12-23-9-79 40-80 35zm101 10a8 16 0 01-9 15 8 16 0 01-8-15 8 16 0 018-16 8 16 0 019 16z"],["","M1300 843v49c-46-18-82-63-93-118ZM977 799l-13 30h66l3 12H959l-7 31 17 17h80l4 12H977l15 30 7 18h79l2 12h-76l16 87a321 321 0 01-57 198l48 63c60-77 116-174 154-275l23 18c-46 116-115 226-186 304l-81-105c92-109 92-269 0-378 28-79 66-153 118-222ZM655 840c17-85 45-165 85-240H470ZM765 585c-48 85-81 184-105 285L440 585Zm150-25-53 8 13 55-8 12-53 12 20 49-5 13-51 21 21 51-4 13-42 25 21 36-3 13-43 35-19-11 43-35-21-37 4-14 42-25-21-52 5-13 51-21-21-51 7-14 55-12-13-56 8-12 45-7ZM283 515l-4 13 49-8 11 13-15 46 45-4 11 12-12 51 45-8 12 12-12 56 45-8 12 13-16 50 49-8 12 13-16 52h51l9 13-15 42h51l9 14-74 6-9-13 15-42H485l-10-13 16-50-49 8-12-13 16-49-44 7-12-12 12-56-45 8-12-12 12-52-46 4-10-13 14-45-48 8-12-13 7-22ZM633 94c66 0 136 8 209 28l-27 28c-156-52-331-28-459 9l-20-21c86-24 186-45 297-44Z"],["","M960 0 815 150c-156-52-331-28-459 9L200 0M507 447c59-35 66-42 73-57 60-120-20-130 65-269M350 475c49 6 133 0 145-25 60-120-14-189 69-328M415 465c59-117-11-200 63-334M320 480c20-55-82-75-75 5 4 46 75 35 95-5 56-112 36-200 81-335M265 480c5 25 45 16 55 0 64-105-5-202 36-321M795 471l25 19M803 254c-17-9-70 11-58-17m57-22c-27-2-54 28-87 30M825 364c-13 9-27 8-41 10m36-64c-36 25-59-11-20-15M584 382c9 17 21 32 48 52s79 41 121 41 72-25 72-35c-1-32-47-27 5-60 0-7-5-15-5-15s5-10 5-15-5-25 0-25 25 0 25-20-40-85-40-90c0-7 5-9 5-20 0-6-7-30-13-48m383 423 5-15c23-16-16-91-90-40-76 52-135 3-90-50m0 0c-70 30-5 140 65 95 42-27 105-40 115-5 52-107-51-105-105-65-40 30-80 15-75-25m216 242c-3 14-31 39-53 46m28-76c-37 16-25 42 32 28 55-14 34-38-1-36m-45-22c-33 20-16 43 44 22 57-20 36-41 2-38m-53-14c-24 27-1 45 54 13 59-33 29-53-8-42m-15 9c6-2 12-6 19-12 47-38 1-54-30-30l-15 15m-55 125c44-20 58-46 15-80 15 0 20 0 30-10 25 65 45 35 35-10-3-15-25-25-30-25s-35 5-40 10l-50 60c-4 3-7 31-9 46M165 445c42-79 7-103-10-140 22-7 44-16 60-40-20-21-40-27-60-35 46-70 20-97-2-126M105 332c52 15 59 69 60 128 95-125 136-251-15-380 3 42 22 81-44 141M60 654V175L0 102M105 623V155L0 27M913 1240c25-9 44-40 15-62 37 9 70-61 18-73 39 1 57-74 4-75 37-10 34-86-18-74 33-20 5-92-39-63 24-30-23-90-57-49 6-12 3-27-5-38m390 178c59-12 24 74-9 33-17 50-76-8-25-25-42-38 49-62 34-8M1095 759.895V762c48 19-13 80-19 26-34 36-53-48-9-37-15-56 61-31 28 11m126 217 5 5M1103 740v2m-101 614c71-78 140-188 186-304m-172 321c73-75 147-187 196-307m-86-351-1 20c0 123 75 226 175 250M1038 651c-5 27-8 55-8 84 0 184 117 336 270 361M0 726 235 564M0 696 266 513M1300 843 820 490H380m451 30H372M900 850c29-76 67-147 119-213M803 903A853 853 0 01947 583M773 903A844 844 0 01928 569M698 903c33-137 71-272 164-382M668 903c34-143 74-283 176-396m-484-2L668 903M332 508 638 903M240 531 528 903M220 544 498 903m305 0H498v195"]],[["","M798 0 996 317l101-14c-32-92-68-184 10-303ZM495 59c-67 89-137 256-209 474l15-9-18 11c90 62 189 99 292 113 29 83 46 178 53 264l138 42c4-101 14-219 49-315h-2c63-13 126-34 188-64l-19-18A674 674 0 01307 520l116-67c27-78 54-148 81-209-5-37-9-76-9-84ZM245 569a207 207 0 00-54 95c-5-4-11-10-20-24-7 7-18 25-11 32-7-7-25 3-32 10 19 12 24 20 27 25l-24 5c-27 9-56 27-82 53-23 23-40 48-49 73v38 155a171 171 0 0022-57c5 2 12 8 23 25 7-7 18-25 11-32 7 7 24-3 31-10A76 76 0 0163 935l18-5c27-8 56-26 81-52 26-26 44-54 53-82l5-24c5 3 12 7 25 27 7-7 18-25 11-32 7 7 24-3 31-10-14-9-20-16-24-21l16-4c15-4 30-12 45-22-155 181-124 483-166 612 0 0 17 28 22 13 10-28 16-62 20-99 8-57 13-124 23-193 19-132 56-268 160-356l7-38-31-13-20 23c-23 23-49 39-80 47 10-9 13-21 60-59-6-7-26-12-40 2 14-14 8-34 1-41-39 49-51 51-60 62l3-12a184 184 0 0147-72Zm787 34c-26 50-30 145-43 251h-2l-10-3c-70-11-139 48-154 133-14 80 25 154 89 172l-2 56 24-45c55-107 72-231 83-337 6-53 10-102 17-141 6-23 8-48 18-69ZM210 675c11 0 21 4 30 13 18 17 15 46-1 62a45 45 0 01-63 1 45 45 0 011-63 46 46 0 0133-13Zm-58 63c-8 9-17 22-56 54 7 6 27 12 41-2-14 14-8 34-2 41 32-39 46-48 54-55l-2 11c-7 21-23 47-46 70s-49 39-69 44l-11 3c8-8 14-21 58-57-6-7-26-12-40 2 14-14 8-34 1-41-37 46-49 50-58 59 10-32 25-58 48-81a184 184 0 0182-48Z"],["","M746 0 952 341l44-24L798 0ZM875 35c-31 8-42 4-54 2l58 92c7-20 14-39 26-59-2-16 2-22 5-30-17 2-27-1-35-5Zm165 245c-15 4-45 5-67 0l23 37c27-14 53-24 84-17-15-6-31-11-40-20Zm130 20c0 14-11 28-20 38-28-21-68 21-47 48-10 8-24 19-38 19 14 0 28 11 38 19-23 26 19 70 47 47 8 10 20 24 20 39 0-16 14-31 21-42 29 30 77-20 49-46 10-8 22-17 35-17-13 0-25-9-35-17 28-26-20-76-49-47-7-10-21-25-21-41Zv63c24 1 41 18 42 39-1 27-18 44-39 45-27-1-44-18-45-39 1-27 18-44 42-45ZM478 422l-57 32c169 94 327 63 482 16-11-15-22-30-32-47h-1c-135 40-258 61-392-1ZM391 650l-13 8c10 58 15 127 10 186 32 9 57 31 74 61a295 295 0 0168-10c23 0 48 3 74 10-7-67-20-144-39-208-60-8-118-24-174-47Zm504 20-70 17c-24 85-31 173-35 264l51-20c14-28 35-50 58-64ZM208 705a14 15 45 00-10 5 14 15 45 00-1 20 14 15 45 0021-1 14 15 45 001-20ZM540 955a1 1 0 00-12 10 1 1 0 0012 12 1 1 0 0010-12 1 1 0 00-10-10Z"],["","M526 167a13 20 0 00-12 20 13 20 0 0012 20 13 20 0 0013-20 13 20 0 00-13-20Zm153 2a13 20 0 00-13 20 13 20 0 0013 20 13 20 0 0012-20 13 20 0 00-12-20ZM332 506l-25 15a672 672 0 00674 36c-28-26-53-55-78-87l-16 5 59 61c17 32-67 62-76 34l-25-82 14 86c9 34-80 46-84 16l-15-84 7 85c1 42-82 37-84 7l-7-83v84c1 41-102 22-99 1l12-89-20 87c-6 23-98 0-91-18l27-88-39 84c-19 19-87-14-73-40l38-71-54 64c-26 30-50-3-31-26l9-10ZM994 633c-33 15-66 27-99 37l5 197c20-12 42-18 65-17 10-90 13-162 29-217ZM787 644l-72 9c47 7 51 47 0 52 45 9 42 55-2 64 45 11 37 50-1 60 35 7 31 40-1 48 42 10 24 36-1 42 22 6 26 14 0 19v5l31 9c4-97 13-213 46-308Zm-185 7c30 87 46 181 52 270l40 17V921c-40 0-51-43-3-49-41-1-54-45-2-51-45 2-63-49-3-56-54-1-69-53-3-60-61 3-79-43-41-51-13 0-27-1-40-3Zm672 100-5 2c14 7 2 26-29 29-3 19-21 43-35 48-19 7-62 14-87-7l-17 150 199-185Z"],["","M1032 603c-26 50-30 144-44 250l-24-3 2-10c9-80 12-152 28-207-56 25-112 43-169 54-24 85-31 173-34 264l-26 4c4-93 13-199 41-290 73-13 145-37 216-72ZM259 548A690 690 0 00584 674c24 76 38 161 44 238l-25-7c-6-67-19-144-38-208A722 722 0 01235 562l24-14ZM504 246l10 70c3 10 13 38 30 67L424 453c26-79 53-149 80-209ZM746 0l344 570-50 30L676 0Z"],["","m1170 388c9 0 18 8 18 17s-9 18-18 18-17-9-17-18 8-17 17-17m-630 617c-37 22-13-14-10-30-16 3-52 27-30-10l-3-6c-15-28 18-7 33-4-3-16-27-52 10-30 37-22 13 14 10 30 16-3 49-25 32 6l-2 4c22 37-14 13-30 10 3 16 27 52-10 30m-487 57c0 8-7 15-15 15-8 0-15-7-15-15 0-8 7-15 15-15 8 0 15 7 15 15m127-117c0 8-7 15-15 15-8 0-15-7-15-15 0-8 7-15 15-15 8 0 15 7 15 15m470-760c-5 15 17 25 30 25 19 0 45-20 60-20m-110 0c22-1 31-18 45-20 30-5 50 20 65 20m-242 2c3 9 14 13 27 13 21 1 35-10 50-15m-75-5c4-9 14-17 25-17 20 0 35 22 50 22m20 185c13 16 29 11 45 0-14 8-29 5-45 0m-15-20c12 6 14-5 20-5 5 0 11 5 16 5s12-6 17-6c18 10 20 1 32 1m-35-80c30-1 25 35 10 35-7 0-13-8-19-9-16-1-16 9 4 4m-5-150c36-43 75-22 115 0-38-16-75-35-109 0h-6m-15 180s-5-20-15-20-20-4-20-19c0-10 24-82 15-141-27-19-56-30-90-10h5c30-10 58-10 85 10m-90-72c46-29 57-54 65-78m-65 102c70-39 75-70 84-102m62 0c16 35 41 56 74 65m-92-65c18 57 55 85 107 89m446 402c4 71 30 97 34 145m-50-150c4 81 36 105 35 162m32-218c10-3 28-25 48-25-20 0-38-22-48-25-11-5-27 0-42 10 10-15 15-31 10-42-3-10-25-28-25-48 0 20-22 38-25 48-5 11 0 27 10 42-15-10-31-15-42-10-10 3-28 25-48 25 20 0 38 22 48 25 11 5 27 0 42-10-10 15-15 31-10 42 3 10 25 28 25 48 0-20 22-38 25-48 5-11 0-27-10-42 15 10 31 15 42 10m-347 8c24 13 54 28 84 36m-119-93c24 14 56 32 88 43m-374-19-30 37m311-72c-17 27-39 51-60 76m-90-13c44-11 110-61 137-85m-332-348v160c0 15 15 135 20 155s55 140 110 140 105-55 105-55m-307 53c27-78 54-148 81-209m-119 232c38-111 76-207 113-284m-175 319c59-175 116-315 171-407m-208 428c72-217 142-384 209-473m-393 701 17 13m40 30 15 12m-113-152 66 51m91 70 40 31m-164 111 82 70m-176-186 9 7m25 19 12 10m40 31 15 11m78 60m-179-202 39 30m128 98 55 43m-212 95 81 62m-91-5 54 39m-54-77a171 171 0 0021-57m338-338-20 23a184 184 0 01-80 48m-39-37 3-12a184 184 0 0147-72m-25-17a207 207 0 00-54 95m72 72 16-4c15-4 30-12 45-22m-169-3-24 5c-27 9-56 27-82 53-23 23-40 48-49 73m63 97 18-5c27-8 56-26 81-52 26-26 44-54 53-82l5-24m-31 4-2 11c-7 21-23 47-46 70a184 184 0 01-80 48m-39-37 3-12c7-21 22-47 45-70a184 184 0 0181-48m-116 180c41-16 14-14 84-71-6-7-26-12-40 2 14-14 8-34 1-41-57 70-55 43-71 84m4 61c1 28 7 7 32 46 7-7 18-25 11-32 7 7 24-3 31-10-38-25-18-32-46-32m-41-17c6-4 13-4 18 1 5 5 5 14 0 20-5 5-12 6-18 3m235-214c41-16 14-14 84-71-6-7-26-12-40 2 14-14 8-34 1-41-57 70-55 43-71 84m-2 55c-16 41-14 14-72 84-6-7-12-27 2-41-14 14-34 8-41 2 71-57 44-56 85-71m-7-7c-28 0-7-7-46-32 7-7 25-17 32-10-7-7 4-25 11-32 24 39 31 18 32 46m10 67c1 28 7 7 32 46 7-7 18-25 11-32 7 7 24-3 31-10-38-25-18-32-46-32m-25-26c6-6 11-14 14-28m-2 41c6-7 14-12 28-15m-69 30c-5 6-13 12-27 15m40-2c-6 6-12 13-15 28m10-75c-4-3-6-9-5-21m-9 35c-3-4-8-7-20-7m73 31c3 4 9 6 20 5m-34 9c4 3 7 9 6 20m-8-36c-6 6-15 7-21 1-5-6-5-14 1-20 6-6 15-6 20-1 5 5 5 14 0 20m652 276 50-3m-40 53 46-32m-16 72 29-60m-19-120 20-35 35 20-13 61m-21 2-21-48-33-5 3 40-35 15 15 40-23 30 33 20-10 40h40l5 35m40-90c-19 0-35-18-35-40s16-40 35-40c7 0 13 2 18 6m-147 5c-18 8-33 12-48 14-25 2-57-3-82-11-69-33-104-43-105-9m250-34c-31 15-49 22-66 24-18 1-44-2-95-24a370 370 0 00-169-35c-18 2-34 5-49 10m125 72m653-196c-3 19-21 43-35 48-19 7-62 14-87-7m117-70c55-13 49 25 6 29-48 3-59-17-6-29m1-38c54-29 58 12 14 29-49 18-67 0-14-29m0-35c52-37 61 4 18 26-49 25-69 10-18-26m-6-35c40-50 60-14 25 20-40 38-64 28-25-20m-88 33 18-18c5-5 28 2 39-13 17-23 35-6 18 13-14 15-37 27-37 27 11 35 6 67-10 98m-300-362c-135 40-258 61-392-2m-57 33c169 94 327 63 482 16m-5-311c4-23 2-48 32-69 2-29 7-59 14-90m-123 37c12 2 23 6 54-2 8 4 18 7 35 5-3 8-7 14-5 30-12 20-19 39-26 59m84 135c27 10 57 6 82-9 10 20 32 34 50 50m-55-160c-35 32-9 91-44 107-39 19-57-39-40-51 19-12 43 7 33 24-10 18-18 1-18 1m69-81c-45 15-84-37-115-15-35 25 6 70 25 60 20-10 15-40-5-40s-10 15-10 15m6 63m19 30m19 30m18 29-199-317m153 340c50-24 88-57 144-35-30-94-66-186 12-305m-532 648c29 83 46 178 53 264m187-273c-35 96-45 214-50 316m-84-301 14 284m20-285-5 291m-427-409c214 144 490 160 718 40m-250-452c41 234 185 437 391 555m-984 644c46-143 4-495 221-664l11-9m-12 9c10 58 15 127 10 186m731-179c-9 28-15 62-19 99-8 57-13 124-23 193-19 132-56 268-160 356m-7-101 24-45c55-107 72-231 83-337 6-53 10-102 17-141 6-23 8-48 18-69m-664 224c64 18 103 92 84 174-15 85-84 144-154 133m-113-182-210 194m546-779-546 316"]],[["","M320 0c61 95 92 153 116 220 187-17 340-9 491 15 21-60 42-111 139-235Zm770 79c-15 0-30 9-30 31 0 20 15 81-5 95 26 40 26 70 4 91 5-7 3-21-12-23-25-2-22 47 13 47 65 0 25-130 25-215 5 20 35 20 35-5 0-13-15-21-30-21Zm138 106c0 17-4 33-13 49 4 7 9 11 15 11 11 0 20-13 20-30s-9-30-22-30Zm22 30a23 25 0 0023 25 23 25 0 0022-25 23 25 0 00-22-25 23 25 0 00-23 25Zm-50 120a25 25 0 00-11 3c-36 17-52 17-88 0a25 25 0 10-22 44c28 15 56 20 84 16l-12 57c-4 16-10 32-18 48-9-14-15-28-18-43l-12-58-34 49c-18 26-35 40-50 48-4 5-20 22-32 31 58 131 191 271 313 374V864c-111-98-228-225-281-339 24-8 48-26 71-60 7 33 26 59 45 85 20-30 33-60 40-90 28 55 77 71 125 87-16-13-29-25-39-41-27-12-48-27-64-57l-26-52c13-3 27-8 40-15a25 25 0 00-11-47ZM721 538 511 744l22 81c16-17 16-43 0-59a42 42 0 0061-60 42 42 0 1061-59l-5-4a42 42 0 1066-55l-5-5c15 15 29 19 43 17l10-48c-15-3-30-8-43-14Zm-6 110a42 42 0 00-1 60 42 42 0 10-61 59 42 42 0 10-61 60 43 43 0 00-59-2c7 27 13 55 18 84L734 730c3-31 7-63 13-94-12-1-24 4-32 12Zm242-70-13 23a318 318 0 0188 223c1 71-21 138-61 192-24 31-56 59-93 76l45 4c26-18 50-41 68-65 44-58 67-131 67-207A344 344 0 00957 578ZM903 691a630 630 0 00-44 309c15-10 29-23 40-38 27-36 44-85 44-138 0-51-15-98-40-133Zm227 50v289h105l15-18V945l-44-54 34-38-43-41-37 41V774ZM571 925l-15 14 4 31 10-10 20 20 20-20 20 20 20-20 20 20 20-20 20 20 20-20V925Zm589 4 40 49-40 40Zm-70 81c-21 28-41 58-74 77a15 15 0 00-8-3 15 15 0 00-15 19c9 39 9 54 0 82a15 15 0 0026 14l71 71c4-21 5-45-20-90 29-10 53-26 70-50-17-7-40-13-70-20 23-37 25-69 20-100Zm-31 72-8 16-17 27 31 7 34 8c-10 8-22 14-36 19l-26 8 13 24 8 16-32-30c5-21 4-42-2-69 15-9 26-17 35-26Zm241 206c-63 54-136 97-214 136l22 22c69-34 133-73 192-120Z"],["","M1300 1221v19l-3-4-3 2 6 8v18l-24-28 23-16Zm0-24v19l-4-5-29 22 33 43v1l-47 32-30-34 23-16 8 10 3-2-14-17-29 21 31 45-49 30-28-35 24-15 7 10 3-1-13-18-30 20 30 46-52 28-26-37 25-14 7 11 3-1-12-19-31 18 30 46-52 28-26-37 25-14 7 11 3-1-12-19-37 21-8-9 49-28 26 39-25 13-7-11-3 2 12 17 30-16-28-46 51-30 26 39-25 13-7-11-3 2 12 17 30-16-28-46 49-33 28 38-24 14-8-10-3 2 13 16 30-18-31-43 48-35 30 36-23 15-8-10-3 2 14 16 28-19-33-44 48-35Zm0-159c-44 38-106 94-174 109l14-17c-17-7-40-13-70-20 18-29 23-55 22-80h208Zm-50-8h-18l18-17Zm-50-52-40 40V929Zm70-99 30 25v126h-30V879Zm-20-17v83l-44-54 34-38ZM562 838a19 19 0 0115 10l-23 24c-12-11-12-21-5-28 4-4 8-6 13-6Zm61-59c4 0 9 2 15 10l-24 23c-11-10-11-21-4-28 4-3 8-5 13-5Zm537-6c12 12 25 24 37 38l-37 41V773Zm-429-5c-4 53-4 105-1 157H571L731 768Zm185 27c4-2 4-2 4 29 0 55-25 88-25 88-8-5-14-15-14-25 0-17 13-30 29-30l8-1-2-1c-16 0-29-13-29-30s13-30 29-30Zm384 69c-59-52-119-112-171-174h171ZM632 661c12 11 12 21 4 28-7 7-17 7-28-5l24-23Zm61-60c12 11 12 22 4 29-7 7-17 7-28-6l24-23ZM502 718Zm45-165c20 29 43 48 67 56L502 718c-14-45-31-88-50-131 17-2 33-5 49-10 17-5 33-13 46-24Zm598-193a15 15 0 0115 15 15 15 0 01-15 15 15 15 0 01-15-15 15 15 0 0115-15Zm55-15a15 15 0 0115 15 15 15 0 01-15 15 15 15 0 01-15-15 15 15 0 0115-15Zm-110 0a15 15 0 0115 15 15 15 0 01-15 15 15 15 0 01-15-15 15 15 0 0115-15ZM667 61c7 8 16 15 26 21 2 21 9 40 18 56 70 3 137 9 203 19a111 111 0 0033-69c29-5 52-13 70-22-44 62-64 102-79 140-158-25-318-33-514-16-16-40-36-79-65-128 12 9 26 17 41 21 5 34 24 55 30 62 64-6 124-8 182-9 12-15 22-35 27-57 11-4 20-11 28-18Z"],["","M902 1396c18 4 18 4 4 13-21-4-21-4-6-12l2-1Zm63-24c20 6 20 6 2 14-22-6-22-6-2-14Zm-29 28-107-98 40 15 5-30 31 13 15-33Zm56-208h1l-1 1Zm308-55c-83 75-186 135-295 193-29-38-55-76-76-116l63-21c2 13 19 17 27 6l71 71c4-21 5-45-20-90l55-33c69-15 131-70 175-108Zm-447-74-35-21-7 35-19-29-27 27 29-129ZM813 937c7-22 7-22 20 2-8 21-8 21-20-2Zm-60-3c7-19 7-19 20 1-8 20-8 20-20-1ZM632 729v16H615V728ZM835 860l-24-23-21 24-10-24-26 19 47-108ZM693 669v17H676V669Zm172 17-21-29-23 25-12-31-39 19 77-100ZM986 528a878 878 0 00145 213l-1 289h-38l-2-20-20-15c-19 26-35 49-57 65l-4-1h-8c54-66 83-150 82-235 1-101-40-198-113-268l16-28Zm189-68c28 55 77 71 125 87V690H1129c-46-55-85-111-110-165 24-8 48-26 71-60 7 33 26 59 45 85 20-30 33-60 40-90Zm25-125c-47 20-63 20-98 3l-1-35c11 8 28 17 44 17 17 0 39-8 55-20ZM480 278c11 1 15 30 0 34-11-1-15-30 0-34Zm123-1c10 1 15 29 0 33-11 0-15-29 0-33Z"],["","m632 181c-66 0-134 3-207 10l11 29c187-17 340-9 491 15l11-29c-99-16-198-25-306-25zm441 226-9 18c50 23 105 24 155 3l-8-18c-45 19-93 18-138-3zm-523 98c-12 40-59 53-110 57l12 24c41 1 82-22 95-33 20 29 43 48 67 56l-112 108 9 27 168-164c-31 19-90 17-129-75zm420 51-13 22a344 344 0 01101 245c0 77-23 150-67 208-18 24-42 47-68 65l69 3c0-8 7-15 16-15 3 0 6 2 8 3 33-19 53-49 74-77l-20-15c-19 26-35 49-57 65h-12l10-14c47-63 71-141 71-222a369 369 0 00-112-268zm77 21 4 6h249v-6zh253zm25 39 6 9h222v-9zm35 47 12 15h181v-15zm-373 67-183 179 5 30 175-171zm516 132v168h20v-150zm-680 98-10 10 3 18h173l-4-26-2-2-20 20-20-20-20 20-20-20-20 20-20-20-20 20zm521 89-1 12h184l14-12zm-9 38-3 6h155l7-6zm218 50c-83 75-186 135-295 193l19 24c99-53 195-108 276-177z"],["","M541 102c0 11 18 15 21 4-28-60-67 31-2 29 78-36-26-89-39-135M505 104c2 11-15 17-21 7 23-64 72 23 6 28-82-28 17-92 24-139M837 109c-2 10 12 16 20 11-21-70-82 13-4 25 83-13-17-95-21-145M797 104c-1 10-15 13-22 6 36-63 78 35-2 26-55-35 38-89 54-136m234 0c-28 20-27 42-88 51-82-15-37 81-104 100M335 0c14 14 28 28 44 40 63 4 44 79 97 101m91-4c12-8 23-19 31-31 0-55 59-54 68-106m8 0c2 11 4 21 9 31 44 26 35 70 67 109m177 95A728 728 0 011065 1M436 220C408 142 365 70 321 0M957 163c-182-30-368-34-552-16m895 757c-123-107-244-226-314-376-106 164-167 373-108 564m51 121a993 993 0 00178 233M369 472C241 528 110 586 0 674m859 764c-129-274-167-591-95-886m-17-4L519 771M731 950H558m-13-70L739 691m-8 77L558 950M685 550c-66 25 6-70 15 0-26 75-130 28-145-33 7 4-67 45-118 46-61 34-117-78-35-71 46 35-58 60-17 13m915 42c-33-11-67-22-93-46-28-35-35-49-47 4-17 75-53 15-67-28 19-2-87 83-144 46m70 2c66 133 173 240 281 339M903 691c65 93 52 242-44 309m85-399c138 134 114 405-66 491m205-708c-24 53-49 110-97 144m214-193c19 0 31 23 20 39-42 36-118 33-157-6 3-74 95 14 137-33Zm100 209c-52-37-76-100-98-158m-95 1060 193-158m0-258H1092m98 0 50-50-73-90 51-57m-210 251c4 0 7 2 10 4 14 30 26 123-22 115 10-34-16-97 12-119Zm117 63c69-16 123-65 176-109m-461 82c-9 0-60-1-36-19 61-20 126-1 188-1m-99 105c-31-1-62 1-92-1-22-38 74-23 99-29m-90 5c-79-31 60-34 80-35m-85 5-12-3c-13-28 63-26 92-27m-5 85c-17-1-50 25-22 35 44-17 89-33 135-48m33-15c12 2 45 53 24 14-39-37 43-29 45-52-16-7-53-6-59-18 23-33 28-47-12-13m80-769-3-36m99 32V300M1085 105c7 27 47 11 32-14-83-49-39 78-62 114 37 20 7 129 2 72-58-15-3 82 29 30 26-64-4-135-1-202Zm126 132c42 69-80 110-119 59m68-16c1-23-9-49-33-57 10 0-27-63 0-26 73 10 13-57-38-33m32 29c0 34 25 47 28 6m1-23c17-33-36-62-50-16m45 54 2 11c41 45 44-118-7-85m32 85c27 62 55-124-5-82m33 66c8 95 62-85-4-61m19 86c32 42 53-50 13-49m67 30c0-9-5-19-13-23-68-10-3 93 13 23Zm-230-45H953m122 85H914m-6-23c7 43 32 79 54 116 44 63 36 166-44 195-74 26-179 27-233-36-41-84 123-72 53-1-67 37-21-99-3-21M852 225c5 35 20 67 37 96 46 67 57 164 5 231M770 217c30 37 12 60 42 107 43 84 74 167-22 234M700 213c-1 29-1 59 2 88-6 69 74 114 52 183M585 505c14 33 65 88 100 45m-35-80c8 16 20 31 35 37m-10-62 11 18M435 340c-4 15-3 31 0 46 17 51 33 157 0-46 0 24 5 47 14 70 26 50 16 153-56 153m98-78-30 75m59-65-14 51M415 445c-63-66-22 87 10-5-14-72-95 3-49 43 84 24 63-92 59-143M425 440c-2-32-14-61 0-92m0 0c0-72-5-103 12-129m38 26c18 4 31 22 50 10 17 2-78-24-90 10m190-25c-26 3-44 23-70 10 28 1 83-22 115 10M555 385c-110 52 8-93-30-130m30 130c26 34 50-22 10-20m-65 75c7-11 59-14 99-6-40-8-68-20-99 6Zm75 10c-11 15-34 16-45 0M440 295c17-2 25 21 44 14 67-15-19-43-44-14Zm205 0c-17-2-25 21-44 14-67-15 19-43 44-14Z"]]]];((c,m=m=>{let l=c.cardt(m.getAttributeNames().reduce(((c,l)=>(c[l]=m.getAttribute(l),c)),{}));m.I?m.I.src=l.src:m.I=m.replaceChildren(l)})=>{customElements.define(new URL((document.currentScript&&document.currentScript.src)||location.href).searchParams.get("name")??"playing-card",class extends HTMLElement{static observedAttributes=c.attributes;constructor(){super().constructor.observedAttributes.map((c=>Object.defineProperty(this,c,{get(){return this.getAttribute(c)},set(m){m?this.setAttribute(c,m):this.removeAttribute(c)},configurable:!0})))}attributeChangedCallback(c,l){l&&m(this)}connectedCallback(){m(this)}})})({cardt:function({cid:l=!1,suit:Z=0,rank:s=1,letters:M=!1,courts:o="012",suits:i="0123",suitcolor:n="#000,#f00,#f00,#000",rankcolor:h="#000,#f00,#f00,#000",norank:u=!1,backcolor:d="#e55",cardcolor:v="#fff",opacity:p=.8,borderradius:$=12,bordercolor:b="#444",borderline:f="1",courtcolors:H="#db3,#f00,#44f,#000,#000,4",backtext:V="",backtextcolor:g="#555",svg:P=""}){try{let L={ace:1,a:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,t:10,jack:11,j:11,queen:12,q:12,king:13,k:13,spades:20,s:20,hearts:21,h:21,diamonds:22,d:22,clubs:23,c:23},k=c=>{c=c.toLowerCase();let m=L[c]||c;return m>19?m-20:Number(m)||m};l&&((l=l.toUpperCase()).includes("-")&&(l=(l=l.split("-OF-"))[0][0]+l[1][0]),l=l.replace("10","T"),s=l[0],Z=l[1],"F"==s&&(d="green",s=1,u=1,p=.3,v="transparent",M="    ","F"==Z?(s=0,Z=0,d=v,V=""):Z=k(Z))),"string"==typeof Z&&(Z=k(Z)),"string"==typeof s&&(s=k(s)),H=t(H),""==r[2][0][0][0]&&(i="1111",0!=Z&&3!=Z||(H[2]="#0303ff"),2==Z&&(H[1]="#dc143c")),Z>3&&(Z=3),s>13&&(s=13),l=(s>1&&s<10?s:(e[s]?e[s]:e[0])[0])+("shdc"[Z]||"s");let x=c=>-c+" -"+c+" "+2*c+" "+2*c,y=c=>`fill='${c}' fill-opacity='1'`,z=(c,m="3",l="none")=>`stroke='${c}' ${y(l)} stroke-width='${m}'`,A=(c,m,l,t,e="")=>`${e}${c?` width='${c}'`:""}${m?` height='${m}'`:""}${l?` x='${l}'`:""}${t?` y='${t}'`:""}`,w=(c,m,l,t,e,a)=>`<rect${A(c,m,l,t)} rx='${e}' ry='${e}' ${a}/>`,C=(c,m=0,l=0,t="",e="",a=20,r=-7,Z="middle")=>`<text x='${m}' y='${l}' stroke='${t}' text-anchor='${Z}' style='font-family:arial;letter-spacing:${r}px;fill:${e};font-size:${a}px;'>${c}</text>`,S=(c,m,t,e,a,r="")=>`<use href='#${c+l}'`+A(m,t,e,a)+` ${r}/>`,j=(c,m,t,e,a=[])=>`<symbol id='${c+l}' viewBox='${m}' preserveAspectRatio='xMinYMid' opacity='${a.length?1:p}' ><path d='${t}' ${e} />${a.map((c=>S(...c))).join("")}</symbol>`,R=[[u?"":"W",0,1.4*(M?50:(window.CM_RANK_H||39)),(M?-116:-120)-.2*(M?50:(window.CM_RANK_H||39)),(window.CM_RANK_Y||-158)-.2*(M?50:(window.CM_RANK_H||39))],[u?"":"V"+Z,0,4/3*(window.CM_SUIT_H||39),-120-(window.CM_SUIT_H||39)/6,(window.CM_SUIT_Y||-120)-(window.CM_SUIT_H||39)/6],[u?"":"R",0,M?50:(window.CM_RANK_H||39),M?-116:-120,(window.CM_RANK_Y||-158)],[u?"":"S"+Z,0,(window.CM_SUIT_H||39),-120,(window.CM_SUIT_Y||-120)]].map((c=>S(...c))).join(""),N=[],E=[];s>0&&s<11&&["2026-04-12 11:33","000000000P0","00000P00000","0P0000000P0","P0P00000000","P0P000000P0","P0P00000P0P","P0P0000PP0P","P0P000P0P0P","P0PPP0000P0","P0PPPP00000"][s].split("").map(((c,m)=>{let l,t,e,a=70,r=-a/2,M=-r/2,o=-a-M,i=9==s||10==s?-130:-122,n=[[o,i],[r,i],[M,i],[o,-68.5],[M,-68.5],[r,-102],[r,-90],[r,-90],[o,r],[r,r],[M,r]][m];"0"!=c&&(t=n[0],e=n[1],1==s&&9==m&&([t,e]=[-a,-a],a*=2),N.push(l=S("S"+Z,0,a,t,e)),m<7&&E.push(l))}));let I=Number(f),O=`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-120 -167 240 334' ${P}>`;if(O+=w(240-I,334-I,I/2-120,I/2-167,$,z(b,f,v)),s>0){if(M){let c=t(M),e=[0,c.shift(),2,3,4,5,6,7,8,9,10,...c][s];O+=`<symbol id='R${l}' viewbox='${x(500)}' opacity='${p}'>${C(e,1,33,"",m(n)?t(n)[Z]:n,40,-7,"left")}</symbol>`}else O+=`<symbol id='W${l}' viewBox='${x(700)}' preserveAspectRatio='xMinYMid' opacity='1' ><path d='${r[1][s]}' ${z("#fff",300)} /></symbol>`+j("R",x(500),r[1][s],z(m(h)?t(h)["suit"==Z?1:Z]:h,110));[0,1,2,3].map((c=>O+=`<symbol id='V${c}${l}' viewBox='${x(800)}' preserveAspectRatio='xMinYMid' opacity='1' ><path d='${r[0][c]}' stroke='#fff' ${y("#fff")} stroke-width='300' /></symbol>`+j("S"+c,x(600),r[0][c],y(m(n)?t(n)[Z]:n)))),O+=`${N.join("")}<g transform='rotate(180)'>${E.join("")}</g>`+(s>10?"":`${R}<g transform='rotate(180)'>${R}</g>`)}else{let c=240-2*$,m=334-2*$;O+=`<pattern patternUnits='userSpaceOnUse' id='pa' ${A(10,10)}><path d='M5 0L10 5L5 10L0 5Z' ${y(d)}/></pattern>`+w(c,m,-c/2,-m/2,$,y("url(#pa)")),V&&(O+=C(V,0,10,"",g,40,-2))}if(s>10){let m=(...c)=>S(...c)+S(...c,"transform='rotate(180)'"),l=t(o,s-11),e=t(i,Z);"string"!=typeof e&&(e=e?e[0]:1),O+=[[1,0,0,0],[0,1,0,0],[1,1,1,1]][l][e]?"<g transform='scale(-1,1)'>":"<g>";let a=(c,m,l,t="")=>["S"+Z,0,c,m,l,`transform='${t}'`],M=[[[],[a(114,520,939),a(100,1100,60,"rotate(30)"),a(100,1100,160,"rotate(30)"),a(100,440,430,"rotate(30)"),a(160,370,560,"rotate(30)")],[],[]],[[],[a(80,1140,552,"rotate(10)"),a(80,1155,660,"rotate(11)"),a(85,1240,660,"rotate(17)")],[],[]],[[],[a(100,694,870,"rotate(-15)"),a(113,932,798,"rotate(0)"),a(100,1280,230,"rotate(35)")],[],[]]],n=[[[-88,-124],[35.8,-124],[30,-124],[30,-124]],[[35.8,-124],[-88,-124],[30,-124],[30,-124]],[[-88,-124],[-88,-124],[-82.5,-124],[-82.5,-124]]][l||1][e||1],h=c("go,re,bu,ba,de").map(((c,t)=>(O+=j(c,"0 0 1300 2000",r[2][l][t][e],t<4?y(H[t]):z(H[4],H[5]),t<4?[]:M[l][e]),m(c,165,261,-82,-130)))).join("");O+=h,O+=m("S"+Z,0,52,n[0],n[1]),O+=w(166,254,-83,-127,2,z("#44f"))+"</g>"}O+=(s>10?`${R}<g transform='rotate(180)'>${R}</g>`:"")+"</svg>";let U=document.createElement("img");return U.alt=e[s]+" of "+a[Z],U.setAttribute("cid",l),U.src=O.replace(/#/g,"%23"),U}catch(c){window.console.warn(c)}},attributes:l});
+})();
+</script>
+
+<script>
+/* ================================================================
+   BACCARAT DEALER SIMULATOR — commission-free (EZ-style) with
+   Koi 8 / Jin Chan 7 / 9-7 / Any 8-6 / Tie side bets.
+   Three NPC spots; the trainee is the dealer: deal from the shoe,
+   call the third-card tableau, then settle every bet.
+   ================================================================ */
+const $ = (id) => document.getElementById(id);
+const NUM_SEATS = 3;
+
+/* ---------------- Cards / engine (ported from baccarat-dealer-trainer) ---------------- */
+const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+const SUITS = ["♠","♥","♦","♣"];
+const CARD_VAL = { A:1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9, "10":0, J:0, Q:0, K:0 };
+function buildShoe(decks = 8) {
+  const cards = [];
+  for (let d = 0; d < decks; d++)
+    for (const s of SUITS) for (const r of RANKS) cards.push({ rank: r, suit: s });
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+function totalOf(cards) { return cards.reduce((t, c) => (t + CARD_VAL[c.rank]) % 10, 0); }
+/* Player hand: natural stands all; player draws on 0-5, stands 6-7. */
+function playerDrawsOn(pT, bT) {
+  if (pT >= 8 || bT >= 8) return false;   // natural — everything stands
+  return pT <= 5;
+}
+/* Banker tableau (exact house rules — same as the trainer). */
+function bankerDraws(bT, playerDrew, p3) {
+  if (!playerDrew) return bT <= 5;
+  if (bT <= 2) return true;
+  if (bT === 3) return p3 !== 8;
+  if (bT === 4) return p3 >= 2 && p3 <= 7;
+  if (bT === 5) return p3 >= 4 && p3 <= 7;
+  if (bT === 6) return p3 >= 6 && p3 <= 7;
+  return false;
+}
+function isNatural(p, b) { return totalOf(p) >= 8 || totalOf(b) >= 8; }
+
+/* Play a full round from the top of a shoe copy (tableau-correct).
+   Used by the hot-hands rig. */
+function dealFrom(s) {
+  const P = [], B = [];
+  P.push(s.shift()); B.push(s.shift()); P.push(s.shift()); B.push(s.shift());
+  let playerDrew = false, p3v = null;
+  if (!isNatural(P, B)) {
+    if (playerDrawsOn(totalOf(P), totalOf(B))) {
+      const c = s.shift(); P.push(c); playerDrew = true; p3v = CARD_VAL[c.rank];
+    }
+    if (bankerDraws(totalOf(B), playerDrew, p3v)) B.push(s.shift());
+  }
+  return { player: P, banker: B, used: P.length + B.length };
+}
+/* Outcome descriptor for a finished round. */
+function outcomeOf(P, B) {
+  const p = totalOf(P), b = totalOf(B);
+  const o = {
+    p, b,
+    winner: p > b ? 'player' : b > p ? 'banker' : 'tie',
+    bankerPush7: b > p && b === 7 && B.length === 3,          // banker mains PUSH
+    koi8:  p > b && p === 8 && P.length === 3,                 // 25:1
+    jin7:  b > p && b === 7 && B.length === 3,                 // 40:1
+    nine7: P.length === 3 && B.length === 3 &&
+           ((p === 9 && b === 7) || (p === 7 && b === 9)),     // 200:1
+    any86: (p === 8 && b === 6) || (p === 6 && b === 8),       // 25:1
+  };
+  return o;
+}
+
+/* ---------------- Chips ---------------- */
+const DENOMS = [
+  { v: 1000, color: 'orange' }, { v: 500, color: 'purple' }, { v: 100, color: 'black' },
+  { v: 25, color: 'green' }, { v: 5, color: 'red' }, { v: 1, color: 'white' },
+];
+function chipStackForAmount(amount) {
+  const out = [];
+  let rem = Math.round(amount * 100);
+  for (const d of DENOMS) {
+    const cv = Math.round(d.v * 100);
+    while (rem >= cv) { out.push(d); rem -= cv; }
+  }
+  return out.reverse();   // biggest on bottom visually (we stack bottom-up)
+}
+function stripe(el) { el.style.backgroundPositionX = (Math.random() * 20 - 10) + 'px'; }
+function chipLift() { return 6; }   // visual thickness per chip in a stack
+function makeChip3d(color, small) {
+  const chip = document.createElement('div');
+  chip.className = 'chipx chx-' + color + (small ? ' small' : '');
+  if (chip.style.setProperty) {
+    chip.style.setProperty('--stripe-offset', (Math.random() * 11).toFixed(2) + 'px');
+  }
+  return chip;
+}
+/* Players don't always bet optimal cheques — sometimes a $100 shows up
+   as four greens. Break big cheques down at random (composition is made
+   ONCE per bet and stored, so re-renders don't reshuffle). */
+const CHIP_BREAK = { 1000: [500,500], 500: [100,100,100,100,100], 100: [25,25,25,25], 25: [5,5,5,5,5], 5: [1,1,1,1,1] };
+function composeBet(amount) {
+  const greedy = chipStackForAmount(amount).map(c => c.v).reverse();   // largest first
+  /* Only 5% of bets come in with non-optimal cheques (e.g. $100 as four
+     greens). Everyone else bets clean. */
+  if (Math.random() >= 0.05) return greedy.slice(0, 8);
+  let vals = greedy.slice();
+  const breakable = vals.findIndex(v => CHIP_BREAK[v] && (v > 5 || amount <= 10));
+  if (breakable >= 0) {
+    vals.splice(breakable, 1, ...CHIP_BREAK[vals[breakable]]);
+    /* occasionally break once more for a really odd stack */
+    const again = vals.findIndex(v => CHIP_BREAK[v] && v > 5);
+    if (again >= 0 && vals.length < 6 && Math.random() < 0.3) {
+      vals.splice(again, 1, ...CHIP_BREAK[vals[again]]);
+    }
+  }
+  vals.sort((a, b) => b - a);           // biggest on the bottom
+  return vals.slice(0, 8);
+}
+function colorForValue(v) {
+  const d = DENOMS.find(x => x.v === v);
+  return d ? d.color : 'white';
+}
+/* Render a stack from explicit chip values. Different-colored groups are
+   STAGGERED sideways so the cut between colors reads at a glance. */
+function renderStackInto(el, vals) {
+  el.innerHTML = '';
+  const lift = chipLift();
+  let groupIdx = -1, lastColor = null;
+  const offsets = [0, 7, -7, 11, -11, 4];
+  vals.forEach((v, i) => {
+    const color = colorForValue(v);
+    if (color !== lastColor) { groupIdx++; lastColor = color; }
+    const chip = makeChip3d(color, true);
+    const dx = offsets[groupIdx % offsets.length];
+    chip.style.transform = 'translateX(calc(-50% + ' + dx + 'px))';
+    chip.style.bottom = (i * lift) + 'px';
+    chip.style.zIndex = String(10 + i);
+    el.appendChild(chip);
+  });
+}
+function renderChipsInto(el, amount, pieceClass, step) {
+  el.innerHTML = '';
+  if (!amount || amount <= 0) return;
+  renderStackInto(el, chipStackForAmount(amount).map(c => c.v).reverse());
+}
+function formatMoney(n) {
+  return (Math.round(n * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+/* ---------------- Settings / state ---------------- */
+const Settings = {
+  lk: { tie: 0.20, nine7: 0.25, any86: 0.25, koi: 0.25, jin: 0.25, hot: 0 },
+};
+const BETS = [
+  { key: 'player', label: 'Player' },
+  { key: 'banker', label: 'Banker' },
+  { key: 'tie',    label: 'Tie' },
+  { key: 'nine7',  label: '9/7' },
+  { key: 'any86',  label: 'Any 8/6' },
+  { key: 'koi',    label: 'Koi 8' },
+  { key: 'jin',    label: 'Jin Chan 7' },
+];
+const SIDE_PAYS = { tie: 8, nine7: 200, any86: 25, koi: 25, jin: 40 };
+
+let shoe = buildShoe();
+let needBurn = true;
+let roundNum = 0;
+let phase = 'idle';
+let seats = [];            // [{bets:{player,banker,tie,nine7,any86,koi,jin}, results:{}}]
+let P = [], B = [];        // current hands
+let playerDrew = false, p3val = null;
+let dealSeq = 0;           // (legacy — initial deal is now one click)
+let revealedP = false, revealedB = false;
+let playerDone = false, bankerDone = false;
+let burnCard = null, burnCount = 0;
+let errors = 0;
+let helpEnabled = false;
+let outcome = null;
+
+let inHand = [];           // chip denominations clicked from tray
+let currentPay = null;     // { seat, key, owed }
+let payPool = 0;           // seat-total payout mode: remaining $ loaded for the active seat
+
+/* ---------------- Rendering ---------------- */
+function seatHTML(i) {
+  return `
+  <div class="seat" id="seat-${i}">
+    <div class="seat-label">Spot ${i + 1}</div>
+    <div class="main-pills">
+      <div class="pill p-player" id="s${i}-player" onclick="Game.spotClick(${i},'player')">PLAYER<span class="amt" id="s${i}-player-amt"></span><div class="spot-chips" id="s${i}-player-chips"></div></div>
+      <div class="pill p-banker" id="s${i}-banker" onclick="Game.spotClick(${i},'banker')">BANKER<span class="amt" id="s${i}-banker-amt"></span><div class="spot-chips" id="s${i}-banker-chips"></div></div>
+    </div>
+    <div class="medal-row">
+      <div class="scircle medal sc-jin" id="s${i}-jin" onclick="Game.spotClick(${i},'jin')"><span class="lbl">JIN<br>CHAN 7<span class="odds">40 to 1</span></span><span class="amt" id="s${i}-jin-amt"></span><div class="spot-chips" id="s${i}-jin-chips"></div></div>
+      <div class="scircle medal sc-koi" id="s${i}-koi" onclick="Game.spotClick(${i},'koi')"><span class="lbl">KOI<br>8<span class="odds">25 to 1</span></span><span class="amt" id="s${i}-koi-amt"></span><div class="spot-chips" id="s${i}-koi-chips"></div></div>
+    </div>
+    <div class="side-row">
+      <div class="scircle stext sc-86" id="s${i}-any86" onclick="Game.spotClick(${i},'any86')"><span class="lbl">ANY 8/6<span class="odds">25 to 1</span></span><span class="amt" id="s${i}-any86-amt"></span><div class="spot-chips" id="s${i}-any86-chips"></div></div>
+      <div class="scircle stext sc-tie" id="s${i}-tie" onclick="Game.spotClick(${i},'tie')"><span class="lbl">TIE<span class="odds">8 to 1</span></span><span class="amt" id="s${i}-tie-amt"></span><div class="spot-chips" id="s${i}-tie-chips"></div></div>
+      <div class="scircle stext sc-97" id="s${i}-nine7" onclick="Game.spotClick(${i},'nine7')"><span class="lbl">3 CARDS EACH 9/7<span class="odds">200 to 1</span></span><span class="amt" id="s${i}-nine7-amt"></span><div class="spot-chips" id="s${i}-nine7-chips"></div></div>
+    </div>
+  </div>`;
+}
+function renderSeatsShell() {
+  $('seats').innerHTML = [0,1,2].map(seatHTML).join('');
+}
+function renderBets() {
+  for (let i = 0; i < NUM_SEATS; i++) {
+    for (const b of BETS) {
+      const amt = seats[i] ? (seats[i].bets[b.key] || 0) : 0;
+      const amtEl = $(`s${i}-${b.key}-amt`);
+      const chipsEl = $(`s${i}-${b.key}-chips`);
+      const spotEl = $(`s${i}-${b.key}`);
+      if (amtEl) amtEl.textContent = amt > 0 ? '$' + formatMoney(amt) : '';
+      if (chipsEl) {
+        if (amt > 0 && seats[i] && seats[i].comp && seats[i].comp[b.key]) {
+          renderStackInto(chipsEl, seats[i].comp[b.key]);
+        } else {
+          renderChipsInto(chipsEl, amt, 'chipp', 5);
+        }
+      }
+      if (spotEl && spotEl.classList.contains('scircle')) spotEl.classList.toggle('dim', amt <= 0);
+    }
+  }
+}
+const SUIT_CID = { '♠': 's', '♥': 'h', '♦': 'd', '♣': 'c' };
+function makeCardEl(card, faceDown) {
+  const el = document.createElement('div');
+  if (faceDown) {
+    el.className = 'bcard face-down';
+    return el;
+  }
+  /* Real card faces via the embedded CardMeister engine (falls back to the
+     old text rendering when custom elements are unavailable, e.g. tests). */
+  if (window.customElements && window.customElements.get && window.customElements.get('playing-card')) {
+    el.className = 'bcard imgface';
+    const pc = document.createElement('playing-card');
+    pc.setAttribute('cid', (card.rank === '10' ? 'T' : card.rank) + SUIT_CID[card.suit]);
+    el.appendChild(pc);
+    return el;
+  }
+  const red = card.suit === '♥' || card.suit === '♦';
+  el.className = 'bcard ' + (red ? 'red' : 'black');
+  el.innerHTML =
+    `<span class="corner corner-tl">${card.rank}<small>${card.suit}</small></span>` +
+    `<span class="center-suit">${card.suit}</span>` +
+    `<span class="corner corner-br">${card.rank}<small>${card.suit}</small></span>`;
+  return el;
+}
+let animCount = { p: 0, b: 0 };
+function renderHands() {
+  for (const [box, hand, totEl, shown, key] of [
+    [ 'box-player', P, 'total-player', revealedP, 'p' ],
+    [ 'box-banker', B, 'total-banker', revealedB, 'b' ],
+  ]) {
+    const el = $(box);
+    Array.from(el.querySelectorAll('.bcard')).forEach(c => c.remove());
+    /* Third cards are absolutely positioned (banker's on the LEFT side,
+       player's on the RIGHT) so the vertical pair never shifts. */
+    const ordered = hand.map((c, i) => ({ c, i }));
+    ordered.forEach(({ c, i }) => {
+      const ce = makeCardEl(c, !shown);
+      if (i === 2) ce.classList.add('horiz');   // third card placed sideways
+      if (i >= animCount[key]) ce.classList.add('anim');  // only NEW cards animate
+      el.appendChild(ce);
+    });
+    animCount[key] = hand.length;
+    $(totEl).textContent = (hand.length && shown) ? totalOf(hand) : '';
+  }
+}
+function setStatus(msg) { const el = $('status-line'); el.textContent = msg || ''; el.classList.remove('flash'); }
+function flashStatus(msg) {
+  const el = $('status-line'); el.textContent = msg;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+function helpStatus(verbose, terse) { setStatus(helpEnabled ? verbose : (terse || '')); }
+function enableShoe(on, pulse) {
+  const s = $('shoe');
+  s.classList.toggle('disabled', !on);
+  s.classList.toggle('pulse', !!on && !!pulse && helpEnabled);
+}
+function logRow(label, text, cls) {
+  $('eval-log').innerHTML += `<div><b>${label}</b> — <span class="${cls || ''}">${text}</span></div>`;
+}
+function updateRoundInfo() {
+  $('round-info').textContent = `Round ${roundNum} · Shoe: ${shoe.length} cards · Mistakes: ${errors}`;
+}
+
+/* ---------------- Chip tray / payment building ---------------- */
+function renderTray() {
+  const tray = $('chip-tray');
+  tray.innerHTML = '';
+  for (const d of DENOMS) {
+    const col = document.createElement('div');
+    col.className = 'tstack';
+    col.onclick = () => Game.trayClick(d.v);
+    /* a working stack of five per denomination */
+    for (let i = 0; i < 5; i++) {
+      const chip = makeChip3d(d.color, false);
+      chip.style.bottom = (16 + i * chipLift()) + 'px';
+      chip.style.zIndex = String(10 + i);
+      col.appendChild(chip);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'chip-label';
+    lbl.textContent = '$' + (d.v >= 1000 ? (d.v/1000) + 'K' : d.v);
+    col.appendChild(lbl);
+    tray.appendChild(col);
+  }
+}
+function enableTray(on) { $('chip-tray').classList.toggle('disabled', !on); }
+function inHandTotal() { return inHand.reduce((s, v) => s + v, 0); }
+function renderInHand() {
+  const el = $('in-hand');
+  el.innerHTML = '';
+  /* Pool mode shows the REMAINING seat total as an optimal stack. */
+  const vals = payPool > 0.001 ? chipStackForAmount(payPool).map(c => c.v) : inHand;
+  if (vals.length === 0) return;
+  const stack = document.createElement('div');
+  stack.className = 'ih-stack';
+  /* Stack the cheques in the order they were pulled from the tray. */
+  const lift = chipLift();
+  vals.slice(0, 14).forEach((v, i) => {
+    const d = DENOMS.find(x => x.v === v) || DENOMS[DENOMS.length - 1];
+    const chip = makeChip3d(d.color, true);
+    chip.style.bottom = (i * lift) + 'px';
+    chip.style.zIndex = String(10 + i);
+    stack.appendChild(chip);
+  });
+  el.appendChild(stack);
+  const t = document.createElement('div');
+  t.className = 'ih-total';
+  t.textContent = '$' + formatMoney(payPool > 0.001 ? payPool : inHandTotal());
+  el.appendChild(t);
+}
+
+/* ---------------- NPC bets ---------------- */
+/* Table limits: main $50–$4,000; side bets $1 min, maxes: Tie $500,
+   9/7 $50, Any 8/6 / Koi 8 / Jin Chan 7 $300. NPC amounts cluster on
+   $5/$15/$25/$50/$100 with a small tail toward the max. */
+function weightedPick(pairs) {
+  const total = pairs.reduce((s, p) => s + p[1], 0);
+  let r = Math.random() * total;
+  for (const [v, w] of pairs) { if ((r -= w) <= 0) return v; }
+  return pairs[pairs.length - 1][0];
+}
+function mainAmount() {
+  return weightedPick([
+    [50, 30], [75, 14], [100, 22], [150, 10], [200, 10], [300, 6],
+    [500, 4], [1000, 2.2], [2000, 1], [3000, 0.5], [4000, 0.3],
+  ]);
+}
+function sideAmount(max) {
+  const base = [
+    [1, 3], [2, 1.5], [5, 24], [15, 16], [25, 20], [50, 12], [100, 7],
+    [150, 1.6], [200, 1.1], [300, 0.7], [500, 0.4],
+  ].filter(([v]) => v <= max);
+  return weightedPick(base);
+}
+function makeSeatBets() {
+  const bets = { player: 0, banker: 0, tie: 0, nine7: 0, any86: 0, koi: 0, jin: 0 };
+  if (Math.random() < 0.5) bets.banker = mainAmount(); else bets.player = mainAmount();
+  if (Math.random() < Settings.lk.tie)   bets.tie   = sideAmount(500);
+  if (Math.random() < Settings.lk.nine7) bets.nine7 = sideAmount(50);
+  if (Math.random() < Settings.lk.any86) bets.any86 = sideAmount(300);
+  if (Math.random() < Settings.lk.koi)   bets.koi   = sideAmount(300);
+  if (Math.random() < Settings.lk.jin)   bets.jin   = sideAmount(300);
+  const comp = {};
+  for (const k in bets) if (bets[k] > 0) comp[k] = composeBet(bets[k]);
+  return { bets, comp, results: {} };
+}
+
+/* Hot-hands: re-stack the top of the shoe so the round ends in a
+   side-bet-relevant result. Rejection-samples full-shoe shuffles and
+   grafts the first `used` cards onto our real shoe. */
+function maybeRigHot() {
+  if (Math.random() >= Settings.lk.hot) return;
+  const wants = ['any86', 'nine7', 'koi8', 'jin7'];
+  const want = wants[Math.floor(Math.random() * wants.length)];
+  for (let t = 0; t < 4000; t++) {
+    const trial = buildShoe();
+    const r = dealFrom(trial.slice());
+    const o = outcomeOf(r.player, r.banker);
+    const hit = (want === 'any86' && o.any86) || (want === 'nine7' && o.nine7) ||
+                (want === 'koi8' && o.koi8) || (want === 'jin7' && o.jin7);
+    if (hit) {
+      const seq = [...r.player.slice(0,2), ...r.banker.slice(0,2)];
+      // interleave back to deal order: P,B,P,B then thirds P then B
+      const order = [r.player[0], r.banker[0], r.player[1], r.banker[1]];
+      if (r.player[2]) order.push(r.player[2]);
+      if (r.banker[2]) order.push(r.banker[2]);
+      shoe = [...order, ...shoe.slice(order.length)];
+      return;
+    }
+  }
+}
+
+/* ---------------- Game flow ---------------- */
+const Game = {};
+
+Game.newRound = function() {
+  if (shoe.length < 30) { shoe = buildShoe(); needBurn = true; }
+  roundNum++;
+  seats = [makeSeatBets(), makeSeatBets(), makeSeatBets()];
+  P = []; B = []; playerDrew = false; p3val = null; dealSeq = 0; collectedBoxes = 0;
+  revealedP = false; revealedB = false;
+  animCount = { p: 0, b: 0 };
+  playerDone = false; bankerDone = false;
+  burnToken++;   // cancel any burn animation still in flight
+  outcome = null; settleSeats = []; settleIdx = 0; settleStage = 'losers';
+  inHand = []; currentPay = null; payPool = 0;
+  maybeRigHot();
+  $('eval-log').innerHTML = '';
+  ['box-player','box-banker'].forEach(id => {
+    const el = $(id);
+    el.classList.remove('winner','tiewin','clickable','collect-glow','won-lift');
+    el.onclick = null;
+  });
+  document.querySelectorAll('.collectable-loser,.payout-target,.push-ring').forEach(el =>
+    el.classList.remove('collectable-loser','payout-target','push-ring'));
+  document.querySelectorAll('.pushed-overlay').forEach(el => el.remove());
+  renderBets(); renderHands(); renderInHand(); enableTray(false);
+  updateRoundInfo();
+  if (needBurn) {
+    runBurnSequence();
+  } else {
+    phase = 'deal';
+    enableShoe(true, true);
+    helpStatus('Bets are down. Click the shoe: Player, Banker, Player, Banker.', 'Bets are down — deal.');
+  }
+};
+
+Game.shoeClick = function() {
+  if ($('shoe').classList.contains('disabled')) return;
+  if (phase === 'deal')     return dealNext();
+  if (phase === 'tableau')  return tableauDeckClick();
+};
+
+/* Automatic opening burn: turn the first card top-middle of the layout,
+   draw that many cards face down beside it ("5 burning 6"), then sweep
+   everything to the discards and start the round. No clicks needed. */
+let burnToken = 0;
+function runBurnSequence() {
+  phase = 'burning';
+  enableShoe(false);
+  const token = ++burnToken;
+  burnCard = shoe.shift();
+  burnCount = CARD_VAL[burnCard.rank] === 0 ? 10 : CARD_VAL[burnCard.rank];
+  const old = document.querySelector('.burn-stage');
+  if (old) old.remove();
+  const stage = document.createElement('div');
+  stage.className = 'burn-stage';
+  const cardsRow = document.createElement('div');
+  cardsRow.className = 'burn-cards';
+  cardsRow.appendChild(makeCardEl(burnCard));
+  const txt = document.createElement('div');
+  txt.className = 'burn-text';
+  const name = burnCard.rank === 'A' ? 'One'
+             : CARD_VAL[burnCard.rank] === 0 ? '10' : burnCard.rank;
+  txt.textContent = `${name} burning ${burnCount + 1}`;
+  stage.appendChild(cardsRow);
+  stage.appendChild(txt);
+  document.body.appendChild(stage);
+  setStatus('');
+  let placed = 0;
+  const step = () => {
+    if (token !== burnToken) return;               // superseded by a reset
+    if (placed < burnCount) {
+      shoe.shift();
+      const fd = document.createElement('div');
+      fd.className = 'bcard face-down';
+      cardsRow.appendChild(fd);
+      placed++;
+      updateRoundInfo();
+      setTimeout(step, 130);
+      return;
+    }
+    /* All burned — cards leave the table. */
+    setTimeout(() => {
+      if (token !== burnToken) return;
+      stage.classList.add('fade');
+      setTimeout(() => {
+        if (token !== burnToken) return;
+        stage.remove();
+        needBurn = false;
+        phase = 'deal';
+        enableShoe(true, true);
+        updateRoundInfo();
+        helpStatus('Shoe is live. Click the shoe: Player, Banker, Player, Banker.', 'Deal.');
+      }, 650);
+    }, 1000);
+  };
+  setTimeout(step, 350);
+}
+
+/* One shoe click deals ALL FOUR cards face down (P,B,P,B). The dealer
+   then clicks the PLAYER hand to reveal it, then the BANKER hand. */
+function dealNext() {
+  P.push(shoe.shift()); B.push(shoe.shift());
+  P.push(shoe.shift()); B.push(shoe.shift());
+  renderHands(); updateRoundInfo();
+  enableShoe(false);
+  phase = 'reveal-player';
+  makeBoxClickable('box-player', revealPlayer);
+  helpStatus('Four cards down. Click the PLAYER hand to reveal it.', 'Reveal Player.');
+}
+function revealPlayer() {
+  if (phase !== 'reveal-player') return;
+  clearBoxClick('box-player');
+  revealedP = true;
+  renderHands();
+  phase = 'reveal-banker';
+  makeBoxClickable('box-banker', revealBanker);
+  helpStatus(`Player shows ${totalOf(P)}. Click the BANKER hand to reveal it.`, 'Reveal Banker.');
+}
+function revealBanker() {
+  if (phase !== 'reveal-banker') return;
+  clearBoxClick('box-banker');
+  revealedB = true;
+  renderHands();
+  // naturals?
+  if (isNatural(P, B)) {
+    helpStatus(`Natural ${Math.max(totalOf(P), totalOf(B))} — both hands stand.`, 'Natural.');
+    return finishHand();
+  }
+  /* Tableau: the DECK is the only control. Clicking when no card is due
+     is a FOUL (red flash + why). The round finishes on its own once no
+     more draws are owed. */
+  phase = 'tableau';
+  enableShoe(true, false);
+  makeBoxClickable('box-player', () => tableauBoxClick('player'));
+  makeBoxClickable('box-banker', () => tableauBoxClick('banker'));
+  if (!playerDrawsOn(totalOf(P), totalOf(B))) {
+    playerDone = true; playerDrew = false;
+    if (!bankerDraws(totalOf(B), false, null)) {
+      bankerDone = true;
+      helpStatus(`Player stands on ${totalOf(P)}, Banker stands on ${totalOf(B)} — no draws.`, '');
+      scheduleFinish();
+      return;
+    }
+    helpStatus(`Player stands on ${totalOf(P)}. Banker draws on ${totalOf(B)} — deck or Banker hand.`, '');
+    return;
+  }
+  helpStatus(`Player shows ${totalOf(P)}, Banker ${totalOf(B)}. Player draws — deck or Player hand.`, '');
+}
+
+function foul(msg) {
+  errors++;
+  updateRoundInfo();
+  flashStatus('FOUL — ' + msg);
+  /* red screen flash — its own element per foul, so rapid mistakes
+     don't cut each other off */
+  const fx = document.createElement('div');
+  fx.className = 'foul-flash';
+  document.body.appendChild(fx);
+  setTimeout(() => fx.remove(), 650);
+}
+function scheduleFinish() {
+  setTimeout(() => {
+    if (phase === 'tableau' && playerDone && bankerDone) finishHand();
+  }, 1000);
+}
+function drawToPlayer() {
+  const c = shoe.shift();
+  P.push(c); playerDrew = true; p3val = CARD_VAL[c.rank];
+  playerDone = true;
+  renderHands(); updateRoundInfo();
+  if (bankerDraws(totalOf(B), true, p3val)) {
+    helpStatus(`Player draws ${p3val}. Banker ${totalOf(B)} draws — deck or Banker hand.`, '');
+  } else {
+    bankerDone = true;
+    helpStatus(`Player draws ${p3val}. Banker stands on ${totalOf(B)}.`, '');
+    scheduleFinish();
+  }
+}
+function drawToBanker() {
+  B.push(shoe.shift());
+  bankerDone = true;
+  renderHands(); updateRoundInfo();
+  scheduleFinish();
+}
+function tableauDeckClick() {
+  if (!playerDone) {
+    if (playerDrawsOn(totalOf(P), totalOf(B))) return drawToPlayer();
+    playerDone = true; playerDrew = false;   // player stands; fall through to banker
+  }
+  if (!bankerDone) {
+    if (bankerDraws(totalOf(B), playerDrew, p3val)) return drawToBanker();
+    foul(playerDrew
+      ? `Banker stands on ${totalOf(B)} against a third-card ${p3val} — no draw.`
+      : `Banker stands on ${totalOf(B)} — no draw.`);
+    return;
+  }
+  foul('Both hands are set — no more cards come out.');
+}
+/* The dealer may also click a HAND to draw to that hand specifically.
+   A wrong click flashes the screen red and says why it's wrong. */
+function tableauBoxClick(side) {
+  if (phase !== 'tableau') return;
+  if (side === 'player') {
+    if (playerDone) {
+      foul(P.length === 3
+        ? 'Player already has three cards.'
+        : `Player stands on ${totalOf(P)} — no draw.`);
+      return;
+    }
+    return drawToPlayer();   // player is only pending when a draw IS due
+  }
+  /* banker */
+  if (!playerDone) {
+    if (playerDrawsOn(totalOf(P), totalOf(B))) {
+      foul(`Player's card comes first — Player draws on ${totalOf(P)}.`);
+      return;
+    }
+    playerDone = true; playerDrew = false;   // player stands
+  }
+  if (bankerDone) {
+    foul(B.length === 3
+      ? 'Banker already has three cards.'
+      : `Banker stands on ${totalOf(B)} — no draw.`);
+    return;
+  }
+  if (bankerDraws(totalOf(B), playerDrew, p3val)) return drawToBanker();
+  foul(playerDrew
+    ? `Banker stands on ${totalOf(B)} against a third-card ${p3val} — no draw.`
+    : `Banker stands on ${totalOf(B)} — no draw.`);
+}
+
+function makeBoxClickable(id, fn) {
+  const el = $(id);
+  el.classList.add('clickable');
+  el.onclick = fn;
+}
+function clearBoxClick(id) {
+  const el = $(id);
+  el.classList.remove('clickable');
+  el.onclick = null;
+}
+
+
+
+/* ---------------- Result + settlement ---------------- */
+function finishHand() {
+  phase = 'result';
+  enableShoe(false);
+  clearBoxClick('box-player');
+  clearBoxClick('box-banker');
+  outcome = outcomeOf(P, B);
+  const o = outcome;
+  const pBox = $('box-player'), bBox = $('box-banker');
+  if (o.winner === 'tie') { pBox.classList.add('tiewin'); bBox.classList.add('tiewin'); }
+  else {
+    const wb = $(o.winner === 'player' ? 'box-player' : 'box-banker');
+    wb.classList.add('winner', 'won-lift');
+  }
+  let call;
+  if (o.winner === 'tie') call = `TIE — ${o.p} all.`;
+  else if (o.bankerPush7) call = `Banker wins ${o.b} over ${o.p} with a THREE-CARD 7 — Banker bets PUSH, Jin Chan 7 pays.`;
+  else call = `${o.winner === 'player' ? 'Player' : 'Banker'} wins ${Math.max(o.p,o.b)} over ${Math.min(o.p,o.b)}.`;
+  setStatus(call);
+  appendOutcomeLog();
+  /* Straight into settlement — losers first, then winners RTL. */
+  setTimeout(() => { if (phase === 'result') startSettlement(); }, 1100);
+}
+
+function betOutcome(seatIdx, key) {
+  /* → 'win' (returns owed), 'lose', 'push', or null (no bet). */
+  const bet = seats[seatIdx].bets[key];
+  if (!bet || bet <= 0) return null;
+  const o = outcome;
+  switch (key) {
+    case 'player':
+      if (o.winner === 'tie') return { r: 'push' };
+      return o.winner === 'player' ? { r: 'win', owed: bet } : { r: 'lose' };
+    case 'banker':
+      if (o.winner === 'tie') return { r: 'push' };
+      if (o.winner !== 'banker') return { r: 'lose' };
+      return o.bankerPush7 ? { r: 'push' } : { r: 'win', owed: bet };
+    case 'tie':   return o.winner === 'tie' ? { r: 'win', owed: bet * SIDE_PAYS.tie } : { r: 'lose' };
+    case 'nine7': return o.nine7 ? { r: 'win', owed: bet * SIDE_PAYS.nine7 } : { r: 'lose' };
+    case 'any86': return o.any86 ? { r: 'win', owed: bet * SIDE_PAYS.any86 } : { r: 'lose' };
+    case 'koi':   return o.koi8  ? { r: 'win', owed: bet * SIDE_PAYS.koi }   : { r: 'lose' };
+    case 'jin':   return o.jin7  ? { r: 'win', owed: bet * SIDE_PAYS.jin }   : { r: 'lose' };
+  }
+  return null;
+}
+
+function appendOutcomeLog() {
+  for (let i = 0; i < NUM_SEATS; i++) {
+    for (const b of BETS) {
+      const res = betOutcome(i, b.key);
+      if (!res) continue;
+      const amt = seats[i].bets[b.key];
+      const lbl = `Spot ${i + 1} ${b.label} ($${formatMoney(amt)})`;
+      if (res.r === 'win')  logRow(lbl, `WIN → pay $${formatMoney(res.owed)}`, 'win');
+      if (res.r === 'lose') logRow(lbl, 'Lose', 'lose');
+      if (res.r === 'push') logRow(lbl, 'Push', 'pend');
+    }
+  }
+}
+
+function spotEl(i, key) { return $(`s${i}-${key}`); }
+
+/* Fire-and-forget chip flight: a fixed-position ghost stack is cloned at
+   the source, glides to the target, and removes itself. Every click gets
+   its OWN ghost, so rapid-fire settling never interrupts an animation. */
+function flyChips(fromEl, toEl, vals) {
+  if (!fromEl || !toEl || !fromEl.getBoundingClientRect) return;
+  const f = fromEl.getBoundingClientRect();
+  const t = toEl.getBoundingClientRect();
+  if ((!f.width && !f.height) || (!t.width && !t.height)) return;   // hidden/stub
+  const ghost = document.createElement('div');
+  ghost.style.position = 'fixed';
+  ghost.style.left = (f.left + f.width / 2) + 'px';
+  ghost.style.top  = (f.top + f.height / 2) + 'px';
+  ghost.style.width = '0'; ghost.style.height = '0';
+  ghost.style.zIndex = '900';
+  ghost.style.pointerEvents = 'none';
+  const list = (vals && vals.length ? vals : [5]).slice(0, 6);
+  list.forEach((v, i) => {
+    const c = makeChip3d(colorForValue(v), true);
+    c.style.bottom = (i * chipLift()) + 'px';
+    c.style.zIndex = String(10 + i);
+    ghost.appendChild(c);
+  });
+  document.body.appendChild(ghost);
+  void ghost.offsetWidth;   // commit start position before transitioning
+  const dx = (t.left + t.width / 2) - (f.left + f.width / 2);
+  const dy = (t.top + t.height / 2) - (f.top + f.height / 2);
+  ghost.style.transition = 'transform 0.5s cubic-bezier(0.3, 0, 0.55, 1), opacity 0.4s ease-in 0.3s';
+  ghost.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+  ghost.style.opacity = '0';
+  setTimeout(() => ghost.remove(), 750);
+}
+function clearSpotMarks() {
+  document.querySelectorAll('.collectable-loser,.payout-target,.push-ring').forEach(el =>
+    el.classList.remove('collectable-loser','payout-target','push-ring'));
+}
+
+/* Per-seat settlement, right to left. PUSHES are automatic (overlay, no
+   click). Within the active seat the dealer may take losing bets — and
+   later pay winning bets — in ANY order; seats still go 3 → 1. */
+let settleSeats = [];      // RTL: [{i, losers:[key], winners:[{key,owed}]}]
+let settleStage = 'losers';
+let settleIdx = 0;
+
+function startSettlement() {
+  if (phase !== 'result') return;
+  settleSeats = [];
+  for (let i = NUM_SEATS - 1; i >= 0; i--) {
+    const entry = { i, losers: [], winners: [] };
+    for (const b of BETS) {
+      const res = betOutcome(i, b.key);
+      if (!res) continue;
+      if (res.r === 'lose')      entry.losers.push(b.key);
+      else if (res.r === 'push') {
+        /* Automatic push — mark it and leave the chips. */
+        const el = spotEl(i, b.key);
+        if (el) {
+          const ov = document.createElement('span');
+          ov.className = 'pushed-overlay';
+          ov.textContent = 'PUSH';
+          el.appendChild(ov);
+        }
+      }
+      else entry.winners.push({ key: b.key, owed: res.owed });
+    }
+    settleSeats.push(entry);
+  }
+  settleStage = 'losers';
+  settleIdx = 0;
+  advanceSettle();
+}
+
+function activeSettleSeat() { return settleSeats[settleIdx]; }
+
+function advanceSettle() {
+  clearSpotMarks();
+  if (settleStage === 'losers') {
+    while (settleIdx < settleSeats.length && settleSeats[settleIdx].losers.length === 0) settleIdx++;
+    if (settleIdx >= settleSeats.length) {
+      settleStage = 'winners';
+      settleIdx = 0;
+      enableTray(true);
+      return advanceSettle();
+    }
+    phase = 'settle-losers';
+    const seat = settleSeats[settleIdx];
+    seat.losers.forEach(k => spotEl(seat.i, k).classList.add('collectable-loser'));
+    helpStatus(`Take Spot ${seat.i + 1}'s losing bets — any order within the spot.`,
+               `Take Spot ${seat.i + 1}.`);
+    return;
+  }
+  /* winners */
+  while (settleIdx < settleSeats.length && settleSeats[settleIdx].winners.length === 0) settleIdx++;
+  if (settleIdx >= settleSeats.length) return endOfRound();
+  phase = 'settle-winners';
+  const seat = settleSeats[settleIdx];
+  seat.winners.forEach(w => spotEl(seat.i, w.key).classList.add('payout-target'));
+  const owedList = seat.winners.map(w =>
+    `${BETS.find(b => b.key === w.key).label} $${formatMoney(w.owed)}`).join(' · ');
+  helpStatus(`Pay Spot ${seat.i + 1} (any order): ${owedList}. Build each amount — or the spot's grand total — then click each owed bet.`,
+             `Pay Spot ${seat.i + 1}.`);
+}
+
+Game.spotClick = function(i, key) {
+  if (phase === 'settle-losers') {
+    const seat = activeSettleSeat();
+    if (!seat || seat.i !== i || !seat.losers.includes(key)) {
+      if (seat && seat.i !== i) flashStatus(`Spot ${seat.i + 1} first — right to left.`);
+      return;
+    }
+    flyChips(spotEl(i, key), $('chip-tray'), seats[i].comp && seats[i].comp[key]);
+    seats[i].bets[key] = 0;
+    renderBets();
+    seat.losers = seat.losers.filter(k => k !== key);
+    spotEl(i, key).classList.remove('collectable-loser');
+    if (seat.losers.length === 0) { settleIdx++; advanceSettle(); }
+    return;
+  }
+  if (phase === 'settle-winners') {
+    const seat = activeSettleSeat();
+    if (!seat || seat.i !== i) {
+      if (seat) flashStatus(`Spot ${seat.i + 1} first — right to left.`);
+      return;
+    }
+    const w = seat.winners.find(x => x.key === key);
+    if (!w) return;
+    /* Seat-total pool mode: the dealer loaded the GRAND TOTAL owed to this
+       seat into the outgoing; each owed spot clicked drains its share.
+       (One seat at a time — the pool can never span players.) */
+    if (payPool > 0.001) {
+      flyChips($('in-hand'), spotEl(i, key), chipStackForAmount(w.owed).map(c => c.v));
+      payPool = Math.round((payPool - w.owed) * 100) / 100;
+      seat.winners = seat.winners.filter(x => x.key !== key);
+      spotEl(i, key).classList.remove('payout-target');
+      renderInHand();
+      if (seat.winners.length === 0) { payPool = 0; renderInHand(); settleIdx++; advanceSettle(); }
+      return;
+    }
+    const seatTotal = Math.round(seat.winners.reduce((s, x) => s + x.owed, 0) * 100) / 100;
+    if (Math.abs(inHandTotal() - w.owed) <= 0.001) {
+      /* Exact single-bet build — the classic flow. */
+      flyChips($('in-hand'), spotEl(i, key), inHand.slice());
+      inHand = []; renderInHand();
+      seat.winners = seat.winners.filter(x => x.key !== key);
+      spotEl(i, key).classList.remove('payout-target');
+      if (seat.winners.length === 0) { settleIdx++; advanceSettle(); }
+      return;
+    }
+    if (seat.winners.length > 1 && Math.abs(inHandTotal() - seatTotal) <= 0.001) {
+      /* Grand total for the whole seat — start pool mode with this click. */
+      flyChips($('in-hand'), spotEl(i, key), chipStackForAmount(w.owed).map(c => c.v));
+      inHand = [];
+      payPool = Math.round((seatTotal - w.owed) * 100) / 100;
+      seat.winners = seat.winners.filter(x => x.key !== key);
+      spotEl(i, key).classList.remove('payout-target');
+      renderInHand();
+      return;
+    }
+    flashStatus(`That bet is owed $${formatMoney(w.owed)} (spot total $${formatMoney(seatTotal)}) — you have $${formatMoney(inHandTotal())} in hand.`);
+    return;
+  }
+};
+
+Game.trayClick = function(v) {
+  if (phase !== 'settle-winners' || payPool > 0.001) return;
+  inHand.push(v);
+  renderInHand();
+};
+Game.clearInHand = function() { if (payPool > 0.001) return; inHand = []; renderInHand(); };
+
+function endOfRound() {
+  clearSpotMarks();
+  enableTray(false);
+  phase = 'end-collect';
+  /* Clicking EITHER hand collects both. Both card areas get the SAME
+     highlight (winner/tie halos come off so neither side looks special).
+     This glow is the one visual cue that stays on even with Help off. */
+  ['box-player', 'box-banker'].forEach(id => {
+    const el = $(id);
+    el.classList.remove('winner', 'tiewin');
+    el.classList.add('collect-glow');
+    makeBoxClickable(id, collectBothBoxes);
+  });
+  helpStatus('All bets settled. Click the cards to collect them.', 'Collect the cards.');
+}
+let collectedBoxes = 0;
+function collectBothBoxes() {
+  if (phase !== 'end-collect') return;
+  ['box-player', 'box-banker'].forEach(id => {
+    const el = $(id);
+    clearBoxClick(id);
+    el.classList.remove('collect-glow');
+    Array.from(el.querySelectorAll('.bcard')).forEach(c => c.classList.add('collected-fade'));
+  });
+  setTimeout(() => {
+    P = []; B = [];
+    renderHands();
+    phase = 'idle';
+    setStatus('Round complete. Next round...');
+    setTimeout(() => { if (phase === 'idle') Game.newRound(); }, 900);
+  }, 320);
+}
+
+/* ---------------- UI plumbing ---------------- */
+Game.toggleHelp = function() {
+  helpEnabled = !helpEnabled;
+  const btn = ($('help-toggle') || {});
+  btn.textContent = 'HELP: ' + (helpEnabled ? 'ON' : 'OFF');
+  btn.classList.toggle('off', !helpEnabled);
+  document.body.classList.toggle('help-off', !helpEnabled);
+};
+Game.openModal  = (id) => $(id).classList.add('open');
+Game.closeModal = (id) => $(id).classList.remove('open');
+Game.backdropClose = (ev, id) => { if (ev.target === $(id)) Game.closeModal(id); };
+Game.onLk = function(key, val) {
+  Settings.lk[key] = val / 100;
+  $('lk-' + key + '-val').textContent = val + '%';
+};
+
+/* ---------------- Boot ---------------- */
+document.body.classList.toggle('help-off', !helpEnabled);
+renderSeatsShell();
+renderTray();
+renderBets();
+renderHands();
+['tie','nine7','any86','koi','jin','hot'].forEach(k => {
+  const el = $('lk-' + k);
+  if (el) { el.value = Math.round(Settings.lk[k] * 100); $('lk-' + k + '-val').textContent = el.value + '%'; }
+});
+updateRoundInfo();
+/* ==========================================================================
+ * AUDITION MODE
+ * --------------------------------------------------------------------------
+ * Exists ONLY in baccarat-dealer-sim-audition.html. Do not port this block
+ * into baccarat-dealer-sim.html — see the pairing note at the top of the file.
+ *
+ * Baccarat's shape: the bets go down, the dealer calls it off, and the cards
+ * come out. So the injection point is the deal — the wrong bet is on the
+ * layout before the first card, exactly as it would be at a live table.
+ *
+ * FIX IT, OR CALL THE FLOOR. A bet that's wrong is yours to correct right up
+ * until the cards come out of the shoe. After that it stops being yours.
+ *
+ * CHIPS NEVER APPEAR. Every bet — clean or rigged — rides in from off the top
+ * of the screen. Baccarat's cheques carry their own transform for centring,
+ * so the ride animates margin-bottom rather than transform; anything else
+ * would knock the stack off-centre.
+ * ========================================================================== */
+
+const AUD_SETTINGS_KEY = 'baccarat-audition-v1';
+const AUD_GAME_ID      = 'baccarat';
+const AUD_MENU_URL     = 'index.html';
+const AUD_RUN_KEY      = 'tdt-audition-run-v1';
+
+const audEl = (id) => document.getElementById(id);
+
+/* ============================================================
+   TABLE LIMITS — Jason's sheet, 2026-08-21. The main bet moves both
+   ends; every side bet on this sign is fixed.
+   ============================================================ */
+const AUD_RANGES = {
+  label: 'Baccarat',
+  mainMin: [25, 50],
+  mainMax: [1500, 2000, 2500, 3000],
+  sides: {
+    tie:   ['Tie', 1, [500]],
+    nine7: ['9/7', 1, [50]],
+    any86: ['8/6', 1, [300]],
+    koi:   ['Koi', 1, [300]],
+    jin:   ['Jin Chan', 1, [300]],
+  },
+};
+const AUD_LIMITS = { mainMin: 0, mainMax: 0, sides: {} };
+
+function audPick(l) { return l[Math.floor(Math.random() * l.length)]; }
+function audSideMax(k) { const sd = AUD_LIMITS.sides[k]; return sd ? sd.max : Infinity; }
+
+function audRollLimits() {
+  AUD_LIMITS.mainMin = audPick(AUD_RANGES.mainMin);
+  AUD_LIMITS.mainMax = audPick(AUD_RANGES.mainMax);
+  AUD_LIMITS.sides = {};
+  for (const k in AUD_RANGES.sides) {
+    const sd = AUD_RANGES.sides[k];
+    AUD_LIMITS.sides[k] = { label: sd[0], min: sd[1], max: audPick(sd[2]) };
+  }
+  audRenderLimits();
+  audFlashLimits();
+}
+
+/* The rail only carries the sign when the session is testing bet sizes. */
+/* Hidden unless a run explicitly turns bet-size testing on. Opening a page
+   on its own is not a session, so it gets no sign. */
+function audShowLimits() { return !!(audRun && audRun.limits === true); }
+
+function audRenderLimits() {
+  const el = audEl('aud-limits');
+  if (!el) return;
+  if (!audShowLimits()) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  if (!el.dataset.wired) { el.dataset.wired = '1'; el.addEventListener('click', audToggleLimits); }
+  const sides = Object.keys(AUD_LIMITS.sides).map(k => {
+    const sd = AUD_LIMITS.sides[k];
+    return '<span class="lim-row"><span class="nm">' + sd.label + '</span> $' +
+      sd.min + '&ndash;$' + sd.max + '</span>';
+  }).join('');
+  el.innerHTML =
+    '<span class="lim-bar"><span>Limits</span><span class="lim-chev"></span></span>' +
+    '<span class="lim-head"><span>Min</span><span>Max</span></span>' +
+    '<span class="lim-main">$' + AUD_LIMITS.mainMin.toLocaleString() +
+      '&ndash;$' + AUD_LIMITS.mainMax.toLocaleString() + '</span>' +
+    '<span class="lim-more"><span class="lim-side">' + sides + '</span></span>';
+}
+
+/* The sign is worth a proper look when it changes and then it is in the way.
+   So it opens itself, holds for a few seconds, and folds down to a tab that
+   says plainly it can be opened again. Standalone rather than a method on Aud
+   — this block is defined above `const Aud`. */
+let audLimitsTimer = null;
+function audSetLimitsOpen(open) {
+  const el = audEl('aud-limits');
+  if (!el) return;
+  el.classList.toggle('open', open);
+  el.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function audToggleLimits() {
+  clearTimeout(audLimitsTimer);
+  const el = audEl('aud-limits');
+  audSetLimitsOpen(!(el && el.classList.contains('open')));
+}
+function audFlashLimits() {
+  if (!audShowLimits()) return;
+  clearTimeout(audLimitsTimer);
+  audSetLimitsOpen(true);
+  audLimitsTimer = setTimeout(() => audSetLimitsOpen(false), 3600);
+}
+
+/* The generator obeys the same sign the dealer reads. Mains go in $25s so a
+   $4,000 sign never produces a $1,375 bet. */
+const audOrigMakeSeatBets = makeSeatBets;
+makeSeatBets = function() {
+  const seat = audOrigMakeSeatBets.apply(this, arguments);
+  const lo = AUD_LIMITS.mainMin, hi = AUD_LIMITS.mainMax;
+  const steps = Math.floor((hi - lo) / 25);
+  const main = lo + Math.floor(Math.random() * (steps + 1)) * 25;
+  const mainKey = seat.bets.player > 0 ? 'player' : 'banker';
+  seat.bets[mainKey] = main;
+  for (const k in AUD_LIMITS.sides) {
+    if (seat.bets[k] > 0) seat.bets[k] = Math.min(seat.bets[k], audSideMax(k));
+  }
+  seat.comp = {};
+  for (const k in seat.bets) if (seat.bets[k] > 0) seat.comp[k] = composeBet(seat.bets[k]);
+  return seat;
+};
+
+/* The round's phases in the order they occur, so "have I moved past it?"
+   becomes a number comparison. */
+const AUD_PHASE_ORDER = [
+  'idle', 'burning', 'deal', 'reveal-player', 'reveal-banker', 'tableau',
+  'result', 'settle-losers', 'settle-winners', 'end-collect',
+];
+function audPhaseIdx(ph) {
+  const i = AUD_PHASE_ORDER.indexOf(ph);
+  return i < 0 ? AUD_PHASE_ORDER.length : i;
+}
+
+function audReadRun() {
+  try {
+    const r = JSON.parse(localStorage.getItem(AUD_RUN_KEY));
+    if (!r || r.v !== 1 || !Array.isArray(r.queue)) return null;
+    const leg = r.queue[r.index];
+    return (leg && leg.id === AUD_GAME_ID) ? r : null;
+  } catch (e) { return null; }
+}
+function audWriteRun(r) {
+  try { localStorage.setItem(AUD_RUN_KEY, JSON.stringify(r)); } catch (e) { /* ignore */ }
+}
+let audRun = audReadRun();
+
+const Aud = {
+  sessionActive: false,
+  handsTarget: 5,
+  mistakeChance: 0.25,
+  handsPlayed: 0,
+  armed: false,
+  current: null,
+  handResult: null,
+  flagUsed: false,
+  testLimits: true,   /* the launcher can turn sign-testing off for a session */
+  targeting: false,
+  aimSpot: null,
+  score: { caught: 0, wrongCall: 0, missed: 0, falseFlags: 0, clean: 0, paidWrong: 0 },
+  log: [],
+};
+
+function audMoney(n) {
+  return '$' + (Math.round(n * 100) % 100 === 0 ? n.toLocaleString() : n.toFixed(2));
+}
+
+/* ==========================================================================
+ * FIX IT, OR CALL THE FLOOR
+ * ========================================================================== */
+function audResolutionNow(cur) {
+  if (!cur) return 'floor';
+  if (cur.def.floorOnly) return 'floor';
+  /* Once a card is out of the shoe the layout is closed. */
+  if (audPhaseIdx(phase) > audPhaseIdx('deal')) return 'floor';
+  return 'fix';
+}
+
+/* ==========================================================================
+ * CHIP FLIGHT
+ * ========================================================================== */
+const AUD_FLY_MS = 460;
+
+function audSpotEl(i, key)  { return audEl('s' + i + '-' + key); }
+function audChipsEl(i, key) { return audEl('s' + i + '-' + key + '-chips'); }
+
+function audCanAnimate() {
+  try { return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch (e) { return true; }
+}
+
+/* Ride the cheques on a spot down from off the top of the screen.
+   margin-bottom, not transform — .chipx already uses transform to centre. */
+function audFlyIn(i, key, delay) {
+  if (!audCanAnimate()) return;
+  const wrap = audChipsEl(i, key);
+  if (!wrap) return;
+  const chips = Array.prototype.slice.call(wrap.querySelectorAll('.chipx'));
+  if (!chips.length) return;
+  const base = delay || 0;
+  const step = chips.length > 5 ? Math.max(18, Math.round(190 / chips.length)) : 52;
+  chips.forEach((chip, k) => {
+    const r = chip.getBoundingClientRect();
+    const rise = Math.max(260, Math.round(r.top + r.height + 90));
+    chip.style.setProperty('--aud-rise', rise + 'px');
+    chip.style.animation = 'none';
+    void chip.offsetWidth;
+    chip.style.animation = 'aud-ride-in-bacc ' + AUD_FLY_MS + 'ms cubic-bezier(.2,.72,.3,1) ' +
+                           (base + k * step) + 'ms backwards';
+  });
+}
+
+/* Deal the whole layout in, one spot at a time. */
+function audDealBetsIn() {
+  for (let i = 0; i < NUM_SEATS; i++) {
+    for (const b of BETS) {
+      if (seats[i] && seats[i].bets[b.key] > 0) audFlyIn(i, b.key, i * 150);
+    }
+  }
+}
+
+/* ==========================================================================
+ * Rigging a seat: snapshot, mutate, restore verbatim on a correction.
+ * ========================================================================== */
+function audSnapSeat(s) {
+  return {
+    bets: Object.assign({}, s.bets),
+    comp: JSON.parse(JSON.stringify(s.comp || {})),
+  };
+}
+function audRestoreSeat(s, snap) {
+  s.bets = Object.assign({}, snap.bets);
+  s.comp = JSON.parse(JSON.stringify(snap.comp || {}));
+}
+
+/* Change what's on a spot and rebuild its cheque stack to match. */
+function audRestake(s, key, amt) {
+  s.bets[key] = amt;
+  if (amt > 0) s.comp[key] = composeBet(amt);
+  else delete s.comp[key];
+}
+
+/* ==========================================================================
+ * THE CATALOG
+ * ========================================================================== */
+const AUD_MISTAKES = [
+  {
+    id: 'BAC-01', spot: 'banker',
+    label: 'Betting Player and Banker in the same spot',
+    say: (i, info) => `Spot ${i + 1} has ${audMoney(info.player)} on Player and ${audMoney(info.banker)} on Banker. One or the other, never both.`,
+    can: (s) => (s.bets.player > 0) !== (s.bets.banker > 0),
+    apply: (s) => {
+      const other = s.bets.player > 0 ? 'banker' : 'player';
+      const amt = s.bets.player > 0 ? s.bets.player : s.bets.banker;
+      audRestake(s, other, amt);
+      return { player: s.bets.player, banker: s.bets.banker };
+    },
+  },
+  {
+    id: 'BAC-02', spot: 'main',
+    label: 'Main bet is under the table minimum',
+    say: (i, info) => `Spot ${i + 1} put out ${audMoney(info.bad)} — the table minimum is ${audMoney(AUD_LIMITS.mainMin)}.`,
+    can: (s) => audMainKey(s) && s.bets[audMainKey(s)] > AUD_LIMITS.mainMin,
+    apply: (s) => {
+      const k = audMainKey(s), bad = 25;
+      audRestake(s, k, bad);
+      return { bad, key: k };
+    },
+  },
+  {
+    id: 'BAC-03', spot: 'main',
+    label: 'Main bet is over the table maximum',
+    say: (i, info) => `Spot ${i + 1} put out ${audMoney(info.bad)} — the table maximum is ${audMoney(AUD_LIMITS.mainMax)}.`,
+    can: (s) => audMainKey(s) && s.bets[audMainKey(s)] <= AUD_LIMITS.mainMax,
+    apply: (s) => {
+      const k = audMainKey(s), bad = AUD_LIMITS.mainMax + 1000;
+      audRestake(s, k, bad);
+      return { bad, key: k };
+    },
+  },
+  {
+    id: 'BAC-04', spot: 'tie',
+    label: 'Tie is over its maximum',
+    say: (i, info) => `Spot ${i + 1} has ${audMoney(info.bad)} on Tie. It caps at ${audMoney(audSideMax('tie'))}.`,
+    can: (s) => s.bets.tie > 0 && s.bets.tie <= audSideMax('tie'),
+    apply: (s) => { const bad = audSideMax('tie') + 500; audRestake(s, 'tie', bad); return { bad }; },
+  },
+  {
+    id: 'BAC-05', spot: 'nine7',
+    label: '9/7 is over its maximum',
+    say: (i, info) => `Spot ${i + 1} has ${audMoney(info.bad)} on 9/7. It caps at ${audMoney(audSideMax('nine7'))}.`,
+    can: (s) => s.bets.nine7 > 0 && s.bets.nine7 <= audSideMax('nine7'),
+    apply: (s) => { const bad = audSideMax('nine7') + 100; audRestake(s, 'nine7', bad); return { bad }; },
+  },
+  {
+    id: 'BAC-06A', spot: 'any86',
+    label: 'Any 8/6 is over its maximum',
+    say: (i, info) => `Spot ${i + 1} has ${audMoney(info.bad)} on Any 8/6. It caps at ${audMoney(audSideMax('any86'))}.`,
+    can: (s) => s.bets.any86 > 0 && s.bets.any86 <= audSideMax('any86'),
+    apply: (s) => { const bad = audSideMax('any86') + 200; audRestake(s, 'any86', bad); return { bad }; },
+  },
+  {
+    id: 'BAC-06K', spot: 'koi',
+    label: 'Koi 8 is over its maximum',
+    say: (i, info) => `Spot ${i + 1} has ${audMoney(info.bad)} on Koi 8. It caps at ${audMoney(audSideMax('koi'))}.`,
+    can: (s) => s.bets.koi > 0 && s.bets.koi <= audSideMax('koi'),
+    apply: (s) => { const bad = audSideMax('koi') + 200; audRestake(s, 'koi', bad); return { bad }; },
+  },
+  {
+    id: 'BAC-06J', spot: 'jin',
+    label: 'Jin Chan 7 is over its maximum',
+    say: (i, info) => `Spot ${i + 1} has ${audMoney(info.bad)} on Jin Chan 7. It caps at ${audMoney(audSideMax('jin'))}.`,
+    can: (s) => s.bets.jin > 0 && s.bets.jin <= audSideMax('jin'),
+    apply: (s) => { const bad = audSideMax('jin') + 200; audRestake(s, 'jin', bad); return { bad }; },
+  },
+  {
+    id: 'BAC-09', spot: 'main',
+    label: 'Side bets out with no Player or Banker bet',
+    say: (i) => `Spot ${i + 1} has side action and nothing on Player or Banker.`,
+    can: (s) => !!audMainKey(s) && BETS.some(b => !['player', 'banker'].includes(b.key) && s.bets[b.key] > 0),
+    apply: (s) => {
+      const k = audMainKey(s), info = { key: k, was: s.bets[k] };
+      audRestake(s, k, 0);
+      return info;
+    },
+  },
+];
+
+/* Which of the two main spots this seat is playing, if either. */
+function audMainKey(s) {
+  if (s.bets.player > 0) return 'player';
+  if (s.bets.banker > 0) return 'banker';
+  return null;
+}
+
+const AUD_SEAT_WORD = 'Spot';
+/* Items whose mistake IS the size of a bet — over the max, under the min, or
+   simply the wrong number for that spot. The launcher switches the whole set
+   off for a session, which leaves mistakes of timing, placement and procedure.
+   Anything not listed here plays regardless. */
+const AUD_AMOUNT_ITEMS = {
+  'BAC-02': 1,
+  'BAC-03': 1,
+  'BAC-04': 1,
+  'BAC-05': 1,
+  'BAC-06A': 1,
+  'BAC-06K': 1,
+  'BAC-06J': 1,
+};
+function audIsAmountItem(def) { return !!(def && AUD_AMOUNT_ITEMS[def.id]); }
+
+const AUD_SPOT_LABEL = {
+  player: 'Player', banker: 'Banker', tie: 'Tie', nine7: '9/7',
+  any86: 'Any 8/6', koi: 'Koi 8', jin: 'Jin Chan 7',
+};
+
+/* Two items are called on "the main bet", whichever side it is on. */
+function audSpotMatches(def, key) {
+  if (def.spot === 'main') return key === 'player' || key === 'banker';
+  return def.spot === key;
+}
+
+/* ==========================================================================
+ * Injection — once per round, before the first card.
+ * ========================================================================== */
+Aud.beginHand = function() {
+  Aud.handsPlayed++;
+  Aud.armed = Math.random() < Aud.mistakeChance;
+  Aud.current = null;
+  Aud.handResult = null;
+  Aud.flagUsed = false;
+  Aud.handFalseFlags = 0;
+  Aud.handScored = false;
+  Aud.handRigged = false;
+  Aud.cancelAim();
+  Aud.updateHud();
+};
+
+Aud.tryInject = function() {
+  /* handRigged, not Aud.current: an item that has already been called and
+     cleared still counts as this hand's one mistake. */
+  if (!Aud.sessionActive || !Aud.armed || Aud.current || Aud.handRigged) return;
+  const pool = [];
+  for (const def of AUD_MISTAKES) {
+    if (!Aud.testLimits && audIsAmountItem(def)) continue;
+    for (let i = 0; i < NUM_SEATS; i++) {
+      const s = seats[i];
+      if (!s) continue;
+      try { if (def.can(s, i)) pool.push({ def, i }); } catch (e) { /* skip */ }
+    }
+  }
+  if (!pool.length) return;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const s = seats[pick.i];
+  const snap = audSnapSeat(s);
+  const info = pick.def.apply(s, pick.i) || {};
+  Aud.handRigged = true;
+  Aud.current = { def: pick.def, i: pick.i, info, snap };
+  renderBets();
+};
+
+/* ==========================================================================
+ * The flag, the aim, the two calls
+ * ========================================================================== */
+Aud.onFlagClick = function() {
+  if (!Aud.sessionActive) return;
+  if (Aud.targeting) { Aud.cancelAim(); return; }
+  Aud.targeting = true;
+  document.body.classList.add('aud-targeting');
+};
+Aud.cancelAim = function() {
+  Aud.targeting = false;
+  Aud.aimSpot = null;
+  document.body.classList.remove('aud-targeting');
+  const pk = audEl('aud-picker');
+  if (pk) pk.classList.remove('open');
+};
+Aud.backToAim = function() {
+  audEl('aud-picker').classList.remove('open');
+  Aud.targeting = true;
+  document.body.classList.add('aud-targeting');
+};
+Aud.pickerBackdrop = function(ev) {
+  if (ev && ev.target && ev.target.id === 'aud-picker') Aud.backToAim();
+};
+
+function audSpotFromElement(el) {
+  if (!el || !el.closest) return null;
+  const spot = el.closest('.pill, .scircle');
+  if (!spot || !spot.id) return null;
+  const m = /^s(\d+)-([a-z0-9]+)$/.exec(spot.id);
+  if (!m) return null;
+  return { i: +m[1], spot: m[2] };
+}
+
+document.addEventListener('click', function(ev) {
+  if (!Aud.targeting) return;
+  const t = ev.target;
+  if (t && t.closest && (t.closest('#aud-picker') || t.closest('#aud-flag') || t.closest('#aud-aim'))) return;
+  ev.stopPropagation();
+  ev.preventDefault();
+  const hit = audSpotFromElement(t);
+  if (hit) Aud.openPicker(hit.i, hit.spot);
+}, true);
+
+document.addEventListener('keydown', function(ev) {
+  if (ev.key === 'Escape' && (Aud.targeting || audEl('aud-picker').classList.contains('open'))) Aud.cancelAim();
+});
+
+Aud.openPicker = function(i, spot) {
+  Aud.aimSpot = { i, spot };
+  Aud.targeting = false;
+  document.body.classList.remove('aud-targeting');
+  audEl('aud-picker-who').textContent = 'Spot ' + (i + 1) + ' · ' + (AUD_SPOT_LABEL[spot] || spot);
+  audEl('aud-picker').classList.add('open');
+  const first = audEl('aud-picker').querySelector('.aud-call');
+  if (first) first.focus();
+};
+
+Aud.call = function(kind) {
+  const aim = Aud.aimSpot;
+  if (!aim) return;
+  Aud.judge(aim.i, aim.spot, kind);
+};
+
+/* ==========================================================================
+ * Judging
+ * ========================================================================== */
+Aud.judge = function(i, spot, kind) {
+  audEl('aud-picker').classList.remove('open');
+  Aud.targeting = false;
+  document.body.classList.remove('aud-targeting');
+  Aud.flagUsed = true;   /* kept for "have they called yet this hand" */
+
+  const cur = Aud.current;
+  let result, headline, detail;
+
+  if (cur && cur.i === i && audSpotMatches(cur.def, spot)) {
+    const want = audResolutionNow(cur);
+    Aud.caughtSeat = cur.i + 1;
+    Aud.correctedDef = cur.def;
+    const what = cur.def.say(cur.i, cur.info);
+
+    /* Called, right or wrong — this item is settled and can't be re-tried. */
+    Aud.current = null;
+    if (kind === want) {
+      result = 'caught';
+      if (want === 'fix') {
+        headline = 'Good catch — fixed on the spot.';
+        detail = what;
+      } else {
+        headline = 'Right, that one is the floor’s.';
+        detail = what + ' ' + (cur.def.floorOnly
+          ? 'Nothing you can put right at the table.'
+          : 'The cards were already out — the layout was closed.');
+      }
+      audRestoreSeat(seats[cur.i], cur.snap);
+      renderBets();
+      for (const b of BETS) if (seats[cur.i].bets[b.key] > 0) audFlyIn(cur.i, b.key, 0);
+      Aud.current = null;
+    } else if (kind === 'fix') {
+      result = 'wrongCall';
+      headline = 'Too late to fix it yourself.';
+      detail = what + ' ' + (cur.def.floorOnly
+        ? 'This one is a floor call the moment it happens.'
+        : 'Once the cards are out the layout is closed — call the floor.');
+    } else {
+      result = 'wrongCall';
+      headline = 'No need for the floor.';
+      detail = what + ' You caught it in time — the player could simply have fixed it.';
+    }
+  } else if (cur) {
+    /* That bet is fine — but the hand isn't settled, so keep looking. */
+    Aud.noteFalseFlag();
+    headline = 'Nothing wrong there.';
+    detail = 'That bet is fine. Something else on this hand still needs handling.';
+  } else if (Aud.flagUsed && Aud.handResult) {
+    Aud.noteFalseFlag();
+    headline = 'That one is already dealt with.';
+    detail = "You've called this hand's problem. Nothing else out there is wrong.";
+  } else if (Aud.armed) {
+    Aud.noteFalseFlag();
+    headline = 'Too early.';
+    detail = 'Nothing has gone wrong yet. Keep watching — the flag stays live.';
+  } else {
+    Aud.noteFalseFlag();
+    headline = 'Nothing was wrong.';
+    detail = 'This hand is clean. A false flag costs you at a real audition.';
+  }
+
+  /* Only the rigged item decides the hand; false flags are their own tally.
+     Tallied here so the HUD agrees with the toast that just appeared —
+     closeHand() knows not to count it twice. */
+  if (result) {
+    Aud.handResult = result;
+    if (!Aud.handScored && (result === 'caught' || result === 'wrongCall')) {
+      Aud.handScored = true;
+      if (result === 'caught') Aud.score.caught++;
+      else Aud.score.wrongCall++;
+    }
+  }
+  Aud.toast(result === 'caught', headline, detail);
+  Aud.updateHud();
+};
+
+/* Scored on the spot, not at the end of the hand, so the HUD answers back
+   immediately and a run of guesses is visibly expensive. */
+Aud.noteFalseFlag = function() {
+  Aud.handFalseFlags = (Aud.handFalseFlags || 0) + 1;
+  Aud.score.falseFlags++;
+};
+
+Aud.toast = function(good, headline, detail) {
+  const el = audEl('aud-toast');
+  el.className = 'aud-toast ' + (good ? 'good' : 'bad');
+  el.innerHTML = '<span>' + headline + '</span>' + (detail ? '<small>' + detail + '</small>' : '');
+  void el.offsetWidth;
+  el.classList.add('show');
+  if (Aud.toastTimer) clearTimeout(Aud.toastTimer);
+  Aud.toastTimer = setTimeout(() => { el.classList.remove('show'); }, 5200);
+};
+
+/* ==========================================================================
+ * Hand + session bookkeeping
+ * ========================================================================== */
+Aud.closeHand = function() {
+  if (!Aud.sessionActive || Aud.handsPlayed === 0) return;
+  let result = Aud.handResult, what = null, seat = null;
+  if (result === 'caught' || result === 'wrongCall') {
+    what = Aud.correctedDef ? Aud.correctedDef.label : null;
+    seat = Aud.caughtSeat;
+    if (!what && Aud.current) { what = Aud.current.def.label; seat = Aud.current.i + 1; }
+  } else if (result === 'missed' || result === 'falseFlag') {
+    if (Aud.current) { what = Aud.current.def.label; seat = Aud.current.i + 1; }
+  } else if (Aud.current) {
+    result = 'missed';
+    what = Aud.current.def.label;
+    seat = Aud.current.i + 1;
+  } else if (Aud.handFalseFlags > 0) {
+    result = 'falseFlag';                    /* clean hand, but they called it */
+  } else {
+    result = 'clean';
+  }
+
+  /* Say what got past them, now, while the hand is still in mind. Waiting for
+     the scorecard means learning it several hands too late. */
+  if (result === 'missed' && Aud.current) {
+    let detail = '';
+    try { detail = Aud.current.def.say(Aud.current.i, Aud.current.info); } catch (e) { detail = ''; }
+    Aud.toast(false, 'Missed it — ' + AUD_SEAT_WORD + ' ' + (Aud.current.i + 1) + ', ' +
+      (AUD_SPOT_LABEL[Aud.current.def.spot] || Aud.current.def.spot) + '.', detail);
+  }
+
+  Aud.log.push({ hand: Aud.handsPlayed, result, what, seat,
+                 falseFlags: Aud.handFalseFlags || 0 });
+  if (Aud.handScored) { /* the call was tallied when it was made */ }
+  else if (result === 'caught') Aud.score.caught++;
+  else if (result === 'wrongCall') Aud.score.wrongCall++;
+  else if (result === 'missed') Aud.score.missed++;
+  /* falseFlag was already counted by noteFalseFlag() as it happened. */
+  else if (result !== 'falseFlag') Aud.score.clean++;
+  Aud.correctedDef = null;
+  Aud.caughtSeat = null;
+  Aud.current = null;
+  Aud.handResult = null;
+  Aud.handFalseFlags = 0;
+  Aud.handScored = false;
+  Aud.handRigged = false;
+};
+
+Aud.updateHud = function() {
+  const h = audEl('aud-hud-hand');
+  if (h) h.textContent = Math.min(Aud.handsPlayed, Aud.handsTarget) + '/' + Aud.handsTarget;
+  const c = audEl('aud-hud-caught'); if (c) c.textContent = Aud.score.caught;
+  const m = audEl('aud-hud-missed');
+  if (m) m.textContent = Aud.score.missed + Aud.score.wrongCall + Aud.score.falseFlags;
+  const pw = audEl('aud-hud-paid');
+  if (pw) pw.textContent = Aud.score.paidWrong || 0;
+  const f = audEl('aud-flag');
+  if (f) {
+    /* Live all hand — call as often as you see something. Each call that
+       turns out to be nothing is a false flag. */
+    f.disabled = !Aud.sessionActive;
+    f.title = Aud.handFalseFlags
+      ? 'Flag a mistake — ' + Aud.handFalseFlags +
+        ' false flag' + (Aud.handFalseFlags > 1 ? 's' : '') + ' on this hand so far.'
+      : 'Flag a mistake';
+  }
+};
+
+Aud.startSession = function() {
+  audRollLimits();          /* a new session is a new sign */
+  Aud.sessionActive = false;
+  Aud.handsPlayed = 0;
+  Aud.score = { caught: 0, wrongCall: 0, missed: 0, falseFlags: 0, clean: 0, paidWrong: 0 };
+  Aud.payErrors = [];
+  Aud.log = [];
+  Aud.current = null;
+  Aud.handResult = null;
+  Aud.correctedDef = null;
+  audEl('aud-scorecard').classList.remove('open');
+  Aud.cancelAim();
+  Aud.sessionActive = true;
+  Aud.beginHand();
+  audOrigNewRound.call(Game);
+  audAfterDeal();
+};
+
+Aud.endSession = function() {
+  Aud.sessionActive = false;
+  Aud.cancelAim();
+  Aud.updateHud();
+  if (audRun) {
+    const leg = audRun.queue[audRun.index];
+    audRun.results = audRun.results || [];
+    audRun.results.push({
+      id: leg.id, name: leg.name, hands: Aud.handsPlayed,
+      caught: Aud.score.caught, wrongCall: Aud.score.wrongCall,
+      missed: Aud.score.missed, falseFlags: Aud.score.falseFlags,
+      clean: Aud.score.clean,
+    });
+    audRun.index++;
+    audWriteRun(audRun);
+  }
+  Aud.openScorecard(true);
+};
+
+Aud.goNext = function() {
+  const next = audRun && audRun.queue[audRun.index];
+  location.href = next ? next.path : AUD_MENU_URL;
+};
+
+function audScoreFootHTML(final) {
+  if (final && audRun) {
+    const next = audRun.queue[audRun.index];
+    return '<button class="tray-btn" type="button" onclick="Aud.goNext()">' +
+      (next ? 'Next: ' + next.name + ' &rarr;' : 'See the full scorecard &rarr;') + '</button>';
+  }
+  return '<button class="tray-btn" type="button" onclick="Aud.startSession()">Start another audition</button>';
+}
+
+Aud.openScorecard = function(final) {
+  const s = Aud.score;
+  const rigged = s.caught + s.wrongCall + s.missed;
+  const pct = rigged ? Math.round((s.caught / rigged) * 100) : null;
+  const verdict = final
+    ? (pct == null
+        ? 'Nothing came up in this session. Raise the mistake chance in Settings for a harder run.'
+        : (s.falseFlags === 0 && pct === 100
+            ? 'Clean sweep — every call right, nothing called on a good hand.'
+            : 'You made the right call on ' + s.caught + ' of ' + rigged + '.' +
+              (s.falseFlags ? ' ' + s.falseFlags + ' false flag' + (s.falseFlags > 1 ? 's' : '') + ' on clean hands.' : '')))
+    : Aud.handsPlayed + ' of ' + Aud.handsTarget + ' hands played.';
+  const payLine = s.paidWrong
+    ? ' <strong>' + s.paidWrong + ' bet' + (s.paidWrong > 1 ? 's were' : ' was') +
+      ' settled the wrong way</strong> — paid when it should have been taken, or taken when it should have been paid.'
+    : '';
+
+  const rows = Aud.log.length ? Aud.log.map(e => {
+    const cls = e.result === 'falseFlag' ? 'falseflag'
+      : e.result === 'wrongCall' ? 'wrongcall' : e.result;
+    const tag = e.result === 'falseFlag' ? 'False flag'
+      : e.result === 'wrongCall' ? 'Wrong call'
+      : e.result === 'caught' ? 'Caught'
+      : e.result === 'missed' ? 'Missed' : 'Clean';
+    let desc;
+    if (e.result === 'clean') desc = '<em>Clean hand — nothing to find.</em>';
+    else if (e.result === 'wrongCall' && e.what) desc = (e.seat ? 'Spot ' + e.seat + ' — ' : '') + e.what + ' <em>· spotted it, wrong call</em>';
+    else if (e.what) desc = (e.seat ? 'Spot ' + e.seat + ' — ' : '') + e.what;
+    else desc = '<em>Flagged a clean hand.</em>';
+    return '<div class="aud-row"><span class="n">Hand ' + e.hand + '</span>' +
+           '<span class="d">' + desc + '</span><span class="v ' + cls + '">' + tag + '</span></div>';
+  }).join('') : '<div class="aud-row"><span class="n">—</span><span class="d"><em>No hands finished yet.</em></span><span class="v clean">&nbsp;</span></div>';
+
+  audEl('aud-score-title').textContent = final ? 'Audition complete' : 'Scorecard so far';
+  audEl('aud-score-body').innerHTML =
+    '<div class="aud-score-head">' +
+      '<div class="s-good"><b>' + s.caught + '</b><span>Caught</span></div>' +
+      '<div class="s-warn"><b>' + s.wrongCall + '</b><span>Wrong call</span></div>' +
+      '<div class="s-bad"><b>' + s.missed + '</b><span>Missed</span></div>' +
+      '<div class="s-warn"><b>' + s.falseFlags + '</b><span>False flags</span></div>' +
+      '<div class="s-bad"><b>' + (s.paidWrong || 0) + '</b><span>Paid wrong</span></div>' +
+      '<div><b>' + s.clean + '</b><span>Clean hands</span></div>' +
+    '</div>' +
+    '<p class="aud-verdict">' + verdict + payLine + '</p>' +
+    '<div class="aud-rows">' + rows + '</div>' +
+    '<div class="aud-score-foot">' + audScoreFootHTML(final) + '</div>';
+  audEl('aud-scorecard').classList.add('open');
+};
+
+Aud.onHandsChange = function(v) {
+  Aud.handsTarget = Math.max(3, Math.min(20, parseInt(v, 10) || 5));
+  const out = audEl('aud-hands-val'); if (out) out.textContent = Aud.handsTarget;
+  audSaveSettings();
+  Aud.updateHud();
+};
+Aud.onChanceChange = function(v) {
+  const pct = Math.max(0, Math.min(100, parseInt(v, 10) || 0));
+  Aud.mistakeChance = pct / 100;
+  const out = audEl('aud-chance-val'); if (out) out.textContent = pct + '%';
+  audSaveSettings();
+};
+function audSaveSettings() {
+  try {
+    localStorage.setItem(AUD_SETTINGS_KEY, JSON.stringify({
+      handsTarget: Aud.handsTarget, mistakeChance: Aud.mistakeChance,
+    }));
+  } catch (e) { /* ignore */ }
+}
+function audLoadSettings() {
+  try {
+    const raw = localStorage.getItem(AUD_SETTINGS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (typeof d.handsTarget === 'number' && d.handsTarget >= 3 && d.handsTarget <= 20) Aud.handsTarget = d.handsTarget;
+    if (typeof d.mistakeChance === 'number' && d.mistakeChance >= 0 && d.mistakeChance <= 1) Aud.mistakeChance = d.mistakeChance;
+  } catch (e) { /* ignore */ }
+}
+
+/* ==========================================================================
+ * Wrapping the round — the original still does all the work.
+ * ========================================================================== */
+/* Rig the layout and ride the cheques in. Every path that deals a fresh
+   round has to end here — startSession() calls the original directly, so it
+   goes through audAfterDeal() too. */
+function audAfterDeal() {
+  Aud.tryInject();
+  renderBets();
+  setTimeout(audDealBetsIn, 60);
+}
+
+const audOrigNewRound = Game.newRound;
+Game.newRound = function() {
+  if (Aud.sessionActive) {
+    Aud.closeHand();
+    if (Aud.handsPlayed >= Aud.handsTarget) { Aud.endSession(); return; }
+    Aud.beginHand();
+  }
+  audOrigNewRound.apply(this, arguments);
+  audAfterDeal();
+};
+
+
+/* ==========================================================================
+ * SETTLEMENT ERRORS — paying a loser, raking a winner
+ * --------------------------------------------------------------------------
+ * The practice sim refuses both. Audition mode lets them through, because
+ * being stopped teaches you nothing about noticing:
+ *
+ *   cheques in hand + click a bet due to be COLLECTED -> you paid a loser
+ *   empty hand      + click a bet due to be PAID      -> you raked a winner
+ * ========================================================================== */
+Aud.payErrors = [];
+Aud.oopsQueue = [];
+
+function audLogPayError(kind, seat, key, amount) {
+  Aud.payErrors.push({ kind, seat, key, amount });
+  Aud.score.paidWrong = (Aud.score.paidWrong || 0) + 1;
+  Aud.updateHud();
+}
+
+function audFlushPayErrors(stillOnSeat) {
+  if (!Aud.payErrors.length) return;
+  const due = Aud.payErrors.filter(e => stillOnSeat == null || e.seat !== stillOnSeat);
+  if (!due.length) return;
+  Aud.payErrors = Aud.payErrors.filter(e => due.indexOf(e) < 0);
+  Aud.showOops(due);
+}
+
+Aud.showOops = function(list) {
+  Aud.oopsQueue = Aud.oopsQueue.concat(list);
+  audEl('aud-oops-body').innerHTML = Aud.oopsQueue.map(e => {
+    const who = 'Spot ' + (e.seat + 1) + ' &middot; ' + (AUD_SPOT_LABEL[e.key] || e.key);
+    const line = e.kind === 'paid-loser'
+      ? who + ' lost that bet &mdash; it should have been collected.<em>You put ' +
+        audMoney(e.amount) + ' out of the rack on a losing bet.</em>'
+      : who + ' won that bet &mdash; it should have been paid.<em>You took ' +
+        audMoney(e.amount) + ' off a winning player instead.</em>';
+    return '<div class="aud-oops-item"><span class="amt">' +
+      (e.kind === 'paid-loser' ? '&minus;' : '+') + audMoney(e.amount) +
+      '</span><span>' + line + '</span></div>';
+  }).join('');
+  audEl('aud-oops-title').textContent = Aud.oopsQueue.length > 1
+    ? 'Those bets were settled wrong' : 'That bet was settled wrong';
+  audEl('aud-oops').classList.add('open');
+  const ok = audEl('aud-oops').querySelector('.aud-oops-ok');
+  if (ok) ok.focus();
+};
+
+Aud.closeOops = function() {
+  Aud.oopsQueue = [];
+  audEl('aud-oops').classList.remove('open');
+};
+
+/* The tray has to stay live through the collect step, or the mistake can't
+   be made at all. */
+const audOrigTrayClick = Game.trayClick;
+Game.trayClick = function(v) {
+  if (phase === 'settle-losers' && v) { inHand.push(v); renderInHand(); return; }
+  return audOrigTrayClick.apply(this, arguments);
+};
+
+/* Settlement runs through one click handler for both sides of the layout. */
+const audOrigSpotClick = Game.spotClick;
+Game.spotClick = function(i, key) {
+  if (Aud.sessionActive && (phase === 'settle-losers' || phase === 'settle-winners')) {
+    const seat = settleSeats[settleIdx];
+    if (seat && seat.i === i) {
+      const staged = inHand.reduce((a, v) => a + v, 0);
+      /* Cheques staged against a losing bet — you just paid it. */
+      if (phase === 'settle-losers' && seat.losers.indexOf(key) >= 0 && staged > 0) {
+        inHand = [];
+        renderInHand();
+        audLogPayError('paid-loser', i, key, staged);
+        audFlushPayErrors(i);
+        return audOrigSpotClick.call(this, i, key);   /* the bet still comes down */
+      }
+      /* Empty hand against a winning bet — you just took it. */
+      const w = phase === 'settle-winners' && seat.winners
+        && seat.winners.find(x => x.key === key);
+      if (w && staged === 0 && payPool <= 0.001) {
+        audLogPayError('raked-winner', i, key, w.owed);
+        audFlushPayErrors(i);
+        seat.winners = seat.winners.filter(x => x.key !== key);
+        const el = document.getElementById('s' + i + '-' + key);
+        if (el) el.classList.remove('payout-target');
+        seats[i].bets[key] = 0;
+        delete seats[i].comp[key];
+        renderBets();
+        if (seat.winners.length === 0) { settleIdx++; advanceSettle(); }
+        return;
+      }
+    }
+  }
+  return audOrigSpotClick.apply(this, arguments);
+};
+
+/* Nothing outlives the round. */
+const audOrigNewRoundFlush = Game.newRound;
+Game.newRound = function() {
+  audFlushPayErrors(null);
+  return audOrigNewRoundFlush.apply(this, arguments);
+};
+
+window.__AUD_TEST__ = {
+  get items() { return AUD_MISTAKES; },
+  get limits() { return AUD_LIMITS; },
+  get seats() { return seats; },
+  get phase() { return phase; },
+  audResolutionNow, audRestake, audSnapSeat, audRestoreSeat, audSpotMatches,
+  get settleSeats() { return settleSeats; },
+  get settleIdx() { return settleIdx; },
+};
+
+/* ---------------- Audition init ---------------- */
+audLoadSettings();
+audRollLimits();
+if (audRun) { Aud.handsTarget = audRun.hands; Aud.mistakeChance = audRun.chance;
+  Aud.testLimits = audRun.limits !== false; }
+helpEnabled = false;
+document.body.classList.add('help-off');
+{
+  const _h = $('aud-hands'), _hv = $('aud-hands-val');
+  if (_h) _h.value = Aud.handsTarget;
+  if (_hv) _hv.textContent = Aud.handsTarget;
+  const _c = $('aud-chance'), _cv = $('aud-chance-val');
+  if (_c) _c.value = Math.round(Aud.mistakeChance * 100);
+  if (_cv) _cv.textContent = Math.round(Aud.mistakeChance * 100) + '%';
+}
+Aud.sessionActive = true;
+Aud.beginHand();
+/* The game starts immediately — no need to press New Round. */
+audOrigNewRound.call(Game);
+audAfterDeal();
+/* ---- the table stops talking ------------------------------------------
+   setStatus is the running commentary and every "click X next" prompt, so it
+   is silenced. flashStatus is different: it reports that something the dealer
+   just tried was refused, which is not the same as being told what to do. */
+const audOrigSetStatus = setStatus;
+setStatus = function (msg, opts) {
+  return audOrigSetStatus.call(this, '', opts);
+};
+flashStatus = function (msg) {
+  const el = (typeof audEl === 'function' ? audEl('status') : document.getElementById('status'));
+  audOrigSetStatus.call(null, msg, {});
+  setTimeout(function () {
+    if (el && el.textContent === msg) audOrigSetStatus.call(null, '', {});
+  }, 1600);
+};
+document.body.classList.add('aud-bare');
+/* Boot already wrote a prompt before this override was installed. */
+audOrigSetStatus.call(null, '', {});
+
+</script>
+</body>
+</html>
