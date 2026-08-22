@@ -211,6 +211,11 @@ input[type=range] { width: 100%; max-width: 300px; accent-color: #dc2626; }
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
 }
+.gtag.rec {
+  color: #86efac;
+  background: rgba(34,197,94,0.12);
+  border-color: rgba(34,197,94,0.35);
+}
 
 /* ---------- launch bar ---------- */
 .launch {
@@ -315,7 +320,7 @@ input[type=range] { width: 100%; max-width: 300px; accent-color: #dc2626; }
     <div class="ctl-label">Hands per game<span class="ctl-sub">Each game you pick deals this many.</span></div>
     <div class="stepper">
       <button type="button" id="hands-down" aria-label="Fewer hands">&minus;</button>
-      <b id="hands-val">5</b>
+      <b id="hands-val">7</b>
       <button type="button" id="hands-up" aria-label="More hands">+</button>
     </div>
 
@@ -358,10 +363,10 @@ const AUDITION_GAMES = [
      in the session: the player changes money in before a card is dealt, and
      colours up once the first game is done. Picked or not, the games always
      run in between. */
-  { id: 'ex-change', name: 'Changing money', path: 'exchange-audition.html', exchange: 'open',  ready: true },
-  { id: 'ex-color',  name: 'Coloring up',   path: 'exchange-audition.html', exchange: 'after', ready: true },
+  { id: 'ex-change', name: 'Changing money', path: 'exchange-audition.html', exchange: 'open',  ready: true, rec: true },
+  { id: 'ex-color',  name: 'Coloring up',   path: 'exchange-audition.html', exchange: 'after', ready: true, rec: true },
   { id: 'bj-shoe',   name: 'Blackjack — Shoe',   path: 'dealing-simulator-audition.html', ready: true },
-  { id: 'bj-pitch',  name: 'Blackjack — Pitch',  path: 'pitch-dealing-simulator-audition.html', ready: true },
+  { id: 'bj-pitch',  name: 'Blackjack — Pitch',  path: 'pitch-dealing-simulator-audition.html', ready: false },
   { id: 'deuces',    name: 'Deuces Wild Xtreme', path: 'deuces-wild-xtreme-dealer-simulator-audition.html', ready: false },
   { id: 'prime',     name: 'Three Card Prime',   path: 'three-card-prime-simulator-audition.html', ready: false },
   { id: 'holdem',    name: "Heads Up Hold'em",   path: 'heads-up-holdem-simulator-audition.html', ready: false },
@@ -371,7 +376,7 @@ const AUDITION_GAMES = [
 
 
 const RUN_KEY  = 'tdt-audition-run-v1';
-const PREF_KEY = 'tdt-audition-prefs-v3';
+const PREF_KEY = 'tdt-audition-prefs-v4';
 
 const $ = id => document.getElementById(id);
 
@@ -379,8 +384,8 @@ const $ = id => document.getElementById(id);
 /* Defaults for a fresh browser: a hard session on the two blackjacks, with
    bet sizes left alone. Bumping PREF_KEY is what makes these reach anyone who
    has already used the page — otherwise their stored prefs win forever. */
-let prefs = { hands: 5, chance: 0.66,
-              picked: ['ex-change', 'ex-color', 'bj-shoe', 'bj-pitch'], limits: false };
+let prefs = { hands: 7, chance: 0.66,
+              picked: ['ex-change', 'ex-color', 'bj-shoe'], limits: false };
 try {
   const raw = localStorage.getItem(PREF_KEY);
   if (raw) {
@@ -417,7 +422,9 @@ function renderGames() {
     el.innerHTML =
       '<span class="box">' + CHECK + '</span>' +
       '<span class="gmeta"><span class="gname">' + g.name + '</span></span>' +
-      (g.ready ? '' : '<span class="gtag">Coming soon</span>');
+      (g.ready
+        ? (g.rec ? '<span class="gtag rec">Recommended</span>' : '')
+        : '<span class="gtag">Coming soon</span>');
     if (g.ready) {
       el.setAttribute('aria-pressed', on ? 'true' : 'false');
       el.onclick = () => toggle(g.id);
