@@ -1037,6 +1037,13 @@ let helpEnabled = true;
    generate $100 and $20 bills (no $50/$10/$5/$1). */
 let bigBillsOnly = false;
 
+/* Audition legs: the incoming color-up pile never contains $500 purples. */
+let audNoPurples = false;
+
+/* Audition changing leg: the cash always includes at least this many $100
+   bills (0 = no floor, the practice trainer's behaviour). */
+let audMinHundreds = 0;
+
 /* ---------- Persistence ---------- */
 const STORAGE_KEY = 'cheque-exchange-settings-v1';
 
@@ -1456,7 +1463,7 @@ function genColorComingIn() {
          ($1k+), optionally sprinkle in a few $500 purples for realism —
          real players coloring up a sizable buy-in usually have at least
          some purples mixed into their pile. Blacks still dominate. */
-      if (remaining >= 1000) {
+      if (remaining >= 1000 && !audNoPurples) {
         const maxPurple = Math.min(15, Math.floor(remaining / 1000));
         const r = Math.random();
         if      (r < 0.40) n500 = 0;                                       // 40%: blacks-only
@@ -2124,7 +2131,7 @@ function flashStatus(text, kind) {
  *              fits on the table at once — five stacks at most, so there is
  *              no "and counting" and no second batch.
  *
- *   ex-color   the player colours up after the first game. $707.50–$975.50,
+ *   ex-color   the player colours up after the first game. $967.50–$1467.50,
  *              on $2.50 steps, so the pink chip is live about half the time.
  *
  * One transaction, one attempt. Getting it wrong doesn't stop the session —
@@ -2170,12 +2177,26 @@ function audApplySettings() {
   enabledTypes = { color: AUD_SPEC.type === 'color',
                    change: false,
                    cash:  AUD_SPEC.type === 'cash' };
-  RANGE.colorMin = 707.5;  RANGE.colorMax = 975.5;
+  RANGE.colorMin = 967.5;  RANGE.colorMax = 1467.5;
+  audNoPurples = true;   /* the pile arrives in blacks and smaller — no $500s */
   RANGE.cashMin  = 500;    RANGE.cashMax  = 650;
+  audMinHundreds = 3;      /* three or four hundreds in every drop */
   document.body.classList.add('help-off');
   const t = document.getElementById('leg-title'); if (t) t.textContent = AUD_SPEC.title;
   const u = document.getElementById('leg-sub');   if (u) u.textContent = AUD_SPEC.sub;
 }
+
+/* The hundreds floor: reserve 3–4 $100 bills off the top, break the rest
+   down however the ordinary generator likes, then put the hundreds back. */
+const audOrigBillBreakdown = randomBillBreakdown;
+randomBillBreakdown = function (total) {
+  if (!audMinHundreds || bigBillsOnly) return audOrigBillBreakdown(total);
+  const want = audMinHundreds + (Math.random() < 0.5 ? 1 : 0);
+  const reserve = Math.min(Math.floor(total / 100), want);
+  const counts = audOrigBillBreakdown(total - reserve * 100);
+  counts[100] += reserve;
+  return counts;
+};
 
 /* saveSettings would write this leg's forced values over the practice
    trainer's own stored preferences. It shares a storage key, so it stays
