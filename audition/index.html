@@ -365,6 +365,7 @@ const AUDITION_GAMES = [
      run in between. */
   { id: 'ex-change', name: 'Changing money', path: 'exchange-audition.html', exchange: 'open',  ready: true, rec: true },
   { id: 'ex-color',  name: 'Coloring up',   path: 'exchange-audition.html', exchange: 'after', ready: true, rec: true },
+  { id: 'bj-pay',    name: 'Blackjack payouts', path: 'dealing-simulator-audition.html', drill: true, ready: true, rec: true },
   { id: 'bj-shoe',   name: 'Blackjack — Shoe',   path: 'dealing-simulator-audition.html', ready: true },
   { id: 'bj-pitch',  name: 'Blackjack — Pitch',  path: 'pitch-dealing-simulator-audition.html', ready: false },
   { id: 'deuces',    name: 'Deuces Wild Xtreme', path: 'deuces-wild-xtreme-dealer-simulator-audition.html', ready: false },
@@ -385,7 +386,7 @@ const $ = id => document.getElementById(id);
    bet sizes left alone. Bumping PREF_KEY is what makes these reach anyone who
    has already used the page — otherwise their stored prefs win forever. */
 let prefs = { hands: 7, chance: 0.66,
-              picked: ['ex-change', 'ex-color', 'bj-shoe'], limits: false };
+              picked: ['ex-change', 'ex-color', 'bj-pay', 'bj-shoe'], limits: false };
 try {
   const raw = localStorage.getItem(PREF_KEY);
   if (raw) {
@@ -517,7 +518,9 @@ $('start').onclick = function() {
   const chosen = prefs.picked
     .map(id => AUDITION_GAMES.find(g => g.id === id))
     .filter(Boolean);
-  const games = chosen.filter(g => !g.exchange).map(g => ({ id: g.id, name: g.name, path: g.path }));
+  const games = chosen.filter(g => !g.exchange && !g.drill).map(g => ({ id: g.id, name: g.name, path: g.path }));
+  const drill = chosen.find(g => g.drill);
+  const drillLeg = drill ? [{ id: drill.id, name: drill.name, path: drill.path }] : [];
   const leg = k => {
     const g = chosen.find(x => x.exchange === k);
     return g ? [{ id: g.id, name: g.name, path: g.path }] : [];
@@ -525,8 +528,11 @@ $('start').onclick = function() {
   if (!games.length && !chosen.length) return;
   /* Change the player in, deal the first game, colour someone up, carry on.
      Either exchange can be left out; the order of what remains doesn't move. */
+  /* The payout drill sits where it happens at a real audition: hands are
+     played, the cards go away, six blackjacks get paid, then the color-up. */
   const queue = leg('open')
     .concat(games.slice(0, 1))
+    .concat(drillLeg)
     .concat(leg('after'))
     .concat(games.slice(1));
   if (!queue.length) return;
@@ -597,7 +603,6 @@ function renderResults() {
 
   $('results').innerHTML =
     '<h2>Audition complete</h2>' +
-    '<p class="verdict">' + verdict + '</p>' +
     '<div class="totals">' +
       '<div class="t-good"><b>' + t.caught + '</b><span>Right call</span></div>' +
       '<div class="t-warn"><b>' + t.wrongCall + '</b><span>Wrong call</span></div>' +
