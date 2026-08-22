@@ -118,6 +118,29 @@ h1 {
   background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
 }
 .tile.disabled:hover::before { transform: scaleY(0); }
+.tile.audition {
+  border-color: rgba(248,113,113,0.32);
+  background: linear-gradient(180deg, rgba(220,38,38,0.13) 0%, rgba(220,38,38,0.04) 100%);
+}
+.tile.audition::before { background: linear-gradient(180deg, #ef4444, #a855f7); }
+.tile.audition:hover { border-color: rgba(248,113,113,0.6); }
+.tile.audition .title { display: flex; align-items: center; gap: 9px; }
+.tile.audition .mark {
+  display: grid; place-items: center;
+  width: 20px; height: 20px; border-radius: 6px; flex: 0 0 auto;
+  background: #dc2626; color: #fff; font-weight: 900; font-size: 13px;
+}
+.tile.audition .meta { color: rgba(248,113,113,0.9); }
+/* Held back: the red comes off and the tile reads like any other dead control.
+   Flip AUDITION_ENABLED at the foot of this file and the tint comes back. */
+.tile.audition.disabled {
+  border-color: rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+}
+.tile.audition.disabled::before { background: linear-gradient(180deg, #71717a, #52525b); }
+.tile.audition.disabled .mark { background: rgba(255,255,255,0.16); color: rgba(255,255,255,0.7); }
+.tile.audition.disabled .meta { display: none; }
+.tile.audition:not(.disabled) .badge-soon { display: none; }
 .tile .badge-soon {
   display: inline-block; margin-top: 8px;
   padding: 3px 9px; border-radius: 999px;
@@ -215,6 +238,12 @@ h1 {
       <span class="desc">Wheel math, payout tables, multiplication drills.</span>
       <span class="meta">Open Trainer</span>
     </a>
+    <a class="tile audition" id="tile-audition" href="audition/index.html">
+      <span class="title"><span class="mark">!</span>Audition Mode</span>
+      <span class="desc">Deal a session across the games you pick. Players may or may not follow the rules. Catch it, or it goes on the scorecard.</span>
+      <span class="meta">Set up a run</span>
+      <span class="badge-soon">Not yet</span>
+    </a>
     <a class="tile" href="blackjack/cheque-money-exchange.html">
       <span class="title">Cheque &amp; Money Exchange</span>
       <span class="desc">Single-station drill. Color coming in, cheque change, and money changing — build the outgoing stack from the chip tray.</span>
@@ -238,5 +267,26 @@ h1 {
     <a href="mailto:jbhasselle@gmail.com?subject=Table%20Dealer%20Trainer%20bug">jbhasselle@gmail.com</a></p>
 </div>
 
+<script>
+  /* ==========================================================================
+     AUDITION MODE — one switch
+     --------------------------------------------------------------------------
+     false: the tile is grey, says "Not yet", and does not open.
+     true:  the tile carries its red tint and links through as normal.
+     Nothing else needs editing either way.
+     ========================================================================== */
+  const AUDITION_ENABLED = false;
+
+  (function () {
+    const tile = document.getElementById('tile-audition');
+    if (!tile) return;
+    tile.classList.toggle('disabled', !AUDITION_ENABLED);
+    tile.setAttribute('aria-disabled', String(!AUDITION_ENABLED));
+    if (!AUDITION_ENABLED) {
+      tile.setAttribute('tabindex', '-1');
+      tile.addEventListener('click', function (ev) { ev.preventDefault(); });
+    }
+  })();
+</script>
 </body>
 </html>
