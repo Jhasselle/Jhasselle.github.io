@@ -299,6 +299,25 @@
     border-radius: 999px; padding: 2px 9px;
     border: 1px solid #fff; z-index: 7; pointer-events: none;
   }
+  /* A locked scorecard has no close button — the way on is the way out. */
+  #aud-scorecard.locked .modal-close { display: none; }
+  /* ---- payout drill chrome ---- */
+  body.aud-drill .aud-rail, body.aud-drill .shoe,
+  body.aud-drill .red-button, body.aud-drill #close-btn { display: none !important; }
+  .drill-hud {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(8,10,20,0.85); border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 999px; padding: 6px 16px; z-index: 30;
+    font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em;
+  }
+  .drill-hud .ok { color: #4ade80; } .drill-hud .no { color: #f87171; }
+  .drill-skip {
+    position: fixed; bottom: 14px; left: 14px; z-index: 30;
+    background: none; border: 1px solid rgba(255,255,255,0.25); cursor: pointer;
+    color: rgba(255,255,255,0.6); font-family: inherit; font-weight: 700;
+    font-size: 0.7rem; border-radius: 9px; padding: 6px 14px;
+  }
+  .drill-skip:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
   .side-circle .result-badge {
     position: absolute;
     top: -8px;
@@ -5581,13 +5600,24 @@ function audReadRun() {
     const r = JSON.parse(localStorage.getItem(AUD_RUN_KEY));
     if (!r || r.v !== 1 || !Array.isArray(r.queue)) return null;
     const leg = r.queue[r.index];
-    return (leg && leg.id === AUD_GAME_ID) ? r : null;   /* not our leg */
+    /* This page serves two legs: the shoe game, and the payout drill that
+       borrows its table, cheques and cards. */
+    return (leg && (leg.id === AUD_GAME_ID || leg.id === 'bj-pay')) ? r : null;
   } catch (e) { return null; }
 }
 function audWriteRun(r) {
   try { localStorage.setItem(AUD_RUN_KEY, JSON.stringify(r)); } catch (e) { /* ignore */ }
 }
 let audRun = audReadRun();
+
+/* Payout-drill mode: this leg of the run, or ?drill=pay for a direct look. */
+function audIsDrillLeg() {
+  try {
+    if (new URLSearchParams(location.search).get('drill') === 'pay') return true;
+  } catch (e) { /* old browser — run detection still works */ }
+  const leg = audRun && audRun.queue[audRun.index];
+  return !!(leg && leg.id === 'bj-pay');
+}
 
 /* The hand's phases in the order they actually occur. Turning `phase` into a
    number is what lets each item know whether the dealer is still on top of it
@@ -5763,7 +5793,7 @@ const Aud = {
   current: null,      /* { def, i, info } once injected */
   handResult: null,   /* set by judge(); derived at closeHand() if still null */
   flagUsed: false,
-  testLimits: true,   /* the launcher can turn sign-testing off for a session */
+  testLimits: false,  /* bet-size mistakes are opt-in — the launcher's switch turns them on */
   targeting: false,
   aimSpot: null,
   score: { caught: 0, wrongCall: 0, missed: 0, falseFlags: 0, clean: 0, paidWrong: 0 },
@@ -6879,6 +6909,8 @@ Aud.openScorecard = function(final) {
     '<p class="modal-sub" style="margin-top:14px"><strong>Hand by hand:</strong></p>' +
     '<div class="aud-rows">' + rows + '</div>' +
     '<div class="modal-foot">' + audScoreFootHTML(final) + '</div>';
+  Aud.scoreLocked = !!(final && audRun);
+  $('aud-scorecard').classList.toggle('locked', Aud.scoreLocked);
   $('aud-scorecard').classList.add('open');
 };
 
@@ -6978,7 +7010,10 @@ function audLogPayError(kind, seat, key, amount, handIdx) {
   const facts = (key === 'main') ? audHandFacts(seat, handIdx) : null;
   Aud.payErrors.push({ kind, seat, key, amount, step: AUD_STEP_LABEL[phase] || null,
                        facts: facts });
-  Aud.score.paidWrong++;
+  /* "Paid wrong" is money settled the wrong way. A procedure slip — the burn
+     out of order, a skipped check — is a MISS, not a mispayment (Jason). */
+  if (kind === 'note' || kind === 'out-of-order') Aud.score.missed++;
+  else Aud.score.paidWrong++;
   Aud.updateHud();
 }
 
@@ -7039,8 +7074,8 @@ Aud.showOops = function(list) {
     const line = e.kind === 'paid-loser'
       ? who + ' lost that hand &mdash; it should have been collected.<em>You put $' +
         formatMoney(e.amount) + ' out of the rack on a losing bet.' + when + facts + '</em>'
-      : who + ' won that bet &mdash; it should have been paid.<em>You took $' +
-        formatMoney(e.amount) + ' off a winning player instead.' + when + '</em>';
+      : who + ' won that bet &mdash; it was owed $' + formatMoney(e.amount) +
+        '.<em>Their bet went into the rack instead of being paid.' + when + '</em>';
     return '<div class="aud-oops-item"><span class="amt">' +
       (e.kind === 'paid-loser' ? '&minus;' : '+') + '$' + formatMoney(e.amount) +
       '</span><span>' + line + '</span></div>';
@@ -7387,7 +7422,7 @@ Settings.unusualBets = false;   /* audition reads bets in $5 — no $0.50 noise 
 if (audRun) {
   Aud.handsTarget = audRun.hands;
   Aud.mistakeChance = audRun.chance;
-  Aud.testLimits = audRun.limits !== false;
+  Aud.testLimits = audRun.limits === true;   /* off unless the run says otherwise */
   const legNo = audRun.index + 1, legs = audRun.queue.length;
   const back = document.querySelector('.back-link');
   if (back) { back.href = AUD_MENU_URL; back.innerHTML = '&larr; Audition menu'; }
@@ -7402,9 +7437,15 @@ wireThreeCircleClicks();
 helpEnabled = false;
 document.body.classList.add('help-off');
 Shoe.build(6);
-Aud.sessionActive = true;
-Aud.beginHand();
-audOrigNewRound.call(Game);
+if (audIsDrillLeg()) {
+  /* The drill layer is defined further down the file — let it exist first. */
+  document.body.classList.add('aud-drill');
+  setTimeout(function () { audDrillStart(); }, 0);
+} else {
+  Aud.sessionActive = true;
+  Aud.beginHand();
+  audOrigNewRound.call(Game);
+}
 /* Re-fit dealer cards if the viewport changes (rotation, browser resize). */
 window.addEventListener('resize', () => { fitDealerCards(); });
 /* Splitting support — see makePlayer/makeHand for the per-hand model. */
@@ -7641,6 +7682,14 @@ const AUD_INS_OVERBET_CHANCE = 0.8;
 
 function audRigInsuranceOverbet() {
   if (!Aud.sessionActive) return false;
+  /* One mistake per hand is the contract. If the round has already staged
+     something else — a Bust Bonus placed early, a short progressive — the
+     insurance line stays honest. The old behaviour quietly un-staged the
+     earlier mistake here, which made it vanish from the felt mid-round,
+     uncalled and unscored (Jason caught this: his early bust bonus
+     disappeared right after insurance). */
+  if (Aud.current && Aud.current.def.id !== 'BJS-07') return false;
+  if (Aud.handRigged && !Aud.current) return false;   /* already called this hand */
   let def = null;
   for (let k = 0; k < AUD_MISTAKES.length; k++) {
     if (AUD_MISTAKES[k].id === 'BJS-07') { def = AUD_MISTAKES[k]; break; }
@@ -7669,17 +7718,9 @@ function audRigInsuranceOverbet() {
     try { if (def.can(pl, i)) pool.push(i); } catch (e) { /* skip */ }
   }
   if (!pool.length) return false;
+  /* Already staged as the overbet by the general draw — nothing to add. */
+  if (Aud.current && Aud.current.def.id === 'BJS-07') return true;
   const seat = pool[Math.floor(Math.random() * pool.length)];
-  /* The flag judges one live mistake at a time, so anything the round staged
-     earlier goes back the way it was — money and felt both. */
-  if (Aud.current) {
-    const old = Aud.current;
-    Aud.current = null;
-    try {
-      old.def.fix(players[old.i], old.info, old.i);
-      audPaintFor(old.def, old.i);
-    } catch (e) { /* best effort */ }
-  }
   const pl = players[seat];
   const info = def.apply(pl, seat) || {};
   Aud.current = { def: def, i: seat, info: info };
@@ -7707,7 +7748,7 @@ function audDealerError(points, headline, detail, opts) {
   Aud.payErrors.push({ kind: 'note', seat: 0, key: 'peek', amount: 0,
                        text: headline, sub: detail, points: points,
                        floor: !!opts.floor });
-  Aud.score.paidWrong += points;
+  Aud.score.missed++;   /* a procedure slip is a miss, whatever it costs */
   Aud.updateHud();
   if (!opts.defer) audFlushPayErrors(null);
 }
@@ -8432,23 +8473,28 @@ dealerHit = function () {
   return audOrigDealerHit.apply(this, arguments);
 };
 
-/* Paying a Bust Bonus off a hand that was never going to bust. */
-const audOrigPaySingleCombined = paySingleCombined;
-paySingleCombined = function () {
-  /* Only when that card is what caused the bust: the hand it left behind is
-     over 21, and the hand it started from was not. */
-  const audBustCameFromOverdraw = audOverdrewAt !== null
+/* Paying a Bust Bonus off a hand that was never going to bust. The three
+   points land when the money actually MOVES — a queued payout the dealer
+   hasn't touched yet is not yet the mistake (Jason). */
+const audOrigPayCombinedOverdraw = payCombined;
+payCombined = function (playerIdx, key) {
+  const hadBust = !!(currentTarget && currentTarget.pendingBets
+    && currentTarget.pendingBets.some(function (b) { return b.key === 'bust'; }));
+  const out = audOrigPayCombinedOverdraw.apply(this, arguments);
+  const hasBust = !!(currentTarget && currentTarget.pendingBets
+    && currentTarget.pendingBets.some(function (b) { return b.key === 'bust'; }));
+  const bustJustPaid = key === 'bust' && hadBust && !hasBust;
+  const bustFromOverdraw = audOverdrewAt !== null
     && audOverdrewAt <= 21 && handTotal(dealer.cards).total > 21;
-  if (audBustCameFromOverdraw && !audOverdrawScored
-      && pendingCombined.length && pendingCombined[0].bustPay > 0) {
+  if (bustJustPaid && bustFromOverdraw && !audOverdrawScored) {
     audOverdrawScored = true;
     audDealerError(3,
-      'You are paying a Bust Bonus on a hand that should have stood.',
+      'You paid a Bust Bonus on a hand that should have stood.',
       'The dealer was on ' + audOverdrewAt + ' — a made hand, and the end of it. ' +
       'The card after that had no business being drawn, and the bust it caused ' +
       'is not a bust. Floor call, three points.', { floor: true });
   }
-  return audOrigPaySingleCombined.apply(this, arguments);
+  return out;
 };
 
 /* If it came to nothing it still goes on the card, at the close. */
@@ -8597,6 +8643,245 @@ Game.newRound = function () {
   document.querySelectorAll('.aud-push-badge').forEach(function (b) { b.remove(); });
   return audOrigNewRoundPushClear.apply(this, arguments);
 };
+
+
+/* ==========================================================================
+ * THE END-OF-GAME SCORECARD CANNOT BE LOST
+ * Mid-run, that card carries the only way forward to the next leg — closing
+ * it by accident stranded the session on a finished game. While a run is
+ * live it simply refuses to close; the button on it is the only exit.
+ * ========================================================================== */
+Aud.scoreLocked = false;
+const audOrigCloseModalLock = Game.closeModal;
+Game.closeModal = function (id) {
+  if (id === 'aud-scorecard' && Aud.scoreLocked) return;
+  return audOrigCloseModalLock.apply(this, arguments);
+};
+
+
+/* ==========================================================================
+ * THE PAYOUT DRILL — six blackjacks in a row, three on the felt at a time
+ * The cards go away mid-audition and the dealer proves they can cut 3:2
+ * cold. Same felt, same cheques, same cards, same tray — only the game is
+ * different: no shoe, no decisions, just build the payout and deliver it.
+ * Right to left, one attempt each, every bet bigger than the last.
+ * ========================================================================== */
+function audDrillBets() {
+  const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const bets = [];
+  bets.push(Math.random() < 0.5 ? 15 : 25);
+  bets.push(30 + 5 * r(0, 3));
+  bets.push(50 + 5 * r(0, 6));
+  bets.push(85 + 5 * r(0, 8));
+  const r5 = 150 + 25 * r(0, 12);                              /* 150..450 */
+  bets.push(r5);
+  bets.push((r5 + 25) + 25 * r(0, Math.floor((475 - r5 - 25) / 25)));
+  return bets;
+}
+
+const AUD_DRILL_TENS = [['K','d'], ['Q','c'], ['J','s'], ['10','h'], ['Q','d'], ['K','c']];
+const Drill = {
+  bets: [], owed: [], results: [],
+  set: 0, seat: -1,          /* seats pay right to left: 2, 1, 0 */
+  live: false,
+};
+
+function audDrillStart() {
+  Drill.bets = audDrillBets();
+  Drill.owed = Drill.bets.map(b => Math.round(b * 1.5 * 100) / 100);
+  Drill.results = [];
+  Drill.set = 0;
+  Drill.live = true;
+  setPhase('drill-pay');
+  enableShoe(false);
+  const sub = document.querySelector('.sub');
+  if (sub && sub.innerHTML.indexOf('cards are away') < 0) {
+    sub.innerHTML = sub.innerHTML.replace(/(<strong>[^<]*<\/strong> &middot; )?.*$/,
+      '$1The cards are away — pay six blackjacks in a row, right to left.');
+  }
+  const hud = document.createElement('div');
+  hud.className = 'drill-hud';
+  hud.id = 'drill-hud';
+  document.body.appendChild(hud);
+  const skip = document.createElement('button');
+  skip.className = 'drill-skip';
+  skip.type = 'button';
+  skip.textContent = 'Skip the rest of the drill';
+  skip.onclick = audDrillSkip;
+  document.body.appendChild(skip);
+  audDrillDealSet();
+}
+
+function audDrillHud() {
+  const n = Math.min(Drill.results.length + 1, 6);
+  const ok = Drill.results.filter(r => r.ok).length;
+  const no = Drill.results.filter(r => r.ok === false).length;
+  const el = $('drill-hud');
+  if (el) el.innerHTML = 'Payout ' + n + ' of 6 &nbsp;&middot;&nbsp; ' +
+    '<span class="ok">' + ok + ' right</span> &nbsp;' +
+    '<span class="no">' + no + ' wrong</span>';
+}
+
+/* Three naturals hit the felt: the LOWEST bet of the set on seat 3, because
+   settlement runs right to left and the drill climbs as it goes. */
+function audDrillDealSet() {
+  const base = Drill.set * 3;
+  /* The normal boot builds the players inside newRound — the drill skips
+     that boot, so the seats are made here. */
+  if (players.length < NUM_PLAYERS) {
+    players = [];
+    for (let i = 0; i < NUM_PLAYERS; i++) players.push(makePlayer());
+    dealer = { cards: [] };
+  }
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const pl = players[i];
+    const k = base + (NUM_PLAYERS - 1 - i);          /* seat2=first, seat0=last */
+    const ten = AUD_DRILL_TENS[k];
+    pl.hands = [{ cards: [{ rank: 'A', suit: 's' }, { rank: ten[0], suit: ten[1] }],
+                  bet: Drill.bets[k], stood: true, busted: false, doubled: false,
+                  mainOutcome: 'BJ_WIN', mainPayAmount: Drill.owed[k], isSplitAce: false }];
+    pl.activeHandIdx = 0;
+    pl.mainOriginal = Drill.bets[k];
+    pl.naturalBJ = true;
+    pl.three = 0; pl.bust = 0; pl.jkp = 0; pl.bjk = 0; pl.insurance = 0;
+    pl.results = {};
+    setInsuranceChip(i, 0);
+    renderPlayerCards(i);
+    rerenderMainBet(i);
+    audFlyIn(audSpotEl(i, 'main'), { delay: i * 120 });
+  }
+  dealer.cards = [];
+  renderDealerCards(0, false);
+  Drill.seat = NUM_PLAYERS - 1;
+  enableChipTray(true);
+  inHandChips = [];
+  renderInHand();
+  audDrillArm();
+  audDrillHud();
+}
+
+function audDrillArm() {
+  for (let i = 0; i < NUM_PLAYERS; i++) markMainBetTarget(i, null, null);
+  if (Drill.seat >= 0) markMainBetTarget(Drill.seat, 0, 'payout');
+}
+
+/* Which payout number the current seat is working. */
+function audDrillIdx() { return Drill.set * 3 + (NUM_PLAYERS - 1 - Drill.seat); }
+
+function audDrillDeliver(seat) {
+  if (!Drill.live || phase !== 'drill-pay') return;
+  if (seat !== Drill.seat || Drill.seat < 0) return;
+  if (!inHandChips.length) return;
+  const k = audDrillIdx();
+  const bet = Drill.bets[k], owed = Drill.owed[k];
+  const gave = Math.round(inHandTotal() * 100) / 100;
+  const ok = Math.abs(gave - owed) < 0.001;
+  Drill.results.push({ bet: bet, owed: owed, gave: gave, ok: ok });
+
+  /* The payout lands as its own stack beside the bet — the double-stack
+     rendering the table already uses for exactly that picture. */
+  const el = audSpotEl(seat, 'main');
+  try {
+    renderBetStack(el, bet, true, undefined, gave);
+    audFlyIn(el, {});
+  } catch (e) { /* best effort */ }
+  inHandChips = [];
+  renderInHand();
+
+  if (ok) {
+    Aud.toast(true, 'Right \u2014 ' + audMoney(bet) + ' pays ' + audMoney(owed) + '.', '');
+  } else {
+    Aud.toast(false, 'You delivered ' + audMoney(gave) + '.',
+      'A ' + audMoney(bet) + ' blackjack pays ' + audMoney(owed) + '.');
+  }
+  audDrillHud();
+
+  Drill.seat--;
+  if (Drill.seat >= 0) {
+    setTimeout(audDrillArm, ok ? 500 : 1400);
+    return;
+  }
+  /* Set finished: the cards come off, the felt clears, and either the next
+     three naturals come out or the drill is over. */
+  setTimeout(function () {
+    for (let i = 0; i < NUM_PLAYERS; i++) {
+      const cardsEl = $('p' + i + '-cards');
+      if (cardsEl) cardsEl.querySelectorAll('.playing-card')
+        .forEach(c => c.classList.add('collected-fade'));
+    }
+    setTimeout(function () {
+      for (let i = 0; i < NUM_PLAYERS; i++) {
+        const pl = players[i];
+        pl.hands = [{ cards: [], bet: 0, stood: false, busted: false, doubled: false,
+                      mainOutcome: undefined, mainPayAmount: 0, isSplitAce: false }];
+        pl.activeHandIdx = 0; pl.mainOriginal = 0; pl.naturalBJ = false;
+        renderPlayerCards(i);
+        rerenderMainBet(i);
+        markMainBetTarget(i, null, null);
+      }
+      if (Drill.set === 0) { Drill.set = 1; setTimeout(audDrillDealSet, 500); }
+      else audDrillFinish(false);
+    }, 450);
+  }, ok ? 900 : 1700);
+}
+
+const audOrigMainClickDrill = Game.mainClick;
+Game.mainClick = function (playerIdx) {
+  if (phase === 'drill-pay') return audDrillDeliver(playerIdx);
+  return audOrigMainClickDrill.apply(this, arguments);
+};
+
+function audDrillSkip() {
+  if (!Drill.live) return;
+  for (let k = Drill.results.length; k < 6; k++) {
+    Drill.results.push({ bet: Drill.bets[k], owed: Drill.owed[k], skipped: true });
+  }
+  audDrillFinish(true);
+}
+
+function audDrillFinish(skipped) {
+  Drill.live = false;
+  setPhase('drill-done');
+  enableChipTray(false);
+  const right = Drill.results.filter(r => r.ok).length;
+  const wrong = Drill.results.filter(r => r.ok === false).length;
+  const skips = Drill.results.filter(r => r.skipped).length;
+
+  if (audRun) {
+    audRun.results = audRun.results || [];
+    audRun.results.push({
+      id: 'bj-pay', name: 'Blackjack payouts',
+      hands: 6, caught: 0, wrongCall: 0, missed: 0, falseFlags: 0,
+      clean: right, paidWrong: wrong,
+      note: right + ' of 6 payouts right' + (skips ? ', ' + skips + ' skipped' : ''),
+    });
+    audRun.index++;
+    audWriteRun(audRun);
+  }
+
+  const rows = Drill.results.map(function (r, k) {
+    const tag = r.skipped ? '<span class="v clean">Skipped</span>'
+      : r.ok ? '<span class="v caught">' + audMoney(r.owed) + '</span>'
+      : '<span class="v missed">' + audMoney(r.gave) + ' (owed ' + audMoney(r.owed) + ')</span>';
+    return '<div class="aud-row"><span class="n">#' + (k + 1) + '</span>' +
+      '<span class="d">' + audMoney(r.bet) + ' blackjack</span>' + tag + '</div>';
+  }).join('');
+
+  $('aud-score-title').textContent = skipped
+    ? 'Drill skipped \u2014 ' + right + ' of ' + (right + wrong) + ' paid right'
+    : (right === 6 ? 'Six for six \u2014 every payout right' : right + ' of 6 paid right');
+  $('aud-score-body').innerHTML =
+    '<div class="aud-rows">' + rows + '</div>' +
+    '<div class="modal-foot">' +
+    (audRun ? audScoreFootHTML(true)
+            : '<button class="foot-close" type="button" onclick="location.reload()">Run it again</button>') +
+    '</div>';
+  Aud.scoreLocked = !!audRun;
+  $('aud-scorecard').classList.toggle('locked', Aud.scoreLocked);
+  $('aud-scorecard').classList.add('open');
+  const hud = $('drill-hud'); if (hud) hud.remove();
+  const sk = document.querySelector('.drill-skip'); if (sk) sk.remove();
+}
 
 </script>
 </body>
