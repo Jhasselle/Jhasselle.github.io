@@ -1040,6 +1040,11 @@ let audNoPurples = false;
    bills (0 = no floor, the practice trainer's behaviour). */
 let audMinHundreds = 0;
 
+/* Audition colouring-up: the pile is a GREEN pile (Jason) — at most this
+   many $100 blacks, the rest mostly green with a few red, and always more
+   green than red. 0 leaves the practice trainer's blacks-heavy behaviour. */
+let audMaxBlacks = 0;
+
 /* ---------- Persistence ---------- */
 const STORAGE_KEY = 'cheque-exchange-settings-v1';
 
@@ -2194,12 +2199,70 @@ function audApplySettings() {
                    cash:  AUD_SPEC.type === 'cash' };
   RANGE.colorMin = 967.5;  RANGE.colorMax = 1467.5;
   audNoPurples = true;   /* the pile arrives in blacks and smaller — no $500s */
+  audMaxBlacks = 7;      /* mostly green, some red, never more red than green */
   RANGE.cashMin  = 500;    RANGE.cashMax  = 650;
   audMinHundreds = 3;      /* three or four hundreds in every drop */
   document.body.classList.add('help-off');
   const t = document.getElementById('leg-title'); if (t) t.textContent = AUD_SPEC.title;
   const u = document.getElementById('leg-sub');   if (u) u.textContent = AUD_SPEC.sub;
 }
+
+/* The colouring-up pile the audition wants: a handful of blacks on top of a
+   working pile of greens, a few reds, and whatever pink/white the odd half
+   dollar needs. Greens always outnumber reds. */
+const audOrigGenColorGreen = genColorComingIn;
+genColorComingIn = function () {
+  if (!audMaxBlacks) return audOrigGenColorGreen.apply(this, arguments);
+  const lo = Math.min(RANGE.colorMin, RANGE.colorMax);
+  const hi = Math.max(RANGE.colorMin, RANGE.colorMax);
+  /* $2.50 steps so the pink cheque is live about half the time. */
+  const steps = Math.max(1, Math.floor((hi - lo) / 2.5));
+  const target = Math.round((lo + Math.floor(Math.random() * (steps + 1)) * 2.5) * 100) / 100;
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    /* Four to seven blacks — enough to be worth removing, never a wall. */
+    const capBlacks = Math.min(audMaxBlacks, Math.floor(target / 100));
+    const n100 = randInt(Math.min(4, capBlacks), capBlacks);
+    let rem = Math.round((target - n100 * 100) * 100) / 100;
+
+    /* Reds are a real part of the pile, not a garnish — a healthy stack of
+       them beside the greens, but the greens still carry it (Jason). Take
+       the red count as a fraction of what the whole pile would be in green,
+       so both colours scale with the buy-in. */
+    const greensIfAll = Math.floor(rem / 25);
+    const frac = 0.35 + Math.random() * 0.35;              /* 35–70% of the greens */
+    let n5 = Math.max(2, Math.round(greensIfAll * frac));
+    while (n5 > 0 && 5 * n5 > rem) n5--;
+    rem = Math.round((rem - 5 * n5) * 100) / 100;
+
+    /* Greens take everything else that divides. */
+    const n25 = Math.floor(rem / 25);
+    rem = Math.round((rem - n25 * 25) * 100) / 100;
+
+    /* The odd change: a few whites sometimes, pinks for the rest. */
+    let n1 = 0;
+    if (rem >= 5 && Math.random() < 0.5) { n1 = 5; rem = Math.round((rem - 5) * 100) / 100; }
+    const n2_5 = Math.round(rem / 2.5);
+    const leftover = Math.round((rem - n2_5 * 2.5) * 100) / 100;
+
+    if (leftover !== 0) continue;
+    if (n25 <= n5) continue;                 /* greens must beat reds */
+    const total = n1 + 2.5 * n2_5 + 5 * n5 + 25 * n25 + 100 * n100;
+    if (Math.abs(total - target) > 0.001) continue;
+
+    const counts = { 100: n100, 25: n25, 5: n5, 2.5: n2_5, 1: n1 };
+    const incoming = [];
+    for (const v of [100, 25, 5, 2.5, 1]) {
+      for (let k = 0; k < counts[v]; k++) incoming.push(v);
+    }
+    return { type: 'color', incoming: incoming, value: sumChips(incoming) };
+  }
+  return audOrigGenColorGreen.apply(this, arguments);
+};
+/* SCENARIO_GEN_BY_TYPE captured the original function by reference when the
+   page loaded, so reassigning the global alone never reached real play —
+   the table has to be repointed too. */
+SCENARIO_GEN_BY_TYPE.color = function () { return genColorComingIn(); };
 
 /* The hundreds floor: reserve 3–4 $100 bills off the top, break the rest
    down however the ordinary generator likes, then put the hundreds back. */
