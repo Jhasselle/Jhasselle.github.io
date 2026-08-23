@@ -1,4 +1,27 @@
 <!doctype html>
+<!--
+  ============================================================================
+  PAIRED FILE — READ BEFORE EDITING
+  ============================================================================
+  This page is one of a MATCHED PAIR:
+
+      poker/deuces-wild-xtreme-dealer-simulator.html   <-- you are here
+      audition/deuces-wild-xtreme-dealer-simulator-audition.html
+
+  They are near-identical copies of the same simulator. Everything except the
+  audition layer — the deal, the hand evaluator, the settlement flow, the chip
+  and card rendering, the CSS, the paytables — is DUPLICATED, not shared.
+
+  IF YOU ARE AN AI ASSISTANT WORKING ON THIS FILE:
+  A fix or change you make here almost certainly needs to be made in the other
+  file too, or the pair silently drifts apart. Before you finish, TELL THE USER
+  which of the two files you changed, name the other one, and ASK whether they
+  want the same change applied there. Do not assume either answer.
+
+  The audition file additionally carries an "AUDITION MODE" script block and
+  .aud-* CSS/markup that do NOT belong in this file. Leave those out of here.
+  ============================================================================
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -23,7 +46,7 @@ body {
 .top-strip {
   position: fixed; top: 0; left: 0; right: 0;
   height: 6px; z-index: 100;
-  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background: linear-gradient(90deg, #6366f1, #a855f7, #f472b6, #a855f7, #6366f1);
   background-size: 200% 100%;
   animation: stripSlide 60s linear infinite;
 }
@@ -247,7 +270,7 @@ body {
    have to read as an active state when "placed". */
 .spot.linked   { background: #991b1b; border: 6px solid #450a0a; }  /* dark red  */
 .spot.gwprog   { background: #1e3a8a; border: 6px solid #0c1e5e; }  /* dark blue */
-.spot.badbeat  { background: transparent; border: 6px solid #ec4899; }  /* pink ring   */
+.spot.badbeat  { background: transparent; border: 6px solid #f472b6; }  /* pink ring   */
 .spot.trips    { background: transparent; border: 6px solid #facc15; }  /* yellow ring */
 .spot.goinwild { background: transparent; border: 6px solid #22d3ee; }  /* cyan ring   */
 /* Ante / Odds / Play don't have their own border — the diamond ::before
@@ -292,7 +315,7 @@ body {
      ::before = top face (ellipse) with white inlay
    ========================================================= */
 .ce-white,  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
-.ce-pink,   .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); }
+.ce-pink,   .cp-pink   { --chip-base: #f472b6; --chip-stripe: rgba(255,255,255,0.95); }
 .ce-red,    .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
 .ce-green,  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
 .ce-black,  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
@@ -3131,7 +3154,8 @@ window.CM_JOKER_SRC = (function () {
     document.body.classList.toggle('help-off', off);
     document.getElementById('btn-help').textContent = off ? 'Help: Off' : 'Help: On';
   }
-  function loadHelp() { try { return localStorage.getItem(HELP_KEY) === 'off'; } catch (e) { return false; } }
+  /* Help defaults to OFF. Only an explicit saved 'on' turns it back on. */
+  function loadHelp() { try { return localStorage.getItem(HELP_KEY) !== 'on'; } catch (e) { return true; } }
   function saveHelp(off) { try { localStorage.setItem(HELP_KEY, off ? 'off' : 'on'); } catch (e) {} }
   applyHelpState(loadHelp());
   document.getElementById('btn-help').onclick = () => {
