@@ -1,4 +1,28 @@
 <!doctype html>
+<!--
+  ============================================================================
+  PAIRED FILE — READ BEFORE EDITING
+  ============================================================================
+  This page is one of a MATCHED PAIR:
+
+      poker/paigow-dealer-sim.html   <-- you are here
+      audition/paigow-dealer-sim-audition.html
+
+  They are near-identical copies of the same simulator. Everything except the
+  audition layer — the deal, the house way, the settlement flow, the envy
+  phase, the chip and card rendering, the CSS, the paytables — is DUPLICATED,
+  not shared.
+
+  IF YOU ARE AN AI ASSISTANT WORKING ON THIS FILE:
+  A fix or change you make here almost certainly needs to be made in the other
+  file too, or the pair silently drifts apart. Before you finish, TELL THE USER
+  which of the two files you changed, name the other one, and ASK whether they
+  want the same change applied there. Do not assume either answer.
+
+  The audition file additionally carries an "AUDITION MODE" script block and
+  .aud-* CSS/markup that do NOT belong in this file. Leave those out of here.
+  ============================================================================
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -781,7 +805,7 @@ body:not([data-phase="build"]) .build-area { display: none; }
 
 /* Cylinder chip palette — same as 3CP. ce-* for tray, cp-* for bet stacks. */
 .ce-white,  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
-.ce-pink,   .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); }
+.ce-pink,   .cp-pink   { --chip-base: #f472b6; --chip-stripe: rgba(255,255,255,0.95); }
 .ce-red,    .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
 .ce-green,  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
 .ce-black,  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
@@ -4073,8 +4097,8 @@ document.getElementById('build-auto').onclick   = onBuildAuto;
 /* ---------- buttons ---------- */
 document.getElementById('btn-reset').onclick = () => startRound();
 /* Help toggle — persists to localStorage so it survives reload.
-   Default is "on" (halos + rank-notes visible). Saved as the string
-   'off' when disabled; absence of a saved value means on. */
+   Default is "off". Saved as the string 'on' when the dealer turns it on;
+   absence of a saved value means off. */
 const HELP_KEY = 'paigow-help';
 function applyHelpState(off) {
   document.body.classList.toggle('help-off', off);
@@ -4082,8 +4106,8 @@ function applyHelpState(off) {
   document.getElementById('btn-help').textContent = off ? 'Help: Off' : 'Help: On';
 }
 function loadHelp() {
-  try { return localStorage.getItem(HELP_KEY) === 'off'; }
-  catch (e) { return false; }
+  try { return localStorage.getItem(HELP_KEY) !== 'on'; }
+  catch (e) { return true; }
 }
 function saveHelp(off) {
   try { localStorage.setItem(HELP_KEY, off ? 'off' : 'on'); } catch (e) {}
