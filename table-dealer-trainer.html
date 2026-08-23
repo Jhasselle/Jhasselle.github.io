@@ -42,7 +42,7 @@ body::after {
 .top-strip {
   position: fixed; top: 0; left: 0; right: 0;
   height: 6px; z-index: 100;
-  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background: linear-gradient(90deg, #6366f1, #a855f7, #f472b6, #a855f7, #6366f1);
   background-size: 200% 100%;
   animation: stripSlide 60s linear infinite;
 }
@@ -141,6 +141,14 @@ h1 {
 .tile.audition.disabled .mark { background: rgba(255,255,255,0.16); color: rgba(255,255,255,0.7); }
 .tile.audition.disabled .meta { display: none; }
 .tile.audition:not(.disabled) .badge-soon { display: none; }
+.tile .badge-beta {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #fcd34d;
+  background: rgba(251,191,36,0.12);
+  border: 1px solid rgba(251,191,36,0.35);
+}
 .tile .badge-soon {
   display: inline-block; margin-top: 8px;
   padding: 3px 9px; border-radius: 999px;
@@ -148,6 +156,13 @@ h1 {
   color: rgba(255,255,255,0.65);
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
+}
+.disclaimer {
+  margin-top: 34px;
+  font-size: 12.5px; line-height: 1.55;
+  color: rgba(255,255,255,0.48);
+  border-left: 3px solid rgba(251,191,36,0.5);
+  padding-left: 12px;
 }
 /* Terms of use — collapsible footer */
 .terms {
@@ -239,7 +254,7 @@ h1 {
       <span class="meta">Open Trainer</span>
     </a>
     <a class="tile audition" id="tile-audition" href="audition/index.html">
-      <span class="title"><span class="mark">!</span>Audition Mode</span>
+      <span class="title"><span class="mark">!</span>Audition Mode<span class="badge-beta">Beta</span></span>
       <span class="desc">Deal a session across the games you pick. Players may or may not follow the rules. Catch it, or it goes on the scorecard.</span>
       <span class="meta">Set up a run</span>
       <span class="badge-soon">Not yet</span>
@@ -250,6 +265,8 @@ h1 {
       <span class="meta">Open trainer</span>
     </a>
   </div>
+
+  <p class="disclaimer">Student-made practice tool. Your instructors have the first and last word on all rules and procedures &mdash; where this trainer and your house ways disagree, the house wins.</p>
 
   <details class="terms">
     <summary>Terms of use</summary>
@@ -275,7 +292,7 @@ h1 {
      true:  the tile carries its red tint and links through as normal.
      Nothing else needs editing either way.
      ========================================================================== */
-  const AUDITION_ENABLED = false;
+  const AUDITION_ENABLED = true;
 
   (function () {
     const tile = document.getElementById('tile-audition');
