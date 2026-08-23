@@ -587,10 +587,23 @@ function renderResults() {
   }
 
   const legs = run.results.map(r => {
-    const legRigged = (r.caught || 0) + (r.wrongCall || 0) + (r.missed || 0);
+    /* Games score calls against staged mistakes. The exchanges and the
+       payout drill are pass/fail work — doing them right IS the score:
+       an exchange counts 1/1, the drill counts its payouts (Jason). */
+    let legGood, legTotal;
+    if (r.id === 'bj-pay') {
+      legTotal = r.hands || 6;
+      legGood = r.clean || 0;
+    } else if (r.note) {
+      legTotal = 1;
+      legGood = (r.paidWrong || 0) ? 0 : 1;
+    } else {
+      legGood = (r.caught || 0);
+      legTotal = legGood + (r.wrongCall || 0) + (r.missed || 0);
+    }
     const sub = r.note
       ? r.note
-      : (legRigged ? legRigged + ' hand' + (legRigged > 1 ? 's' : '') + ' needed a call'
+      : (legTotal ? legTotal + ' hand' + (legTotal > 1 ? 's' : '') + ' needed a call'
                    : 'nothing came up');
     return '<div class="leg"><span class="lname">' + r.name +
       '<span class="lsub">' + (r.note ? '' : r.hands + ' hands · ') + sub +
@@ -598,8 +611,8 @@ function renderResults() {
       (r.paidWrong ? ' · ' + r.paidWrong + ' settled wrong' : '') +
       (r.falseFlags ? ' · ' + r.falseFlags + ' false flag' + (r.falseFlags > 1 ? 's' : '') : '') +
       '</span></span>' +
-      '<span class="lscore"><span class="g">' + (r.caught || 0) + '</span> / ' +
-      '<span class="' + (legRigged > (r.caught || 0) ? 'b' : '') + '">' + legRigged + '</span></span></div>';
+      '<span class="lscore"><span class="g">' + legGood + '</span> / ' +
+      '<span class="' + (legTotal > legGood ? 'b' : '') + '">' + legTotal + '</span></span></div>';
   }).join('');
 
   $('results').innerHTML =
