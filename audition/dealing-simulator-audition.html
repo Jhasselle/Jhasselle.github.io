@@ -4837,7 +4837,10 @@ function placeBustBonusBets() {
        main bet — doubling does NOT raise the cap ($55 bet doubled to $110
        still caps the Bust Bonus at $55). Exception: after a split the cap
        is the combined original main bets of the split hands. */
-    const bustCap = pl.mainOriginal * pl.hands.length;
+    /* Only LIVE hands raise the ceiling — a busted split hand's bet is
+       already in the rack, and its share of the cap goes with it (Jason). */
+    const audLiveHands = pl.hands.filter(h => h.bet > 0).length;
+    const bustCap = pl.mainOriginal * audLiveHands;
     if (playerHasLiveBet(i) && bustCap > 0 && Math.random() < Settings.betLikelihood.bust) {
       audSideCapKey = 'bust';
       pl.bust = randUpToMain(bustCap, Settings.unusualBets);
@@ -6344,8 +6347,9 @@ const AUD_MISTAKES = [
       : `Player ${i + 1}'s Bust Bonus came out at ${audMoney(info.bad)} — it can never beat their original main bet of ${audMoney(info.cap)}.`,
     can: (p, i) => playerHasLiveBet(i) && p.mainOriginal > 0,
     apply: (p) => {
-      const info = { bust: p.bust, cap: p.mainOriginal * p.hands.length,
-                     hands: p.hands.length, each: p.mainOriginal };
+      const liveH = p.hands.filter(h => h.bet > 0).length || 1;
+      const info = { bust: p.bust, cap: p.mainOriginal * liveH,
+                     hands: liveH, each: p.mainOriginal };
       p.bust = info.cap + 25;
       info.bad = p.bust;
       return info;
