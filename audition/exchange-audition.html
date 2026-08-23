@@ -221,13 +221,19 @@
   }
   .scenario-banner .req b { color: #fde047; }
 
-  /* ---------- The two exchange zones ---------- */
+  /* ---------- The two exchange zones ----------
+     Stacked by default: incoming above outgoing, each with the full width
+     to lay its rows out honestly. Side-by-side only where the screen is
+     genuinely wide enough to give both zones their room (Jason). */
   .exchange-zones {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 14px;
     min-height: 320px;
     margin-bottom: 14px;
+  }
+  @media (min-width: 1280px) {
+    .exchange-zones { grid-template-columns: 1fr 1fr; }
   }
   .zone {
     position: relative;
@@ -300,25 +306,29 @@
     border-radius: 50%;
   }
 
-  /* ---------- A toppled stack ---------- */
+  /* ---------- A splashed stack ----------
+     The pile is pushed over so the cheques cascade in an overlapping fan,
+     every face readable — the way a splash actually lies on the felt. */
   .chip-stack.toppled {
     width: auto;
-    height: 36px;
+    height: 44px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     flex-direction: row;
+    padding-top: 4px;
   }
   .chip-stack.toppled .chip-piece {
     position: relative;
-    width: 18px;
-    height: 32px;
-    margin-right: -12px;
+    width: 36px;
+    height: 27px;
+    margin-right: -22px;
+    border-radius: 50%;
   }
   .chip-stack.toppled .chip-piece:last-child { margin-right: 0; }
 
   /* ---------- Chip cylinder rendering ---------- */
   .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }
-  .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); }
+  .cp-pink   { --chip-base: #f472b6; --chip-stripe: rgba(255,255,255,0.95); }
   .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }
   .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); }
   .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }
@@ -372,42 +382,25 @@
     z-index: 2;
     box-sizing: border-box;
   }
-  /* Toppled chip — same cylinder rendering rotated 90° so the chip lies
-     on its side. */
-  .chip-stack.toppled .chip-piece::after {
-    content: '';
-    position: absolute;
-    top: 0; bottom: 0;
-    left: 18%;
-    right: 0;
-    background-color: var(--chip-base);
-    background-image:
-      repeating-linear-gradient(0deg,
-        transparent 0, transparent 8px,
-        var(--chip-stripe) 8px, var(--chip-stripe) 11px);
-    background-position: 0 var(--stripe-offset, 0);
-    border-top: 1px solid rgba(0,0,0,0.65);
-    border-bottom: 1px solid rgba(0,0,0,0.65);
-    border-right: 1.5px solid rgba(0,0,0,0.85);
-    border-radius: 0 50% 50% 0 / 0 55% 55% 0;
-    z-index: 1;
-    box-sizing: border-box;
-  }
+  /* Splashed cheque — the full FACE, lying flat: an edge-spotted rim in
+     the cheque's colour around a SMALL light centre. */
+  .chip-stack.toppled .chip-piece::after { content: none; }
   .chip-stack.toppled .chip-piece::before {
     content: '';
     position: absolute;
-    top: 0; bottom: 0;
-    left: 0;
-    width: 62%;
+    inset: 0;
     border-radius: 50%;
     background-color: var(--chip-base);
     background-image:
-      radial-gradient(ellipse at 50% 50%,
-        rgba(255,255,255,0.94) 0%,
-        rgba(255,255,255,0.94) 28%,
-        transparent 32%);
-    background-repeat: no-repeat;
-    border: 1px solid rgba(0,0,0,0.65);
+      radial-gradient(ellipse at 50% 48%,
+        rgba(250,247,238,0.96) 0%,
+        rgba(250,247,238,0.96) 38%,
+        transparent 42%),
+      repeating-conic-gradient(from var(--stripe-rot, 0deg),
+        var(--chip-stripe) 0deg 12deg,
+        var(--chip-base) 12deg 45deg);
+    border: 1px solid rgba(0,0,0,0.6);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.12);
     z-index: 2;
     box-sizing: border-box;
   }
@@ -566,7 +559,10 @@
   }
   /* Reserve space at the bottom of the incoming zone so the active cash
      columns don't reach down into the overflow pile. */
-  .left-zone .bills-row { padding-bottom: 64px; }
+  .left-zone .bills-row { padding-bottom: 10px; }
+  /* Cash on the table takes far less room than a chip grid — the incoming
+     zone hugs the bills instead of holding a chip-sized void (Jason). */
+  .zone.cash-mode { min-height: 0; }
 
   /* ---------- Exchange controls ---------- */
   .exchange-controls {
@@ -873,8 +869,8 @@
     .chip-row:nth-child(even) { margin-left: 18px; }
     .chip-stack { width: 36px; height: 54px; }
     .chip-stack:not(.toppled) .chip-piece { height: 12px; }
-    .chip-stack.toppled { height: 28px; }
-    .chip-stack.toppled .chip-piece { width: 12px; height: 22px; margin-right: -8px; }
+    .chip-stack.toppled { height: 32px; padding-top: 3px; }
+    .chip-stack.toppled .chip-piece { width: 24px; height: 18px; margin-right: -15px; }
     .chip-tray-stack { width: 32px; height: 100px; }
     .chip-tray-stack .chip-edge { height: 13px; }
     .chip-tray-stack .chip-label { font-size: 0.55rem; letter-spacing: 0; }
@@ -1135,69 +1131,76 @@ function groupByDenom(chips) {
   return result;
 }
 
-/* Split N chips of a denomination into rows of stacks following the rules:
-   - up to ROW_MAX chips per row
-   - stacks of `stackSize` (partial last stack OK)
-   - last stack of each row is toppled
-   - if the row ends in a partial stack, the preceding stack is also toppled */
+/* Split N cheques of a denomination into rows of stacks.
+   House procedure (Jason):
+   - A BARREL is 20 cheques. A row carries at most 100 cheques (5 barrels).
+   - In a full row, four barrels stand and the FIFTH is always broken down
+     into its readable piles (4x5 or 5x4 by colour).
+   - In the final short row, barrels only stand when there are two or more
+     of them — the last barrel stays broken into piles.
+   - Loose cheques past complete barrels sit on their own row.
+   - In every row the outermost pile is splashed; a short pile at the end
+     splashes the full pile beside it too. Standing barrels never splash. */
 function layoutDenom(count, stackSize) {
-  /* ≤20 of a denomination: traditional layout — stacks of stackSize, all
-     fitting in one row.
-     >20 of a denomination: build "logical stacks" — full 20-columns plus
-     one final partial if there's a remainder. Rows fit up to 5 logical
-     stacks. The 5th stack of any full 5-stack row gets BROKEN into
-     stackSize-sized smaller stacks (e.g. a $1,000 20-stack breaks into 4
-     stacks of 5), and a final partial logical stack also breaks down. */
   if (count <= 0) return [];
+  const FULL = 20, ROW_CAP = 100;
+  const rows = [];
+  let n = count;
 
-  if (count <= 20) {
-    const stacks = [];
-    let r = count;
+  /* Full 100-cheque rows: four standing barrels + the fifth broken down. */
+  while (n >= ROW_CAP) {
+    const row = [];
+    for (let k = 0; k < 4; k++) row.push({ size: FULL, toppled: false });
+    let r = FULL;
     while (r > 0) {
-      const sz = Math.min(r, stackSize);
-      stacks.push({ size: sz, toppled: false });
+      const sz = Math.min(stackSize, r);
+      row.push({ size: sz, toppled: false });
       r -= sz;
     }
-    return [stacks];
+    rows.push(row);
+    n -= ROW_CAP;
   }
 
-  /* 20-stack mode. */
-  const fullCount = Math.floor(count / 20);
-  const partial   = count % 20;
-  const logicals = [];
-  for (let i = 0; i < fullCount; i++) logicals.push({ size: 20, isFull: true });
-  if (partial > 0)                    logicals.push({ size: partial, isFull: false });
-
-  /* Generalized rule: in every row, the LAST stack is shown broken down
-     into stackSize-sized smaller piles — regardless of whether the row
-     has 5 stacks or fewer. So a 4-stack row of $100 blacks renders as
-     3 full 20-stacks + 4 smaller stacks of 5. A 1-stack row renders as
-     4 smaller stacks of 5 (no full upright). The remainder (a sub-20
-     partial) also stays broken. */
-  const rows = [];
-  for (let i = 0; i < logicals.length; i += 5) {
-    const rowLogicals = logicals.slice(i, i + 5);
-    const stacks = [];
-    for (let j = 0; j < rowLogicals.length; j++) {
-      const ls = rowLogicals[j];
-      const isLast = j === rowLogicals.length - 1;
-      /* Break this stack into stackSize-sized chunks when:
-         - it's the LAST stack of the row (always shown broken), OR
-         - it's a partial (under 20) — partials are always broken. */
-      const shouldBreak = isLast || !ls.isFull;
-      if (shouldBreak) {
-        let r = ls.size;
-        while (r > 0) {
-          const sz = Math.min(r, stackSize);
-          stacks.push({ size: sz, toppled: false });
-          r -= sz;
-        }
-      } else {
-        stacks.push({ size: ls.size, toppled: false });
+  /* The remainder follows the short-row rule. */
+  if (n > 0) {
+    const fullPossible = Math.floor(n / FULL);
+    const talls = fullPossible >= 2 ? fullPossible - 1 : 0;
+    let rest = n - talls * FULL;
+    const row1 = [];
+    for (let k = 0; k < talls; k++) row1.push({ size: FULL, toppled: false });
+    if (rest >= FULL) {
+      let r = FULL;
+      while (r > 0) {
+        const sz = Math.min(stackSize, r);
+        row1.push({ size: sz, toppled: false });
+        r -= sz;
       }
+      rest -= FULL;
     }
-    rows.push(stacks);
+    if (row1.length) rows.push(row1);
+    if (rest > 0) {
+      const row2 = [];
+      while (rest > 0) {
+        const sz = Math.min(stackSize, rest);
+        row2.push({ size: sz, toppled: false });
+        rest -= sz;
+      }
+      rows.push(row2);
+    }
   }
+
+  /* SPLASH: outermost pile of every row, plus its neighbour when the row
+     ends short. */
+  rows.forEach(function (row) {
+    const pileIdx = [];
+    row.forEach(function (st, i) { if (st.size <= stackSize) pileIdx.push(i); });
+    if (!pileIdx.length) return;
+    const last = row[pileIdx[pileIdx.length - 1]];
+    last.toppled = true;
+    if (last.size < stackSize && pileIdx.length >= 2) {
+      row[pileIdx[pileIdx.length - 2]].toppled = true;
+    }
+  });
   return rows;
 }
 
@@ -1240,9 +1243,19 @@ function makeStackEl(denom, size, toppled) {
     if (!toppled) {
       chip.style.bottom = (i * STEP) + 'px';
       chip.style.zIndex = String(i);
+    } else {
+      /* The cascade: each cheque a step down-right, later cheques on top,
+         rims rotated a touch so the fan reads organic. */
+      chip.style.zIndex = String(i);
+      chip.style.transform = 'translateY(' + (i * 2.5) + 'px)';
+      chip.style.setProperty('--stripe-rot', ((i * 37) % 360) + 'deg');
     }
-    applyStripeOffset(chip);
     stack.appendChild(chip);
+    if (!toppled) applyStripeOffset(chip);
+  }
+  if (toppled) {
+    /* Room for the droop so the fan never pokes into the row below. */
+    stack.style.height = (30 + (size - 1) * 2.5) + 'px';
   }
   return stack;
 }
@@ -1822,6 +1835,7 @@ Game.renderScenario = function() {
   incomingBills.innerHTML = '';
   incomingBills.style.display = 'none';
   incomingGrid.style.display = '';
+  document.getElementById('incoming-zone').classList.remove('cash-mode');
 
   /* Reset cash-mode containers in outgoing zone so non-cash scenarios
      don't carry stale piles/overflow. */
@@ -1843,6 +1857,7 @@ Game.renderScenario = function() {
     reqEl.innerHTML = `Player buys in with <b class="req-amt">${formatMoney(scenario.value)}</b> cash.`;
     incomingGrid.style.display = 'none';
     incomingBills.style.display = '';
+    document.getElementById('incoming-zone').classList.add('cash-mode');
     /* Current batch in INCOMING; remaining batches as overflow pile in
        OUTGOING bottom-left; already-counted piles labeled on the right. */
     const batches = scenario.cashBatches;
@@ -2227,15 +2242,31 @@ function audWholeBills(batches) {
   });
 }
 
+/* How many different bill denominations a batch carries. */
+function audDenomCount(batches) {
+  const seen = {};
+  batches.forEach(function (batch) {
+    batch.forEach(function (st) { seen[st.denom] = 1; });
+  });
+  return Object.keys(seen).length;
+}
+
 function audCashBatches(total) {
-  /* Re-roll the random breakdown until the whole buy-in fits on the table.
-     It usually lands first or second try at this size. */
+  /* Re-roll the random breakdown until the whole buy-in fits on the table
+     AND arrives in at least three different denominations (Jason) — a real
+     buy-in is a mess of bills, not two neat piles. */
   for (let k = 0; k < 300; k++) {
     const b = buildCashStructure(total);
-    if (b.length === 1 && audWholeBills(b)) return b;
+    if (b.length === 1 && audWholeBills(b) && audDenomCount(b) >= 3) return b;
   }
   /* Hundreds plus the remainder is always inside five stacks at this size. */
   const counts = audPlainBreakdown(total);
+  /* A clean multiple of $100 would land as one denomination — break a
+     hundred into 50/20/10 so the count still has some reading to do. */
+  if (Object.keys(counts).filter(function (d) { return counts[d] > 0; }).length < 3
+      && counts[100] > 1) {
+    counts[100]--; counts[50]++; counts[20] += 2; counts[10]++;
+  }
   const stacks = [];
   Object.keys(counts).map(Number).sort(function (a, b) { return b - a; }).forEach(function (d) {
     let n = counts[d];
