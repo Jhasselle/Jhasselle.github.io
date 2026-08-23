@@ -1,4 +1,27 @@
 <!doctype html>
+<!--
+  ============================================================================
+  PAIRED FILE — READ BEFORE EDITING
+  ============================================================================
+  This page is one of a MATCHED PAIR:
+
+      blackjack/dealing-simulator.html            (practice mode)  <-- you are here
+      audition/dealing-simulator-audition.html   (audition mode)
+
+  They are near-identical copies of the same simulator. Everything except the
+  audition layer — the deal, the strategy engine, the settlement flow, the chip
+  and card rendering, the CSS, the payout tables — is DUPLICATED, not shared.
+
+  IF YOU ARE AN AI ASSISTANT WORKING ON THIS FILE:
+  A fix or change you make here almost certainly needs to be made in the other
+  file too, or the pair silently drifts apart. Before you finish, TELL THE USER
+  which of the two files you changed, name the other one, and ASK whether they
+  want the same change applied there. Do not assume either answer.
+
+  The audition file additionally carries an "AUDITION MODE" script block and
+  .aud-* CSS/markup that do NOT belong in this file. Leave those out of here.
+  ============================================================================
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -723,7 +746,7 @@
   /* Chip colors (edge fill) */
   /* Real-chip palette matched to the reference photo */
   .ce-white,  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }   /* cream body, green stripes */
-  .ce-pink,   .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); } /* pink body, white stripes */
+  .ce-pink,   .cp-pink   { --chip-base: #f472b6; --chip-stripe: rgba(255,255,255,0.95); } /* pink body, white stripes */
   .ce-red,    .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }                /* red body, yellow stripes */
   .ce-green,  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); } /* NVIDIA green body, white stripes */
   .ce-black,  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }   /* near-black/indigo body, yellow stripes */
@@ -1354,7 +1377,7 @@ body::before, body::after {
   position: fixed; left: 0; right: 0;
   height: 6px; z-index: 9998;
   pointer-events: none;
-  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background: linear-gradient(90deg, #6366f1, #a855f7, #f472b6, #a855f7, #6366f1);
   background-size: 200% 100%;
   animation: tdt-strip-slide 60s linear infinite;
 }
@@ -1774,7 +1797,8 @@ function renderBets(opts) {
       clearMainAmount(main);
     }
     if (pl.doubled && pl.mainOriginal > 0) {
-      renderBetStack(main, pl.mainOriginal, true, opts);
+      /* Second stack = whatever actually went out on the double. */
+      renderBetStack(main, pl.mainOriginal, true, opts, pl.main - pl.mainOriginal);
     } else {
       renderBetStack(main, pl.main, false, opts);
     }
@@ -2149,7 +2173,7 @@ function rerenderMainBet(i) {
     if (amtEl) amtEl.remove();   // per-substack $ pills replace the total
   } else if (isUnsplitDouble && pl.mainOriginal > 0) {
     setMainAmount(el, '$' + total);
-    renderBetStack(el, pl.mainOriginal, true);
+    renderBetStack(el, pl.mainOriginal, true, undefined, total - pl.mainOriginal);
   } else {
     setMainAmount(el, '$' + total);
     renderBetStack(el, total, false);
@@ -2638,7 +2662,9 @@ function chipStackForAmount(amount) {
   return chips;
 }
 
-function renderBetStack(el, amount, splitInTwo, opts) {
+/* secondAmount: the right-hand stack of a doubled bet. Defaults to matching
+   the first, which is what a legal double looks like. */
+function renderBetStack(el, amount, splitInTwo, opts, secondAmount) {
   let viz = el.querySelector('.bet-stack-viz');
   if (amount <= 0) {
     if (viz) viz.remove();
@@ -2659,9 +2685,10 @@ function renderBetStack(el, amount, splitInTwo, opts) {
   const isMain = el.classList && el.classList.contains('main-circle');
   const STEP = 6;
   const animate = opts && opts.animate;
-  function buildStack(parent) {
-    for (let i = 0; i < chips.length; i++) {
-      const chip = chips[i];
+  function buildStack(parent, list) {
+    list = list || chips;
+    for (let i = 0; i < list.length; i++) {
+      const chip = list[i];
       const p = document.createElement('div');
       p.classList.add('bet-chip-piece');
       p.classList.add('cp-' + chip.color);
@@ -2676,14 +2703,18 @@ function renderBetStack(el, amount, splitInTwo, opts) {
     }
   }
   if (splitInTwo) {
-    for (const half of ['left', 'right']) {
+    const rightAmt = (typeof secondAmount === 'number' && secondAmount > 0)
+      ? secondAmount : amount;
+    const halves = [chips, chipStackForAmount(rightAmt)];
+    ['left', 'right'].forEach((half, k) => {
       const sub = document.createElement('div');
       sub.classList.add('bet-substack');
       sub.classList.add(half);
-      buildStack(sub);
-      sub.style.height = ((chips.length - 1) * STEP + 18) + 'px';   // real box for highlight rings
+      const list = halves[k];
+      buildStack(sub, list);
+      sub.style.height = ((list.length - 1) * STEP + 18) + 'px';   // real box for highlight rings
       viz.appendChild(sub);
-    }
+    });
   } else {
     buildStack(viz);
   }
@@ -4552,6 +4583,85 @@ Game.burnCard = function() {
   if (phase === 'dealer-play')            return dealerHit();
   // dealer-reveal is now triggered by clicking the dealer's hand, not the shoe
 };
+
+
+/* ---- Cards as a second draw target --------------------------------------
+ * At the table you either tap the shoe or you tap the hand you are feeding.
+ * Both mean "next card." The shoe stays the primary control; this makes the
+ * hand a legal place to click while a card is owed to it.
+ *
+ * Nothing here decides anything: the shoe's disabled flag still says whether
+ * a card is due at all, and Game.burnCard still routes it by phase. This only
+ * decides WHICH hand is the live target, so a click on any other hand is
+ * ignored rather than dealing to the wrong seat.
+ * ------------------------------------------------------------------------ */
+const HAND_DRAW_PHASES = {
+  'playing': 1, 'awaiting-split-deal-0': 1, 'awaiting-split-deal-1': 1
+};
+
+function handDrawTargetEl() {
+  if (phase === 'dealer-play') return $('dealer-cards');
+  if (HAND_DRAW_PHASES[phase] && typeof currentPlayerIdx === 'number'
+      && currentPlayerIdx >= 0 && currentPlayerIdx < NUM_PLAYERS) {
+    return $('p' + currentPlayerIdx + '-cards');
+  }
+  return null;
+}
+
+/* Only ever un-light the element WE lit, so the split / reveal / cleanup
+   steps keep control of their own highlight. */
+let handDrawGlowEl = null;
+
+function syncHandDrawTarget() {
+  const shoeEl = $('shoe');
+  const live = shoeEl && !shoeEl.classList.contains('disabled');
+  const el = live ? handDrawTargetEl() : null;
+  if (handDrawGlowEl && handDrawGlowEl !== el) {
+    handDrawGlowEl.classList.remove('clickable-cards-area');
+    handDrawGlowEl = null;
+  }
+  if (el) {
+    el.classList.add('clickable-cards-area');
+    handDrawGlowEl = el;
+  }
+}
+
+/* enableShoe is the single point every draw phase already goes through. */
+const origEnableShoeForHands = enableShoe;
+enableShoe = function(on) {
+  const out = origEnableShoeForHands.apply(this, arguments);
+  syncHandDrawTarget();
+  return out;
+};
+
+function wireHandDrawClicks() {
+  const els = [$('dealer-cards')];
+  for (let i = 0; i < NUM_PLAYERS; i++) els.push($('p' + i + '-cards'));
+  els.forEach(function(el) {
+    if (!el || el.dataset.handDrawWired) return;
+    el.dataset.handDrawWired = '1';
+    /* addEventListener, not .onclick — the split, reveal and bust-cleanup
+       steps own .onclick on these same elements and must keep working. */
+    el.addEventListener('click', function() {
+      const shoeEl = $('shoe');
+      if (!shoeEl || shoeEl.classList.contains('disabled')) return;
+      if (handDrawTargetEl() !== el) return;
+      Game.burnCard();          // read live: the dispatcher may be re-wrapped
+    });
+  });
+}
+/* The player stations are built after this point in the boot sequence, and
+   rebuilding them throws the old elements away — so rewire off the render. */
+const origRenderStationsForHands = renderPlayerStations;
+renderPlayerStations = function() {
+  const out = origRenderStationsForHands.apply(this, arguments);
+  handDrawGlowEl = null;
+  wireHandDrawClicks();
+  syncHandDrawTarget();
+  return out;
+};
+
+wireHandDrawClicks();   // #dealer-cards is in the static markup already
 
 /* ---------------- Settings + Payouts modals ---------------- */
 Game.openSettings = function() {
