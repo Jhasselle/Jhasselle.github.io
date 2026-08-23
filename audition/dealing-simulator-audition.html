@@ -2088,7 +2088,6 @@ body.aud-targeting .aud-aim { display: flex; }
         <div class="chip-tray" id="chip-tray"><!-- stacks injected by JS --></div>
 
         <div class="tray-buttons">
-          <button class="tray-btn" id="aud-start" onclick="Aud.startSession()">New Audition</button>
           <button class="tray-btn" onclick="Aud.openScorecard()">Scorecard</button>
           <button class="tray-btn" onclick="Game.openSettings()">Settings</button>
           <button class="tray-btn" onclick="Game.openPayouts()">Payouts</button>
@@ -2708,7 +2707,14 @@ function renderPlayerCards(i) {
     const group = document.createElement('div');
     group.className = 'hand-group hand-' + hi;
     group.dataset.handIdx = hi;
-    if (hi === pl.activeHandIdx && !hand.stood && !hand.busted) {
+    /* The glow marks the hand being PLAYED — it belongs to the seat whose
+       turn it is, and only while the table is still in the playing steps.
+       Left on, it followed a finished split all the way to settlement. */
+    const audSeatLive = (typeof currentPlayerIdx === 'number' && currentPlayerIdx === i)
+      && ['playing', 'select-player', 'awaiting-split-cards',
+          'awaiting-split-deal-0', 'awaiting-split-deal-1',
+          'bust-cleanup'].indexOf(phase) >= 0;
+    if (audSeatLive && hi === pl.activeHandIdx && !hand.stood && !hand.busted) {
       group.classList.add('active-hand');
     } else if (hand.stood || hand.busted) {
       group.classList.add('done-hand');
@@ -7945,8 +7951,21 @@ function audSkipPeek() {
   const fast = setInterval(function () {
     if (phase === 'select-player') {
       clearInterval(fast);
-      Game.selectPlayer(currentPlayerIdx);
-    } else if (phase !== 'playing') {
+      const seat = currentPlayerIdx;
+      Game.selectPlayer(seat);
+      /* Seat one is already signalling when the cards land, so the dealer
+         reaching for their hand means "deal it" — one click, not two
+         (Jason). Seats that only signal once selected still wait. */
+      if (seat === 0 && (currentAction === 'H' || currentAction === 'D')
+          && phase === 'playing') {
+        setTimeout(function () {
+          if (phase === 'playing' && currentPlayerIdx === seat
+              && (currentAction === 'H' || currentAction === 'D')) {
+            dealCardToActive();
+          }
+        }, 260);
+      }
+    } else if (phase !== 'playing' && phase !== 'peek-10' && phase !== 'peeking') {
       clearInterval(fast);           /* naturals to pay, or the round moved on */
     }
   }, 40);
@@ -8556,7 +8575,10 @@ startBJPayoutSettlement = function () {
 
 const audOrigDrawTargetBJ = handDrawTargetEl;
 handDrawTargetEl = function () {
-  if (phase === 'bj-payout') return $('p0-cards');
+  /* Walking past an unpaid natural is a real mistake, so it needs a real
+     gesture: the SHOE. Player cards used to work here too, which turned the
+     same click that declines the peek into an accidental skip a beat later,
+     with no way back to pay the hand (Jason). */
   /* The seat is up but the round hasn't formally started them yet. Reaching
      for their cards IS starting them — waiting on the auto-advance made the
      table feel dead for a beat. */
@@ -9240,6 +9262,165 @@ function audDrillFinish(skipped) {
     document.addEventListener('click', onFlag, true);
   }, 1800);
 })();
+
+
+/* ==========================================================================
+ * THE LATE PEEK
+ * Declining the check at the peek step doesn't end the dealer's chance to
+ * make it — the hole card can be checked any time before the dealer's own
+ * turn. What ends is the grace: the moment a card goes out or a hand
+ * busts with the check still owed, it costs a point (Jason). The check
+ * itself works exactly as it does at the peek step — including a
+ * blackjack killing the round with the full warning.
+ * ========================================================================== */
+let audLateCheckCharged = false;
+let audPeekDone = false;      /* the check has actually been made */
+
+/* Play steps where the check is still open to the dealer. */
+const AUD_LATE_PEEK_PHASES = ['select-player', 'playing', 'awaiting-split-cards',
+                              'awaiting-split-deal-0', 'awaiting-split-deal-1',
+                              'bust-cleanup',
+                              /* a natural waiting to be paid is the moment the
+                                 check matters most — it decides pay or push */
+                              'bj-payout', 'bj-card-collect'];
+
+/* Still checkable? Being billed for dealing on does NOT close the check —
+   the dealer can and should still look. Only actually looking closes it. */
+function audCheckStillOwed() {
+  return audPeekSkipped && !audPeekDone
+    && dealer.cards.length >= 2
+    && ['10', 'J', 'Q', 'K'].indexOf(dealer.cards[0].rank) >= 0;
+}
+
+/* Charge the skipped check the first time the dealer acts past it. */
+function audChargeLateCheck() {
+  if (!audCheckStillOwed() || audLateCheckCharged) return;
+  audLateCheckCharged = true;
+  audPeekScored = true;    /* the reveal reckoning doesn't bill it twice */
+  audDealerError(1,
+    'You dealt on without checking under the ten.',
+    'The check comes before another card moves. You can still make it \u2014 ' +
+    'click the dealer\u2019s hand \u2014 but the point is gone.');
+}
+
+const audOrigDealCardLate = dealCardToActive;
+dealCardToActive = function () {
+  audChargeLateCheck();
+  return audOrigDealCardLate.apply(this, arguments);
+};
+const audOrigDealSplitLate = dealSplitCard;
+dealSplitCard = function () {
+  audChargeLateCheck();
+  return audOrigDealSplitLate.apply(this, arguments);
+};
+const audOrigBustCleanupLate = startBustCleanup;
+startBustCleanup = function () {
+  audChargeLateCheck();
+  return audOrigBustCleanupLate.apply(this, arguments);
+};
+
+/* The check itself, made late. Same verdict as the peek step. */
+/* Has the round actually moved since the check was owed? Selecting a seat
+   isn't movement — a card drawn, a hand stood, doubled, split or busted is.
+   A natural's automatic stand doesn't count: the player never acted. */
+let audMainMoneyMoved = false;   /* a main bet or natural has been settled */
+
+function audRoundProgressed() {
+  /* Money is movement. Paying a natural before play settles a main bet —
+     and if the dealer is sitting on an unchecked blackjack, that payment
+     should have been a push. Finding it afterwards is damage, not a
+     harmless late look (Jason). */
+  if (audMainMoneyMoved) return true;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const pl = players[i];
+    if (!pl || !pl.hands) continue;
+    if (pl.hands.length > 1) return true;              /* a split happened */
+    for (let h = 0; h < pl.hands.length; h++) {
+      const hand = pl.hands[h];
+      if (hand.cards.length > 2) return true;          /* a card was drawn */
+      if (hand.busted || hand.doubled) return true;
+      if (hand.stood && !pl.naturalBJ) return true;
+    }
+  }
+  return false;
+}
+
+function audLatePeek() {
+  if (!audCheckStillOwed()) return false;
+  audPeekDone = true;
+  const dEl = $('dealer-cards');
+  audPeekFold(function () {
+    if (isBlackjack(dealer.cards)) {
+      renderDealerCards(undefined, true);
+      setStatus('Dealer has BLACKJACK!');
+      if (!audRoundProgressed()) {
+        /* Nothing has been drawn, stood or paid — the check is simply late,
+           not damaging. The round resolves the way any dealer blackjack
+           does, and it costs nothing (Jason). A natural still waiting to be
+           paid is exactly what the blackjack cancels: it pushes, so the
+           payout queue is cleared before the round settles. */
+        audPeekScored = true;
+        pendingBJPayouts = [];
+        currentTarget = null;
+        inHandChips = [];
+        renderInHand();
+        enableChipTray(false);
+        for (let i = 0; i < NUM_PLAYERS; i++) {
+          const el = $('p' + i + '-main');
+          if (el) el.classList.remove('payout-target');
+        }
+        setTimeout(resolveDealerBJ, 1200);
+        return;
+      }
+      audDealerError(2,
+        'Dealer blackjack \u2014 found late.',
+        'That is a floor call. The round is dead: every bet comes back, nobody is ' +
+        'paid, and the hand does not stand. Two points.', { floor: true });
+      audPeekScored = true;
+      setTimeout(function () { Game.newRound(); }, 3200);
+    } else {
+      flashStatus("Nobody's home.");
+      /* Checked, however late — the reveal has nothing left to bill. */
+      audPeekScored = true;
+    }
+  });
+  return true;
+}
+
+/* Clicking the dealer's hand during play makes the late check. */
+(function () {
+  const dEl = document.getElementById('dealer-cards');
+  if (!dEl) return;
+  dEl.addEventListener('click', function () {
+    if (!Aud.sessionActive || Aud.targeting) return;
+    if (AUD_LATE_PEEK_PHASES.indexOf(phase) < 0) return;
+    audLatePeek();
+  });
+})();
+
+const audOrigNewRoundLate = Game.newRound;
+Game.newRound = function () {
+  audLateCheckCharged = false;
+  audPeekDone = false;
+  return audOrigNewRoundLate.apply(this, arguments);
+};
+
+
+/* Main-bet money leaving the rack (a natural paid, a winner paid) counts as
+   the round having moved. Side bets settle before the peek in the ordinary
+   flow, so they are deliberately NOT counted here. */
+const audOrigTryPayProgress = tryPayNextBet;
+tryPayNextBet = function (playerIdx, key) {
+  const out = audOrigTryPayProgress.apply(this, arguments);
+  if (out && key === 'main') audMainMoneyMoved = true;
+  return out;
+};
+
+const audOrigNewRoundMoney = Game.newRound;
+Game.newRound = function () {
+  audMainMoneyMoved = false;
+  return audOrigNewRoundMoney.apply(this, arguments);
+};
 
 </script>
 </body>
