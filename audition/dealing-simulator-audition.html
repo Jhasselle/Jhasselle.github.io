@@ -8403,6 +8403,21 @@ Game.burnCard = function () {
   return audOrigDispatchWin.apply(this, arguments);
 };
 
+/* The dealer's own hand is a carry-on gesture too. A dead click on the
+   hole card while a side bet is still out was a free tell — the table
+   quietly refusing to move is a hint. Now the click does exactly what
+   reaching for the hole card does at a real table: the round moves on,
+   the bet stays out, and it costs what it costs (Jason). */
+(function () {
+  const dEl = document.getElementById('dealer-cards');
+  if (!dEl) return;
+  dEl.addEventListener('click', function () {
+    if (!Aud.sessionActive || Aud.targeting) return;
+    if (phase === 'settle-winners') { audSkipWinners(); return; }
+    if (phase === 'settle-21-loser') { audSkip21(); }
+  });
+})();
+
 const audOrigStartWinnerSettle = startWinnerSettlement;
 startWinnerSettlement = function () {
   audWinnerSkipScored = false;
