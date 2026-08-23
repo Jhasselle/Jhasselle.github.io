@@ -365,14 +365,14 @@ const AUDITION_GAMES = [
      run in between. */
   { id: 'ex-change', name: 'Changing money', path: 'exchange-audition.html', exchange: 'open',  ready: true, rec: true },
   { id: 'ex-color',  name: 'Coloring up',   path: 'exchange-audition.html', exchange: 'after', ready: true, rec: true },
-  { id: 'bj-pay',    name: 'Blackjack payouts', path: 'dealing-simulator-audition.html', drill: true, ready: true, rec: true },
+  { id: 'bj-pay',    name: 'Blackjack payouts', path: 'dealing-simulator-audition.html', drill: true, ready: true },
   { id: 'bj-shoe',   name: 'Blackjack — Shoe',   path: 'dealing-simulator-audition.html', ready: true },
   { id: 'bj-pitch',  name: 'Blackjack — Pitch',  path: 'pitch-dealing-simulator-audition.html', ready: false },
-  { id: 'deuces',    name: 'Deuces Wild Xtreme', path: 'deuces-wild-xtreme-dealer-simulator-audition.html', ready: false },
-  { id: 'prime',     name: 'Three Card Prime',   path: 'three-card-prime-simulator-audition.html', ready: false },
-  { id: 'holdem',    name: "Heads Up Hold'em",   path: 'heads-up-holdem-simulator-audition.html', ready: false },
-  { id: 'paigow',    name: 'Pai Gow Poker',      path: 'paigow-dealer-sim-audition.html', ready: false },
-  { id: 'baccarat',  name: 'Baccarat',           path: 'baccarat-dealer-sim-audition.html', ready: false },
+  { id: 'deuces', hidden: true,    name: 'Deuces Wild Xtreme', path: 'deuces-wild-xtreme-dealer-simulator-audition.html', ready: false },
+  { id: 'prime', hidden: true,     name: 'Three Card Prime',   path: 'three-card-prime-simulator-audition.html', ready: false },
+  { id: 'holdem', hidden: true,    name: "Heads Up Hold'em",   path: 'heads-up-holdem-simulator-audition.html', ready: false },
+  { id: 'paigow', hidden: true,    name: 'Pai Gow Poker',      path: 'paigow-dealer-sim-audition.html', ready: false },
+  { id: 'baccarat', hidden: true,  name: 'Baccarat',           path: 'baccarat-dealer-sim-audition.html', ready: false },
 ];
 
 
@@ -416,6 +416,7 @@ function renderGames() {
   const wrap = $('games');
   wrap.innerHTML = '';
   AUDITION_GAMES.forEach(g => {
+    if (g.hidden) return;   /* parked out of sight until they're built */
     const on = prefs.picked.indexOf(g.id) >= 0;
     const el = document.createElement(g.ready ? 'button' : 'div');
     if (g.ready) el.type = 'button';
