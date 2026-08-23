@@ -304,6 +304,9 @@
   /* ---- payout drill chrome ---- */
   body.aud-drill .aud-rail, body.aud-drill .shoe,
   body.aud-drill .red-button, body.aud-drill #close-btn { display: none !important; }
+  /* The drill is main-bet payouts only — the side circles have no part in
+     it, so they leave the felt entirely (spacing kept so nothing shifts). */
+  body.aud-drill .side-grid { visibility: hidden; }
   .drill-hud {
     position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
     background: rgba(8,10,20,0.85); border: 1px solid rgba(255,255,255,0.22);
@@ -318,6 +321,43 @@
     font-size: 0.7rem; border-radius: 9px; padding: 6px 14px;
   }
   .drill-skip:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
+  /* ---- first-audition flag tutorial ---- */
+  .aud-flag-tut {
+    position: fixed; right: 92px; top: 50%; transform: translateY(-50%);
+    width: 250px; z-index: 60;
+    background: #12121e; color: #f5f3ff;
+    border: 1px solid rgba(248,113,113,0.55);
+    border-radius: 14px; padding: 14px 16px;
+    font-size: 0.83rem; line-height: 1.5;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.55);
+    animation: aud-tut-in 0.35s ease-out;
+  }
+  .aud-flag-tut::after {
+    content: ''; position: absolute; right: -9px; top: 50%;
+    transform: translateY(-50%);
+    border: 9px solid transparent; border-right: none;
+    border-left-color: rgba(248,113,113,0.55);
+  }
+  .aud-flag-tut b { color: #fca5a5; display: block; margin-bottom: 4px; }
+  .aud-flag-tut button {
+    margin-top: 10px; width: 100%;
+    background: #dc2626; color: #fff; border: none; cursor: pointer;
+    font-family: inherit; font-weight: 800; font-size: 0.8rem;
+    border-radius: 9px; padding: 8px 0;
+  }
+  @keyframes aud-tut-in { from { opacity: 0; transform: translateY(-50%) translateX(10px); } }
+  .aud-flag.tut-pulse { animation: aud-tut-pulse 1.2s ease-in-out infinite; }
+  @keyframes aud-tut-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.6); }
+    50%      { box-shadow: 0 0 0 10px rgba(248,113,113,0); }
+  }
+  /* The drill announces its target — the WHOLE spot, not just the bet.
+     Bare mode hides the game's guidance rings; here paying in order IS
+     the exercise, so the station itself carries the outline. */
+  body.aud-drill .players-row .player.drill-target {
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.8), 0 0 22px rgba(56,189,248,0.4);
+    border-radius: 16px;
+  }
   .side-circle .result-badge {
     position: absolute;
     top: -8px;
@@ -776,7 +816,7 @@
   /* Chip colors (edge fill) */
   /* Real-chip palette matched to the reference photo */
   .ce-white,  .cp-white  { --chip-base: #ede9d6; --chip-stripe: rgba(22,163,74,0.92); }   /* cream body, green stripes */
-  .ce-pink,   .cp-pink   { --chip-base: #ec4899; --chip-stripe: rgba(255,255,255,0.95); } /* pink body, white stripes */
+  .ce-pink,   .cp-pink   { --chip-base: #f472b6; --chip-stripe: rgba(255,255,255,0.95); } /* pink body, white stripes */
   .ce-red,    .cp-red    { --chip-base: #dc2626; --chip-stripe: #facc15; }                /* red body, yellow stripes */
   .ce-green,  .cp-green  { --chip-base: #76b900; --chip-stripe: rgba(255,255,255,0.95); } /* NVIDIA green body, white stripes */
   .ce-black,  .cp-black  { --chip-base: #1f1235; --chip-stripe: rgba(234,179,8,0.95); }   /* near-black/indigo body, yellow stripes */
@@ -1434,7 +1474,7 @@ body::before, body::after {
   position: fixed; left: 0; right: 0;
   height: 6px; z-index: 9998;
   pointer-events: none;
-  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #a855f7, #6366f1);
+  background: linear-gradient(90deg, #6366f1, #a855f7, #f472b6, #a855f7, #6366f1);
   background-size: 200% 100%;
   animation: tdt-strip-slide 60s linear infinite;
 }
@@ -1635,6 +1675,10 @@ body.aud-targeting .aud-flag { animation: none; }
 
 /* ---- targeting mode: everything pointable gets a dashed ring ---- */
 body.aud-targeting { cursor: crosshair; }
+body.aud-targeting #dealer-cards .playing-card { cursor: crosshair; }
+body.aud-targeting #dealer-cards:hover .playing-card {
+  outline: 2px solid rgba(248,113,113,0.7); outline-offset: 2px; border-radius: 6px;
+}
 body.aud-targeting .circle,
 body.aud-targeting .ins-bet {
   outline: 2px dashed rgba(248,113,113,.75);
@@ -5421,10 +5465,26 @@ function wireHandDrawClicks() {
     el.dataset.handDrawWired = '1';
     /* addEventListener, not .onclick — the split, reveal and bust-cleanup
        steps own .onclick on these same elements and must keep working. */
-    el.addEventListener('click', function() {
+    el.addEventListener('click', function(ev) {
       const shoeEl = $('shoe');
       if (!shoeEl || shoeEl.classList.contains('disabled')) return;
       if (handDrawTargetEl() !== el) return;
+      /* The dealer row spans the felt, so "anywhere in the purple" was a
+         draw. Only the cards themselves accept the click — a box that
+         grows as cards are drawn (Jason). The shoe still works as always. */
+      if (el.id === 'dealer-cards') {
+        const cards = el.querySelectorAll('.playing-card');
+        if (cards.length && ev && typeof ev.clientX === 'number') {
+          const PAD = 16;
+          let hit = false;
+          cards.forEach(function (c) {
+            const r = c.getBoundingClientRect();
+            if (ev.clientX >= r.left - PAD && ev.clientX <= r.right + PAD &&
+                ev.clientY >= r.top - PAD && ev.clientY <= r.bottom + PAD) hit = true;
+          });
+          if (!hit) return;
+        }
+      }
       Game.burnCard();          // read live: the dispatcher may be re-wrapped
     });
   });
@@ -6508,9 +6568,43 @@ document.addEventListener('click', function(ev) {
   if (t && t.closest && (t.closest('#aud-picker') || t.closest('#aud-flag') || t.closest('#aud-aim'))) return;
   ev.stopPropagation();
   ev.preventDefault();
+  /* The dealer's own hand is a target too — drawing past a made hand is
+     saved by calling the floor on yourself (Jason). */
+  if (t && t.closest && t.closest('#dealer-cards')) { Aud.judgeDealerHand(); return; }
   const hit = audSpotFromElement(t);
   if (hit) Aud.openPicker(hit.i, hit.spot);
 }, true);
+
+/* Flagging the dealer's own hand. If the dealer just drew past a made hand,
+   calling the floor on themselves is exactly the procedure — the draw is
+   voided, the hand stands, and no points are lost. That is the save. */
+Aud.judgeDealerHand = function () {
+  Aud.cancelAim();
+  if (typeof audOverdrewAt === 'number' && audOverdrewAt !== null && !audOverdrawScored) {
+    audOverdrawScored = true;   /* the sweep and the money trap both stand down */
+    /* Calling it yourself is the right procedure — but the card still came
+       off, and the card is what costs (Jason): one point, always. */
+    audDealerError(1,
+      'You drew to a hand that should have stood.',
+      'Right call bringing it to the floor \u2014 the draw is voided and the hand ' +
+      'stands on ' + audOverdrewAt + '. The card itself still costs a point.');
+    try { flashStatus('The floor rules the hand stood on ' + audOverdrewAt + '.'); } catch (e) { /* best effort */ }
+    audOverdrawHold = false;
+    audOverdrawVoidAndResettle();
+    return;
+  }
+  /* The draw was real but the round already ruled it — the sweep charged
+     the point. Late is late, but it is not a false call. */
+  if (typeof audOverdrewAt === 'number' && audOverdrewAt !== null && audOverdrawScored) {
+    Aud.toast(false, 'Already on the card.',
+      'The draw past ' + audOverdrewAt + ' was ruled when the round closed \u2014 ' +
+      'the point stands. Call it before the round ends and the floor saves it.');
+    return;
+  }
+  Aud.noteFalseFlag();
+  Aud.toast(false, 'Nothing wrong with the dealer\u2019s hand.',
+    'The floor has nothing to rule on. A false call costs you at a real audition.');
+};
 
 document.addEventListener('keydown', function(ev) {
   if (ev.key === 'Escape' && (Aud.targeting || $('aud-picker').classList.contains('open'))) Aud.cancelAim();
@@ -6611,7 +6705,7 @@ Aud.judge = function(i, spot, kind) {
        as a miss, so tell them straight and charge nothing extra. */
     headline = 'That one\u2019s already in the books.';
     detail = 'You\u2019re right: ' + Aud.lastMissed.what
-      + '. But that was last hand, and it\u2019s already scored as a miss. No false flag.';
+      + '. But that one is already scored as a miss \u2014 the moment to call it has passed. No false flag.';
     Aud.lastMissed = null;
   } else if (cur) {
     /* That bet is fine — but the hand isn't settled, so keep looking. */
@@ -6681,6 +6775,7 @@ Aud.closeHand = function() {
     if (!what && Aud.current) { what = Aud.current.def.label; seat = Aud.current.i + 1; }
   } else if (result === 'missed' || result === 'falseFlag') {
     if (Aud.current) { what = Aud.current.def.label; seat = Aud.current.i + 1; }
+    else if (Aud.missedCur) { what = Aud.missedCur.def.label; seat = Aud.missedCur.i + 1; }
   } else if (Aud.current) {
     result = 'missed';                       /* never flagged, but rigged */
     what = Aud.current.def.label;
@@ -6718,6 +6813,7 @@ Aud.closeHand = function() {
   Aud.correctedDef = null;
   Aud.caughtSeat = null;
   Aud.current = null;
+  Aud.missedCur = null;
   Aud.handResult = null;
   Aud.handFalseFlags = 0;
   Aud.handScored = false;
@@ -7052,7 +7148,7 @@ Aud.showOops = function(list) {
     if (e.kind === 'left-up') {
       return '<div class="aud-oops-item"><span class="amt">&minus;$' +
         formatMoney(e.amount) + '</span><span>' + who +
-        ' lost that bet and it was still on the layout when the round ended.' +
+        ' lost that bet and it was left on the layout.' +
         '<em>$' + formatMoney(e.amount) + ' the house never picked up.</em></span></div>';
     }
     if (e.kind === 'note') {
@@ -7198,6 +7294,31 @@ function audCollectSig(i, key) {
   return pl[key] || 0;
 }
 
+/* The moment the dealer settles the very bet that carries the staged
+   mistake — takes it into the rack or pays it — the chance to call it is
+   gone. Say so right then, not at the end of the round (Jason). */
+const AUD_KEY_TO_SPOT = { three: 'three', bust: 'bust', main: 'main',
+                          insurance: 'ins', jkp: 'jkp', bjk: 'bjk' };
+Aud.missedCur = null;
+function audMissOnSettle(seat, key) {
+  const cur = Aud.current;
+  if (!cur || Aud.handResult) return;
+  if (cur.i !== seat || cur.def.spot !== (AUD_KEY_TO_SPOT[key] || key)) return;
+  /* Scored as a miss on the spot; the flag from here on gets the honest
+     "already in the books" answer instead of a false-flag charge. */
+  Aud.missedCur = { def: cur.def, i: cur.i, info: cur.info };
+  Aud.lastMissed = { i: cur.i, spot: cur.def.spot, what: cur.def.label };
+  Aud.current = null;
+  Aud.handResult = 'missed';
+  Aud.handScored = true;
+  Aud.score.missed++;
+  let detail = '';
+  try { detail = Aud.missedCur.def.say(Aud.missedCur.i, Aud.missedCur.info); } catch (e) { /* best effort */ }
+  Aud.toast(false, 'Missed it \u2014 Player ' + (Aud.missedCur.i + 1) + ', ' +
+    (AUD_SPOT_LABEL[Aud.missedCur.def.spot] || Aud.missedCur.def.spot) + '.', detail);
+  Aud.updateHud();
+}
+
 /* Every loser-collection entry point. Chips in hand turns the collect into a
    payment; the original still runs, so the round advances exactly as before. */
 Object.keys(AUD_COLLECTORS).forEach(fnName => {
@@ -7228,6 +7349,7 @@ Object.keys(AUD_COLLECTORS).forEach(fnName => {
           audFlushPayErrors(seat);
           return out;
         }
+        audMissOnSettle(seat, key);
         /* The engine took a bet that did NOT lose — a split's other hand, or a
            bet the queue had already resolved. The dealer collected correctly;
            it is this wrapper that misread the click. Say nothing, and leave
@@ -7248,7 +7370,10 @@ Object.keys(AUD_COLLECTORS).forEach(fnName => {
         return out;
       }
       audFlushPayErrors(playerIdx);
-      return orig.apply(this, arguments);
+      const sigB = audCollectSig(playerIdx, key);
+      const outC = orig.apply(this, arguments);
+      if (audCollectSig(playerIdx, key) < sigB) audMissOnSettle(playerIdx, key);
+      return outC;
     };
     window[fnName] = wrapped;
   });
@@ -7272,7 +7397,9 @@ tryPayNextBet = function(playerIdx, key) {
     }
   }
   audFlushPayErrors(playerIdx);
-  return audOrigTryPayNextBet.apply(this, arguments);
+  const audPaid = audOrigTryPayNextBet.apply(this, arguments);
+  if (audPaid) audMissOnSettle(playerIdx, key);
+  return audPaid;
 };
 
 /* Nothing outlives the round. */
@@ -7383,6 +7510,20 @@ placeBustBonusBets = function() {
     if (players[i].bust > 0 && !players[i].audEarlyBust) {
       audFlyIn(audSpotEl(i, 'bust'), { delay: i * 150 });
       k++;
+    }
+  }
+  /* A natural that was never paid is still sitting in the round — and if it
+     just bought a Bust Bonus, that is a SECOND error born of the same skip:
+     a finished hand has no business buying a side bet (Jason). Called out
+     the moment the bet goes up, on top of the skip itself. */
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const pl = players[i];
+    if (pl && pl.naturalBJ && pl.bust > 0 && !pl.audBJBonusScored) {
+      pl.audBJBonusScored = true;
+      audDealerError(1,
+        'Player ' + (i + 1) + '\u2019s blackjack is playing the Bust Bonus.',
+        'The natural should have been paid and its cards collected before the ' +
+        'Bust Bonus opened. A finished hand has no business buying a side bet. One point.');
     }
   }
 };
@@ -7959,6 +8100,18 @@ Aud.startSession = function () {
 /* Carry on to the hands with losing 21+3 chips still on the layout. */
 function audSkip21() {
   if (phase !== 'settle-21-loser') return;
+  /* Each losing 21+3 still on the layout when the cards move on is its own
+     point, charged the moment it happens (Jason). The chips stay put — the
+     dealer can still pick them up later, but the charge stands. */
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const pl = players[i];
+    if (!pl || !(pl.three > 0)) continue;
+    const r = pl.results && pl.results.three;
+    if (!r || r.win || r.settled || r.audLeftCharged) continue;
+    r.audLeftCharged = true;
+    audLogPayError('left-up', i, 'three', pl.three);
+  }
+  audFlushPayErrors(null);
   highlightLoser21(null);
   startWinnerSettlement();
 }
@@ -8024,7 +8177,8 @@ function audSweepForgotten21() {
     r.settled = true;
     pl.three = 0;
     renderSide(i, 'three', 0, '<span class="lbl dark">3</span>');
-    audLogPayError('left-up', i, 'three', amt);
+    /* Dealing past it already cost the point — the sweep only tidies up. */
+    if (!r.audLeftCharged) audLogPayError('left-up', i, 'three', amt);
   }
 }
 
@@ -8452,6 +8606,8 @@ decideDealerAction = function () {
 
 /* Standing settles itself after a beat, which left almost no room to reach for
    the shoe by mistake. Hold once so the made hand actually sits there. */
+let audOverdrawHold = false;        /* settlement is waiting on the dealer */
+let audOverdrawHoldPassed = false;  /* they carried on (or fixed it) */
 const audOrigSettleBustBonusPause = settleBustBonus;
 settleBustBonus = function () {
   if (audStandPause) {
@@ -8459,16 +8615,136 @@ settleBustBonus = function () {
     setTimeout(settleBustBonus, 1500);
     return;
   }
+  /* An illegal card is on the felt. If the round would settle itself with
+     no dealer action (nothing but pushes, or no live money), pausing is the
+     only way the dealer gets a chance to call it — hold, and say why. If
+     the round DOES need the dealer's hands, let it run on the hand as it
+     lies: the wrong payout is the temptation, and the first chip that
+     moves springs the trap (Jason). */
+  if (audOverdrewAt !== null && !audOverdrawScored && !audOverdrawHoldPassed
+      && !audPhantomNeedsInput()) {
+    const firstHold = !audOverdrawHold;
+    audOverdrawHold = true;
+    setPhase('overdraw-hold');
+    enableShoe(true);
+    if (firstHold) {
+      Aud.showOops([{ kind: 'note', seat: 0, key: 'peek', amount: 0, points: 0,
+        text: 'The dealer\u2019s hand carries a card that should never have come off.',
+        sub: 'The hand ended on ' + audOverdrewAt + '. Call the floor \u2014 press the flag ' +
+             'and tap the dealer\u2019s hand \u2014 or click the shoe to let it stand.' }]);
+    }
+    return;
+  }
   return audOrigSettleBustBonusPause.apply(this, arguments);
+};
+
+/* Would settling the hand as it lies require the dealer to move money?
+   Any live main that isn't a push, or any Bust Bonus, needs hands. */
+function audPhantomNeedsInput() {
+  const dt = handTotal(dealer.cards).total;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const pl = players[i];
+    if (!pl) continue;
+    if (pl.bust > 0) return true;
+    for (let h = 0; h < pl.hands.length; h++) {
+      const hand = pl.hands[h];
+      if (hand.bet <= 0) continue;
+      const pt = handTotal(hand.cards).total;
+      if (pt > 21) continue;
+      if (dt > 21 || pt !== dt) return true;   /* a pay or a take */
+    }
+  }
+  return false;
+}
+
+/* THE TRAP: the first money the dealer moves off the uncorrected hand is
+   the floor call. The payment is refused, the draw is voided, and the
+   round re-settles on the made hand. Three points. */
+function audOverdrawTrap() {
+  if (audOverdrewAt === null || audOverdrawScored) return false;
+  audOverdrawScored = true;
+  const made = audOverdrewAt;
+  audDealerError(3,
+    'You settled off a hand that should have stood.',
+    'The dealer was on ' + made + ' \u2014 that was the end of the hand, and every ' +
+    'card after it is void. The floor is called, the draw comes back, and the ' +
+    'round settles on ' + made + '. Three points.', { floor: true });
+  audOverdrawVoidAndResettle();
+  return true;
+}
+
+/* Take the illegal cards back and run settlement again off the real hand. */
+function audOverdrawVoidAndResettle() {
+  try {
+    if (typeof audOverdrewLen === 'number' && dealer.cards.length > audOverdrewLen) {
+      dealer.cards.length = audOverdrewLen;
+      renderDealerCards(undefined, true);
+    }
+    pendingCombined = [];
+    pendingMainResolution = [];
+    pendingMainLosers = [];
+    pendingMainWinners = [];
+    pendingBustLosers = [];
+    pendingBJPayouts = [];
+    currentTarget = null;
+    inHandChips = [];
+    renderInHand();
+    for (let i = 0; i < NUM_PLAYERS; i++) {
+      ['main', 'bust'].forEach(function (k) {
+        const el = $('p' + i + '-' + k);
+        if (el) el.classList.remove('payout-target', 'collectable-loser');
+      });
+    }
+    audOverdrawHoldPassed = true;
+    setPhase('dealer-play');
+    setTimeout(settleBustBonus, 700);
+  } catch (e) { /* the round is in a strange place — leave it be */ }
+}
+
+/* Every payment funnels through here; refuse the first one off a bad hand. */
+const audOrigTryPayOverdraw = tryPayNextBet;
+tryPayNextBet = function (playerIdx, key) {
+  if (Aud.sessionActive && audOverdrewAt !== null && !audOverdrawScored) {
+    audOverdrawTrap();
+    return false;
+  }
+  return audOrigTryPayOverdraw.apply(this, arguments);
+};
+
+/* Collections that depend on the dealer's hand spring it too. */
+['collectMainLoser', 'collectBustBonusLoser'].forEach(function (fn) {
+  const orig = window[fn];
+  if (typeof orig !== 'function') return;
+  window[fn] = function () {
+    if (Aud.sessionActive && audOverdrewAt !== null && !audOverdrawScored) {
+      audOverdrawTrap();
+      return;
+    }
+    return orig.apply(this, arguments);
+  };
+});
+
+/* Carrying on unfixed is a choice the shoe makes. */
+const audOrigDispatchOverdrawHold = Game.burnCard;
+Game.burnCard = function () {
+  if (phase === 'overdraw-hold') {
+    audOverdrawHold = false;
+    audOverdrawHoldPassed = true;
+    setPhase('dealer-play');
+    return settleBustBonus();
+  }
+  return audOrigDispatchOverdrawHold.apply(this, arguments);
 };
 
 const audOrigDealerHitPause = null;
 
+let audOverdrewLen = null;   /* how many cards the legal hand had */
 const audOrigDealerHit = dealerHit;
 dealerHit = function () {
   if (phase === 'dealer-play' && audDealerShouldStand() && audOverdrewAt === null) {
     /* Remember what the hand was before the card that shouldn't exist. */
     audOverdrewAt = handTotal(dealer.cards).total;
+    audOverdrewLen = dealer.cards.length;
   }
   return audOrigDealerHit.apply(this, arguments);
 };
@@ -8505,8 +8781,10 @@ audSweepForgotten21 = function () {
     audOverdrawScored = true;
     audDealerError(1,
       'You drew to a hand that should have stood.',
-      'The dealer was on ' + audOverdrewAt + '. That is the end of the hand — ' +
-      'the next card is a floor call however it lands.', { floor: true, defer: true });
+      'The dealer was on ' + audOverdrewAt + ' — that was the end of the hand. ' +
+      'Check the dealer’s cards when a draw feels wrong, and call the floor ' +
+      'yourself: flag the hand and the draw is voided. Left uncalled, it costs the point.',
+      { defer: true });
   }
   return out;
 };
@@ -8514,8 +8792,11 @@ audSweepForgotten21 = function () {
 const audOrigNewRoundOverdraw = Game.newRound;
 Game.newRound = function () {
   audOverdrewAt = null;
+  audOverdrewLen = null;
   audOverdrawScored = false;
   audStandPause = false;
+  audOverdrawHold = false;
+  audOverdrawHoldPassed = false;
   return audOrigNewRoundOverdraw.apply(this, arguments);
 };
 
@@ -8763,6 +9044,9 @@ function audDrillDealSet() {
 function audDrillArm() {
   for (let i = 0; i < NUM_PLAYERS; i++) markMainBetTarget(i, null, null);
   if (Drill.seat >= 0) markMainBetTarget(Drill.seat, 0, 'payout');
+  document.querySelectorAll('.players-row .player').forEach(function (st, idx) {
+    st.classList.toggle('drill-target', idx === Drill.seat);
+  });
 }
 
 /* Which payout number the current seat is working. */
@@ -8782,8 +9066,10 @@ function audDrillDeliver(seat) {
      rendering the table already uses for exactly that picture. */
   const el = audSpotEl(seat, 'main');
   try {
+    const betChips = chipStackForAmount(bet).length;
     renderBetStack(el, bet, true, undefined, gave);
-    audFlyIn(el, {});
+    /* Their bet never moved — only the payout is new money on the felt. */
+    audFlyIn(el, { fromIndex: betChips });
   } catch (e) { /* best effort */ }
   inHandChips = [];
   renderInHand();
@@ -8829,6 +9115,19 @@ const audOrigMainClickDrill = Game.mainClick;
 Game.mainClick = function (playerIdx) {
   if (phase === 'drill-pay') return audDrillDeliver(playerIdx);
   return audOrigMainClickDrill.apply(this, arguments);
+};
+
+/* The tray's own gate only knows the game's payout phases — the drill is a
+   payout phase too, or every chip click on this page dies silently. */
+const audOrigAddChipDrill = addChipToHand;
+addChipToHand = function (value) {
+  if (phase === 'drill-pay') {
+    if (!value) return;
+    inHandChips.push({ value: value, color: chipColorForValue(value) });
+    renderInHand();
+    return;
+  }
+  return audOrigAddChipDrill.apply(this, arguments);
 };
 
 function audDrillSkip() {
@@ -8881,7 +9180,47 @@ function audDrillFinish(skipped) {
   $('aud-scorecard').classList.add('open');
   const hud = $('drill-hud'); if (hud) hud.remove();
   const sk = document.querySelector('.drill-skip'); if (sk) sk.remove();
+  document.querySelectorAll('.players-row .player.drill-target')
+    .forEach(function (st) { st.classList.remove('drill-target'); });
 }
+
+
+/* ==========================================================================
+ * FIRST AUDITION: WHAT THE FLAG IS FOR
+ * The very first time someone reaches a real game leg — not an exchange,
+ * not the payout drill — a one-time note points at the flag and says how
+ * to use it. Shown once ever, then never again.
+ * ========================================================================== */
+(function () {
+  const KEY = 'tdt-aud-flag-tut-v1';
+  try { if (localStorage.getItem(KEY)) return; } catch (e) { return; }
+  if (audIsDrillLeg()) return;
+  setTimeout(function () {
+    if (!Aud.sessionActive) return;
+    try { localStorage.setItem(KEY, '1'); } catch (e) { /* still show it */ }
+    const flag = document.querySelector('.aud-flag');
+    if (flag) flag.classList.add('tut-pulse');
+    const t = document.createElement('div');
+    t.className = 'aud-flag-tut';
+    t.innerHTML = '<b>See something wrong?</b>' +
+      'Press this flag, then tap what you\u2019re calling \u2014 a bet, or even ' +
+      'the dealer\u2019s own hand. You\u2019ll choose whether the player fixes it, ' +
+      'or the floor comes over.' +
+      '<button type="button">Got it</button>';
+    document.body.appendChild(t);
+    function close() {
+      t.remove();
+      if (flag) flag.classList.remove('tut-pulse');
+      document.removeEventListener('click', onFlag, true);
+    }
+    t.querySelector('button').onclick = close;
+    /* Using the flag is the best possible dismissal. */
+    function onFlag(ev) {
+      if (ev.target && ev.target.closest && ev.target.closest('.aud-flag')) close();
+    }
+    document.addEventListener('click', onFlag, true);
+  }, 1800);
+})();
 
 </script>
 </body>
