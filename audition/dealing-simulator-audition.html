@@ -1370,7 +1370,9 @@
   }
   .ins-bet {
     position: relative;
-    width: 40px;
+    /* Same cheque size as every other bet on the layout (Jason) — the main
+       stack viz is 50px wide with 20px pieces, so insurance matches it. */
+    width: 50px;
     height: 100%;
     cursor: pointer;
     border-radius: 4px;
@@ -1401,8 +1403,6 @@
   }
   @media (max-width: 520px) {
     .insurance-row { height: 48px; }
-    .ins-bet { width: 32px; }
-    .ins-bet .bet-chip-piece { height: 14px; }
   }
 
   /* When a player doubles, the bet circle shows TWO identical chip stacks side-by-side.
@@ -6329,12 +6329,32 @@ const AUD_MISTAKES = [
   },
   {
     id: 'BJS-11', stage: 'play-post', fixUntil: 'bust-cleanup', seatBound: true, spot: 'main',
-    label: "The split hand's bet doesn't match the first",
+    label: "The split hand's bet is short of the first",
     say: (i, info) => `Player ${i + 1}'s second split hand came out at ${audMoney(info.bad)} against ${audMoney(info.want)}. A split bet has to match exactly.`,
+    can: (p) => currentAction === 'SP' && !!p.pendingSplitBet && p.mainOriginal >= 20,
+    apply: (p) => {
+      const info = { want: p.mainOriginal };
+      const step = p.mainOriginal >= 50 ? 25 : (p.mainOriginal >= 30 ? 10 : 5);
+      p.audSplitBet = p.mainOriginal - step;
+      info.bad = p.audSplitBet;
+      return info;
+    },
+    fix: (p) => {
+      p.audSplitBet = null;
+      if (p.hands[1]) p.hands[1].bet = p.mainOriginal;
+    },
+  },
+  {
+    /* Splitting for MORE. Unlike a double — which may be taken for less —
+       a split has to match the original exactly, in either direction. */
+    id: 'BJS-11M', stage: 'play-post', fixUntil: 'bust-cleanup', seatBound: true, spot: 'main',
+    label: "The split hand's bet is more than the first",
+    say: (i, info) => `Player ${i + 1} put ${audMoney(info.bad)} on the second split hand against ${audMoney(info.want)} on the first. A split matches the original exactly \u2014 they can't put more up.`,
     can: (p) => currentAction === 'SP' && !!p.pendingSplitBet,
     apply: (p) => {
       const info = { want: p.mainOriginal };
-      p.audSplitBet = p.mainOriginal >= 30 ? p.mainOriginal - 10 : p.mainOriginal + 20;
+      const step = p.mainOriginal >= 50 ? 25 : (p.mainOriginal >= 25 ? 10 : 5);
+      p.audSplitBet = p.mainOriginal + step;
       info.bad = p.audSplitBet;
       return info;
     },
@@ -6705,10 +6725,45 @@ Aud.judge = function(i, spot, kind) {
       detail = what + ' ' + (cur.def.floorOnly
         ? 'Never handle that one at the table — a player moving money on a live bet is a floor call the moment it happens.'
         : 'Once the game moves past it, it stops being yours to correct — call the floor.');
+      /* Wrong call, but the floor still rules on it — resolve the spot the
+         same way a correct floor call does, costed money protected, so the
+         bet isn't left stranded on the layout (Jason). */
+      {
+        const _p = players[cur.i];
+        const _snap = audBetSnapshot(_p);
+        const _spot = cur.def.spot;
+        const _before = _p[_spot];
+        try { cur.def.fix(_p, cur.info, cur.i); } catch (e) { /* best effort */ }
+        audRestoreCostedBets(_p, _snap);
+        const _after = _p[_spot];
+        if (cur.def.changeMaking && _after < _before) {
+          audGiveChange(cur.i, _spot, _before, _after);
+        } else {
+          audPaintFor(cur.def, cur.i);
+        }
+      }
     } else {
       result = 'wrongCall';
       headline = 'No need for the floor.';
       detail = what + ' You caught it in time — the player could simply have fixed it.';
+      /* The call was wrong, and that is already on the card — but the table
+         still has to end up right. The player fixes it, exactly as the
+         message just said they would, so the bad bet doesn't sit there
+         through settlement (Jason). */
+      {
+        const _p = players[cur.i];
+        const _snap = audBetSnapshot(_p);
+        const _spot = cur.def.spot;
+        const _before = _p[_spot];
+        try { cur.def.fix(_p, cur.info, cur.i); } catch (e) { /* best effort */ }
+        audRestoreCostedBets(_p, _snap);
+        const _after = _p[_spot];
+        if (cur.def.changeMaking && _after < _before) {
+          audGiveChange(cur.i, _spot, _before, _after);
+        } else {
+          audPaintFor(cur.def, cur.i);
+        }
+      }
     }
   } else if (Aud.lastMissed && Aud.lastMissed.i === i && Aud.lastMissed.spot === spot) {
     /* They saw a real mistake — one hand too late. It has already been scored
@@ -8436,8 +8491,12 @@ Game.burnCard = function () {
   if (!dEl) return;
   dEl.addEventListener('click', function () {
     if (!Aud.sessionActive || Aud.targeting) return;
-    if (phase === 'settle-winners') { audSkipWinners(); return; }
-    if (phase === 'settle-21-loser') { audSkip21(); }
+    /* Reaching for the hole card means CHECKING it — even here, where the
+       side bets haven't been dealt with yet. That's out of order, and it
+       is charged as such, but the check itself is honoured and the round
+       carries on through the side bets afterwards (Jason). The shoe is
+       still the gesture for knowingly dealing on. */
+    if (AUD_SIDEBET_PHASES.indexOf(phase) >= 0) { audEarlySideBetCheck(); return; }
   });
 })();
 
@@ -9420,6 +9479,283 @@ const audOrigNewRoundMoney = Game.newRound;
 Game.newRound = function () {
   audMainMoneyMoved = false;
   return audOrigNewRoundMoney.apply(this, arguments);
+};
+
+
+/* ==========================================================================
+ * PAYING A WINNER BEFORE THE LOSERS ARE OFF
+ * The losing side bets come off the layout before a cent goes out. The
+ * table used to simply refuse — the chip tray was dead during collection,
+ * so the mistake was unmakeable rather than catchable. Now the dealer can
+ * build a stack and pay early, and it costs them (Jason).
+ * ========================================================================== */
+const AUD_EARLY_PAY_PHASES = ['collecting', 'settle-21-loser'];
+
+/* The tray answers during collection too. */
+const audOrigAddChipEarly = addChipToHand;
+addChipToHand = function (value) {
+  if (Aud.sessionActive && AUD_EARLY_PAY_PHASES.indexOf(phase) >= 0) {
+    if (!value) return;
+    inHandChips.push({ value: value, color: chipColorForValue(value) });
+    renderInHand();
+    return;
+  }
+  return audOrigAddChipEarly.apply(this, arguments);
+};
+
+/* Anything still owed the house on the layout right now. */
+function audLosersStillDown() {
+  const out = [];
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const pl = players[i];
+    if (!pl || !pl.results) continue;
+    for (const k of ['three', 'jkp', 'bjk']) {
+      const r = pl.results[k];
+      if (!r || r.win || r.settled) continue;
+      if (pl[k] > 0) out.push({ i: i, key: k });
+    }
+  }
+  return out;
+}
+
+/* Deliver a winning side bet early. Same money as the proper payout, with
+   the point that going out of order costs. */
+function audPayWinnerEarly(playerIdx, key) {
+  const pl = players[playerIdx];
+  const r = pl && pl.results && pl.results[key];
+  if (!r || !r.win || r.settled || !(r.owed > 0)) return false;
+  const gave = Math.round(inHandTotal() * 100) / 100;
+  if (gave <= 0) return false;
+  if (Math.abs(gave - r.owed) > 0.001) {
+    flashStatus('That is ' + audMoney(gave) + ' \u2014 ' + labelForKey(key) +
+                ' pays ' + audMoney(r.owed) + '.');
+    return true;                       /* handled: don't fall through */
+  }
+  const still = audLosersStillDown();
+  const el = $('p' + playerIdx + '-' + key);
+  try { audFlyOut(audStackPieces($('chip-stack-display') || el)); } catch (e) { /* best effort */ }
+  inHandChips = [];
+  renderInHand();
+  r.settled = true;
+  pl[key] = 0;
+  if (key === 'three') {
+    el.classList.remove('collected', 'has-bet', 'collectable', 'payout-target');
+    el.classList.add('dim');
+    el.innerHTML = '<span class="lbl dark">3</span>';
+  } else {
+    el.classList.remove('has-bet', 'collectable', 'payout-target');
+    const viz = el.querySelector('.bet-stack-viz');
+    if (viz) viz.remove();
+  }
+  if (still.length) {
+    audDealerError(1,
+      'You paid a winner with losing bets still on the layout.',
+      'Everything the house is owed comes off first \u2014 then the winners get paid. ' +
+      still.length + ' losing bet' + (still.length > 1 ? 's were' : ' was') +
+      ' still down. One point.', { defer: true });
+  }
+  return true;
+}
+
+const audOrigCollectChipEarly = Game.collectChip;
+Game.collectChip = function (playerIdx, key) {
+  if (Aud.sessionActive && AUD_EARLY_PAY_PHASES.indexOf(phase) >= 0
+      && inHandTotal() > 0) {
+    if (audPayWinnerEarly(playerIdx, key)) return;
+  }
+  return audOrigCollectChipEarly.apply(this, arguments);
+};
+
+
+/* ==========================================================================
+ * DOUBLING FOR LESS
+ * A double may be taken for any amount UP TO the original bet — a player
+ * putting out less than the full double is playing correctly, and the
+ * dealer has to recognise it as legal rather than reach for the flag.
+ * (A split is different: that must match exactly, either direction.)
+ * ========================================================================== */
+const AUD_DOUBLE_LESS_CHANCE = 0.3;
+
+function audMaybeDoubleForLess(seat) {
+  if (!Aud.sessionActive) return;
+  const pl = players[seat];
+  if (!pl) return;
+  /* Never touch a hand the round has rigged — the staged mistake owns it. */
+  if (Aud.current && Aud.current.i === seat) return;
+  if (Math.random() >= AUD_DOUBLE_LESS_CHANCE) return;
+  const hand = pl.hands[pl.activeHandIdx];
+  if (!hand || !hand.doubled) return;
+  const base = (typeof hand.audBaseBet === 'number' && hand.audBaseBet > 0)
+    ? hand.audBaseBet : pl.mainOriginal;
+  if (!(base >= 20)) return;                       /* too small to shave */
+  const steps = Math.floor(base / 5);
+  const take = (1 + Math.floor(Math.random() * (steps - 1))) * 5;   /* 5 .. base-5 */
+  pl.main = base + take;
+  try { rerenderMainBet(seat); } catch (e) { /* best effort */ }
+}
+
+/* The ordinary path: the seat's turn comes and the round doubles the bet. */
+const audOrigDecideDblLess = decidePlayerAction;
+decidePlayerAction = function () {
+  const seat = currentPlayerIdx;
+  const pl = players[seat];
+  const before = pl && pl.hands[pl.activeHandIdx];
+  const wasDoubled = !!(before && before.doubled);
+  const out = audOrigDecideDblLess.apply(this, arguments);
+  const after = pl && pl.hands[pl.activeHandIdx];
+  if (after && !wasDoubled && after.doubled) audMaybeDoubleForLess(seat);
+  return out;
+};
+
+/* Seat one stakes its double at the signal, before its turn. */
+const audOrigOpeningSignalDblLess = audShowOpeningSignal;
+audShowOpeningSignal = function () {
+  const before = players[0] && players[0].hands[players[0].activeHandIdx];
+  const wasStaked = !!(before && before.audDoubleStaked);
+  const out = audOrigOpeningSignalDblLess.apply(this, arguments);
+  const after = players[0] && players[0].hands[players[0].activeHandIdx];
+  if (after && !wasStaked && after.audDoubleStaked) audMaybeDoubleForLess(0);
+  return out;
+};
+
+
+/* ==========================================================================
+ * CHECKING THE HOLE CARD BEFORE THE SIDE BETS ARE DEALT WITH
+ * The layout gets settled first — losers off, winners paid — and only then
+ * does the dealer look under a ten or an ace. Looking early is out of
+ * order: one point, said plainly. The check still happens, a blackjack is
+ * still revealed, and the side bets are still settled properly afterwards.
+ * ========================================================================== */
+const AUD_SIDEBET_PHASES = ['collecting', 'settle-21-loser', 'settle-winners'];
+let audEarlyCheckDone = false;   /* checked before the side bets were done */
+let audEarlyBJFound  = false;    /* ...and it was a blackjack */
+
+function audEarlySideBetCheck() {
+  if (audEarlyCheckDone || audPeekDone) return;
+  const up = dealer.cards[0];
+  if (!up) return;
+  const upKey = dealerUpKey(up);
+  if (upKey !== '10' && upKey !== 'A') return;      /* nothing to look under */
+  audEarlyCheckDone = true;
+
+  audDealerError(1,
+    'You looked under the hole card before the side bets were dealt with.',
+    'The layout comes first \u2014 losing side bets off, winners paid \u2014 and the ' +
+    'check comes after. One point. Carry on and settle the side bets.',
+    { defer: true });
+
+  audPeekFold(function () {
+    if (isBlackjack(dealer.cards)) {
+      audEarlyBJFound = true;
+      audPeekDone = true;
+      audPeekScored = true;                 /* the peek step won't ask again */
+      renderDealerCards(undefined, true);
+      flashStatus('Dealer has BLACKJACK \u2014 settle the side bets first.');
+    } else {
+      flashStatus("Nobody's home. Settle the side bets.");
+    }
+  });
+}
+
+/* Once the side bets ARE settled, a blackjack found early resolves the
+   hands straight away — no second peek, no insurance line. */
+const audOrigFinishSettlementEarly = finishSettlement;
+finishSettlement = function () {
+  if (audEarlyBJFound) {
+    highlightLoser21(null);
+    highlightWinnerTarget(null);
+    enableChipTray(false);
+    inHandChips = [];
+    currentTarget = null;
+    $('in-hand-display').innerHTML = '';
+    const stackEl = $('chip-stack-display');
+    if (stackEl) stackEl.innerHTML = '';
+    setStatus('Side bets settled. Dealer has blackjack.');
+    setTimeout(resolveDealerBJ, 700);
+    return;
+  }
+  return audOrigFinishSettlementEarly.apply(this, arguments);
+};
+
+const audOrigNewRoundEarlyCheck = Game.newRound;
+Game.newRound = function () {
+  audEarlyCheckDone = false;
+  audEarlyBJFound = false;
+  return audOrigNewRoundEarlyCheck.apply(this, arguments);
+};
+
+
+/* ==========================================================================
+ * THE SPLIT GLOW FOLLOWS THE TURN
+ * Rendering decides whether a hand-group gets the glow, but a seat is only
+ * re-rendered when something happens TO it — so when play moved on, the old
+ * seat kept its ring, and two seats could wear it at once. Sweep the felt
+ * on every phase change instead of trusting the next render (Jason).
+ * ========================================================================== */
+const AUD_GLOW_PHASES = ['playing', 'select-player', 'awaiting-split-cards',
+                         'awaiting-split-deal-0', 'awaiting-split-deal-1',
+                         'bust-cleanup'];
+
+function audSyncActiveHand() {
+  const live = AUD_GLOW_PHASES.indexOf(phase) >= 0;
+  for (let i = 0; i < NUM_PLAYERS; i++) {
+    const el = document.getElementById('p' + i + '-cards');
+    if (!el) continue;
+    const pl = players[i];
+    const groups = el.querySelectorAll('.hand-group');
+    for (let g = 0; g < groups.length; g++) {
+      const grp = groups[g];
+      const hi = +grp.dataset.handIdx;
+      const hand = pl && pl.hands && pl.hands[hi];
+      const keep = live
+        && typeof currentPlayerIdx === 'number' && currentPlayerIdx === i
+        && pl && hi === pl.activeHandIdx
+        && hand && !hand.stood && !hand.busted;
+      grp.classList.toggle('active-hand', !!keep);
+    }
+  }
+}
+
+const audOrigSetPhaseGlow = setPhase;
+setPhase = function () {
+  const out = audOrigSetPhaseGlow.apply(this, arguments);
+  try { audSyncActiveHand(); } catch (e) { /* cosmetic */ }
+  return out;
+};
+
+/* Seat changes that don't move the phase still move the ring. */
+const audOrigSelectPlayerGlow = Game.selectPlayer;
+Game.selectPlayer = function () {
+  const out = audOrigSelectPlayerGlow.apply(this, arguments);
+  try { audSyncActiveHand(); } catch (e) { /* cosmetic */ }
+  return out;
+};
+
+const audOrigAdvanceHandGlow = advanceToNextHandOrPlayer;
+advanceToNextHandOrPlayer = function () {
+  const out = audOrigAdvanceHandGlow.apply(this, arguments);
+  try { audSyncActiveHand(); } catch (e) { /* cosmetic */ }
+  return out;
+};
+
+
+/* ==========================================================================
+ * NO NOTICE OUTLIVES ITS ROUND
+ * Settlement notices are held until the round moves past the seat they
+ * belong to. If a round ends by a path that skips the usual flush — a
+ * cancelled hand, a dealer blackjack, a floor call — the notice was still
+ * in the queue and surfaced during the NEXT round, attached to whatever
+ * the dealer happened to be doing (Jason). Empty the queue as the round
+ * closes, so every notice lands on the hand that earned it.
+ * ========================================================================== */
+const audOrigNewRoundFlush = Game.newRound;
+Game.newRound = function () {
+  try {
+    if (Aud.sessionActive && Aud.payErrors && Aud.payErrors.length) {
+      audFlushPayErrors(null);
+    }
+  } catch (e) { /* never block the next round */ }
+  return audOrigNewRoundFlush.apply(this, arguments);
 };
 
 </script>
