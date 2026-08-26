@@ -6765,6 +6765,27 @@ Aud.judge = function(i, spot, kind) {
         }
       }
     }
+  } else if (audRakedEntry(i, spot)) {
+    /* They took money off a winner and have spotted it. At a real table the
+       floor is called, approves the correction, and the money goes back —
+       the error still stands on the card, but the player is made whole. */
+    const rk = audRakedEntry(i, spot);
+    if (kind === 'floor') {
+      audGiveBackRaked(rk);
+      headline = 'The floor approves \u2014 the money goes back.';
+      detail = 'Player ' + (i + 1) + ' is made whole: ' + audMoney(rk.owed) +
+        ' returned. Taking it in the first place still stands on the card, ' +
+        'but putting it right is exactly what you do next.';
+      Aud.toast(true, headline, detail);
+      Aud.updateHud();
+      return;
+    }
+    headline = 'That one needs the floor.';
+    detail = 'Money already taken off a winner is not yours to hand back on ' +
+      'your own \u2014 call the floor, get it approved, then return it.';
+    Aud.toast(false, headline, detail);
+    Aud.updateHud();
+    return;
   } else if (Aud.lastMissed && Aud.lastMissed.i === i && Aud.lastMissed.spot === spot) {
     /* They saw a real mistake — one hand too late. It has already been scored
        as a miss, so tell them straight and charge nothing extra. */
@@ -7455,6 +7476,11 @@ tryPayNextBet = function(playerIdx, key) {
                                      : $('p' + playerIdx + '-' + key);
       audOrigAnimateChipsToRack(el);
       currentTarget.pendingBets.shift();
+      /* Money taken off a winner can be given back — the floor has to
+         approve it, but the table gets put right (Jason). Remember it. */
+      Aud.rakedWinners = Aud.rakedWinners || [];
+      Aud.rakedWinners.push({ seat: playerIdx, key: key, owed: next.owed,
+                              bet: (players[playerIdx] && players[playerIdx][key]) || 0 });
       audLogPayError('raked-winner', playerIdx, key, next.owed);
       audFlushPayErrors(playerIdx);
       renderInHand();
@@ -9756,6 +9782,40 @@ Game.newRound = function () {
     }
   } catch (e) { /* never block the next round */ }
   return audOrigNewRoundFlush.apply(this, arguments);
+};
+
+
+/* ---- giving back money taken off a winner ----------------------------- */
+Aud.rakedWinners = Aud.rakedWinners || [];
+
+const AUD_SPOT_TO_KEY = { three: 'three', bust: 'bust', main: 'main',
+                          ins: 'insurance', jkp: 'jkp', bjk: 'bjk' };
+
+function audRakedEntry(seat, spot) {
+  const key = AUD_SPOT_TO_KEY[spot] || spot;
+  const list = Aud.rakedWinners || [];
+  for (let k = 0; k < list.length; k++) {
+    if (list[k].seat === seat && list[k].key === key) return list[k];
+  }
+  return null;
+}
+
+function audGiveBackRaked(rk) {
+  try {
+    const el = audSpotEl(rk.seat, rk.key === 'insurance' ? 'ins' : rk.key);
+    if (el) audFlyIn(el, {});
+    const pl = players[rk.seat];
+    if (pl && pl.results && pl.results[rk.key]) pl.results[rk.key].settled = true;
+    flashStatus('Floor approved \u2014 ' + audMoney(rk.owed) +
+                ' returned to Player ' + (rk.seat + 1) + '.');
+  } catch (e) { /* best effort */ }
+  Aud.rakedWinners = (Aud.rakedWinners || []).filter(function (x) { return x !== rk; });
+}
+
+const audOrigNewRoundRaked = Game.newRound;
+Game.newRound = function () {
+  Aud.rakedWinners = [];
+  return audOrigNewRoundRaked.apply(this, arguments);
 };
 
 </script>
