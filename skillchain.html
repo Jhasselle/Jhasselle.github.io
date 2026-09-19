@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f1420">
+<title>Skillchain — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#070605; --stone:#121010; --stone2:#1c1815; --gold:#c9a35a; --gold2:#8a6a2e; --goldHi:#f0d48a; --bone:#d9cdb0; --bone2:#8f8470;
+    --ember:#ff7a3d; --mana:#4f7dff; --stam:#8fc35a; --blood:#c8202f;
+    --rNormal:#d9cdb0; --rMagic:#7b8cff; --rRare:#ffe36b; --rUnique:#d4a05a;
+    --dim:rgba(201,163,90,.22);
+    --disp:'Cinzel',Georgia,'Times New Roman',serif; --font:Georgia,'Times New Roman',serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;background:var(--ink);color:var(--bone);font-family:var(--font);overflow:hidden;overscroll-behavior:none;touch-action:none}
+  canvas#game{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+  h1,h2,h3,.tk,.btn,.tab,.ttab,.badge,.secl,.sec,.cslot,.gslot small,.tinfo,.lv{font-family:var(--disp)}
+
+  /* ---------- HUD: life & mana orbs, gothic frame ---------- */
+  #hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 8px) 10px 0;pointer-events:none}
+  .orbs{display:flex;align-items:center;gap:8px}
+  .orb{width:64px;height:64px;border-radius:50%;position:relative;overflow:hidden;flex:0 0 auto;background:radial-gradient(circle at 35% 30%,#2a2420,#050403 70%);box-shadow:0 0 0 3px #1a1410,0 0 0 5px var(--gold2),0 0 0 6px #2b2013,0 6px 14px rgba(0,0,0,.7)}
+  .orb .fill{position:absolute;left:0;right:0;bottom:0;height:100%;transition:height .15s}
+  .orb.life .fill{background:radial-gradient(circle at 40% 20%,#ff5a5a,#9c0e18 60%,#4a0509)}
+  .orb.mana .fill{background:radial-gradient(circle at 40% 20%,#7fa2ff,#1f3fb8 60%,#0b1a5a)}
+  .orb::after{content:"";position:absolute;left:14%;top:8%;width:38%;height:26%;border-radius:50%;background:rgba(255,255,255,.22);filter:blur(2px)}
+  .orb b{position:absolute;inset:0;display:grid;place-items:center;font:700 13px var(--disp);color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000}
+  .mid{flex:1;min-width:0}
+  .bar{height:12px;position:relative;overflow:hidden;background:#0a0807;border:1px solid var(--gold2);box-shadow:inset 0 0 6px #000}
+  .bar i{position:absolute;left:0;top:0;bottom:0;transition:width .12s}
+  .bar.stam i{background:linear-gradient(180deg,#b6e07a,#4f8a22)}
+  .bar b{position:absolute;inset:0;font-size:10px;font-weight:700;line-height:11px;text-align:center;color:#fff;text-shadow:0 1px 2px #000;font-family:var(--disp)}
+  .xp{margin-top:4px;height:5px;background:#0a0807;border:1px solid var(--gold2);overflow:hidden}
+  .xp i{display:block;height:100%;background:linear-gradient(180deg,var(--goldHi),var(--gold2));width:0}
+  .meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;font:600 11px var(--disp);color:var(--gold);text-shadow:0 1px 3px #000;letter-spacing:.03em}
+  .meta strong{color:var(--goldHi);font-size:13px}
+  #boss{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 84px);display:none;pointer-events:auto}
+  #boss .bar{height:20px;border:1px solid var(--gold2);box-shadow:0 0 0 2px #1a1410,inset 0 0 8px #000}
+  #boss .bar i{background:linear-gradient(180deg,#b04cd6,#4a1a6e)}
+  #boss .bar b{line-height:18px;font-size:12px}
+  #boss.focus .bar{border-color:var(--goldHi);box-shadow:0 0 0 2px #1a1410,0 0 12px rgba(240,212,138,.5)}
+  #boss small{display:block;text-align:center;font-size:11px;color:var(--gold);margin-top:3px;font-family:var(--disp)}
+
+  /* ---------- bottom controls ---------- */
+  #ctl{position:fixed;left:0;right:0;bottom:0;padding:0 10px calc(env(safe-area-inset-bottom) + 10px);display:flex;gap:8px;align-items:flex-end;pointer-events:none}
+  #ctl>*{pointer-events:auto}
+  .tracks{display:flex;gap:6px}
+  .tk,.btn{height:44px;border:1px solid var(--gold2);box-shadow:0 0 0 2px #0a0807,inset 0 0 0 1px rgba(240,212,138,.15),0 4px 10px rgba(0,0,0,.6);background:linear-gradient(180deg,#2a221a,#110d0a);color:var(--gold);font-weight:700;font-size:14px;display:grid;place-items:center;letter-spacing:.04em}
+  .tk{width:44px;font-size:17px;color:var(--bone2)}
+  .tk.on{color:var(--goldHi);border-color:var(--goldHi);background:linear-gradient(180deg,#4a3a22,#1a130c);text-shadow:0 0 8px rgba(240,212,138,.6)}
+  .spacer{flex:1}
+  .btn{padding:0 16px}
+  .btn:active,.tk:active{transform:translateY(1px);filter:brightness(1.2)}
+  .btn.dot{width:44px;padding:0;position:relative}
+  .btn.dot.alert::after{content:"";position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:var(--goldHi);box-shadow:0 0 8px var(--goldHi)}
+  .btn.portal{color:#ff6d7c;border-color:#7a1f2a}
+  .btn.hide{display:none}
+  .btn.sm{height:34px;padding:0 12px;font-size:12px}
+
+  /* ---------- drawer: stone panel with gold frame ---------- */
+  #drawer{position:fixed;left:0;right:0;bottom:0;top:14vh;background:linear-gradient(180deg,#171310,#0b0908 40%,#070605);border-top:2px solid var(--gold2);box-shadow:0 -2px 0 #070605,0 -4px 0 var(--gold2),0 -10px 40px rgba(0,0,0,.8);transform:translateY(105%);transition:transform .22s ease-out;display:flex;flex-direction:column}
+  #drawer.open{transform:none}
+  #drawer::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(90deg,transparent 0 22px,var(--gold2) 22px 24px);opacity:.45}
+  .dh{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 6px}
+  .dh h2{margin:0;font-size:17px;font-weight:800;letter-spacing:.06em;color:var(--goldHi);text-shadow:0 0 10px rgba(240,212,138,.25)}
+  .tabs{display:flex;gap:2px;padding:0 16px 8px;border-bottom:1px solid var(--gold2);margin:0 0 4px}
+  .tab{padding:8px 12px;font-size:12px;font-weight:700;color:var(--bone2);position:relative;letter-spacing:.05em}
+  .tab.on{color:var(--goldHi);border-bottom:2px solid var(--goldHi);margin-bottom:-1px}
+  .tab.alert::after{content:"";position:absolute;top:4px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--goldHi)}
+  .dbody{flex:1;overflow-y:auto;padding:6px 14px 24px;touch-action:pan-y}
+  .page{display:none}.page.on{display:block}
+  .panel,.lp,.row,.item,.gslot,.stat,.desc,.card,.cslot{background:linear-gradient(180deg,#151210,#0b0908);border:1px solid var(--gold2);box-shadow:inset 0 0 0 1px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.6)}
+
+  /* ---------- track editor ---------- */
+  .sticky{position:sticky;top:-6px;z-index:3;background:#110e0b;border-bottom:1px solid var(--gold2);box-shadow:0 6px 12px rgba(0,0,0,.6);padding:6px 14px 10px;margin:-6px -14px 8px}
+  .ttabs{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+  .ttab{padding:0 12px;height:36px;font-size:12px;letter-spacing:.04em;display:grid;place-items:center;font-weight:800;color:var(--bone2);border:1px solid var(--gold2);background:#0b0908}
+  .ttab.on{color:var(--goldHi);border-color:var(--goldHi);background:#231b12}
+  .tinfo{flex:1;font-size:11px;color:var(--bone2);text-align:right;line-height:1.3}
+  .strip{display:flex;gap:6px;overflow-x:auto;padding:10px 8px;background:#0a0807;border:1px solid var(--gold2);box-shadow:inset 0 0 12px #000;touch-action:pan-x}
+  .slot{flex:0 0 auto;width:64px;height:78px;border:1px dashed rgba(201,163,90,.35);background:rgba(0,0,0,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;font-size:10px;text-align:center;line-height:1.05}
+  .slot.filled{border-style:solid;background:linear-gradient(180deg,#1a1510,#0b0908)}
+  .slot.sel{border-color:var(--goldHi);box-shadow:0 0 10px rgba(240,212,138,.35),inset 0 0 0 1px var(--goldHi)}
+  .slot.over{border-color:var(--goldHi);background:rgba(240,212,138,.15)}
+  .slot .ic{width:30px;height:30px;display:grid;place-items:center;font-size:16px;font-weight:800;border:1px solid rgba(201,163,90,.35)}
+  .slot .sup{display:flex;gap:3px;height:14px}
+  .slot .sup i{width:14px;height:14px;background:rgba(201,163,90,.2);color:var(--goldHi);font-size:9px;font-style:normal;font-weight:800;display:grid;place-items:center}
+  .slot .x{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--blood);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;border:1px solid #ffb0b0}
+  .slot .anchor{position:absolute;bottom:2px;left:4px;font-size:9px;color:var(--bone2)}
+  .slot .n{position:absolute;top:2px;left:5px;font-size:9px;color:var(--bone2)}
+  .hint{font-size:12px;color:var(--bone2);margin:8px 0 10px;line-height:1.35}
+  .row{display:flex;align-items:center;gap:7px;padding:7px 8px;margin-bottom:6px;font-size:12px;font-weight:600;position:relative}
+  .row .ic{flex:0 0 auto;width:26px;height:26px;display:grid;place-items:center;font-size:13px;font-weight:800;border:1px solid rgba(201,163,90,.35)}
+  .row .nm{flex:1;line-height:1.1}
+  .row small{display:block;color:var(--bone2);font-weight:500;font-size:10px}
+  .row.locked{opacity:.35}
+  .row .add{width:26px;height:26px;border:1px solid var(--gold2);display:grid;place-items:center;font-weight:800;color:var(--goldHi);background:#1a1510}
+  .ic.atk{background:rgba(255,122,61,.18);color:var(--ember)} .ic.spl{background:rgba(79,125,255,.2);color:#8fa8ff} .ic.sup{background:rgba(201,163,90,.18);color:var(--goldHi)}
+  .lp{margin:10px 0 6px;padding:10px}
+  .lp .head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:700;font-size:13px}
+  .lp .head .ic{width:30px;height:30px;display:grid;place-items:center;font-size:15px;font-weight:800;border:1px solid rgba(201,163,90,.35)}
+  .lp .head small{display:block;color:var(--bone2);font-weight:500;font-size:10px}
+  .links{display:flex;align-items:center;justify-content:space-between}
+  .link{width:36px;height:36px;border:1px dashed rgba(201,163,90,.35);display:grid;place-items:center;font-size:15px;font-weight:800;position:relative;flex:0 0 auto;color:var(--goldHi);background:rgba(0,0,0,.3)}
+  .link.src{border:1px solid var(--gold);color:var(--bone)}
+  .link.filled{border-style:solid;border-color:var(--gold);background:rgba(201,163,90,.15)}
+  .link.over{border-color:var(--goldHi);background:rgba(240,212,138,.25)}
+  .link .x{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:50%;background:var(--blood);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center}
+  .lbar{flex:1;height:2px;background:rgba(201,163,90,.25);margin:0 2px}
+  .lbar.on{background:var(--goldHi);box-shadow:0 0 4px var(--goldHi)}
+  .miles{font-size:11px;color:var(--bone2);margin-top:8px;line-height:1.4}
+  .miles b{color:var(--goldHi);font-weight:600}
+  .xpb{height:3px;background:#000;border:1px solid #2b2013;margin-top:3px;overflow:hidden}.xpb i{display:block;height:100%;background:linear-gradient(90deg,var(--gold2),var(--goldHi))}
+  .row .lv{font-size:10px;color:var(--goldHi);font-weight:800;flex:0 0 auto}
+  .row.spent{opacity:.45}
+  .secl,.sec{margin:12px 0 6px;font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+  .tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+  .tag{font-size:9px;font-weight:700;padding:1px 5px;background:rgba(201,163,90,.12);color:var(--bone2);letter-spacing:.02em;border:1px solid rgba(201,163,90,.25)}
+  .tag.attack{color:var(--ember)}.tag.spell{color:#8fa8ff}.tag.fire{color:#ffb27a}.tag.cold{color:#bfe9ff}.tag.lightning{color:#f5ecb0}.tag.support{color:var(--goldHi)}
+  .badge{display:inline-block;font-size:9px;font-weight:800;padding:1px 5px;margin-left:5px;vertical-align:middle;letter-spacing:.05em;border:1px solid}
+  .badge.atk{color:var(--ember);border-color:rgba(255,122,61,.5)}.badge.spl{color:#8fa8ff;border-color:rgba(143,168,255,.5)}
+  .skdesc{font-size:12px;color:var(--bone);line-height:1.4;margin:6px 0 2px;font-weight:500}
+  .skstat{font-size:11px;color:var(--bone2);line-height:1.4;font-weight:500}
+  .skstat b{color:var(--goldHi);font-weight:600}
+  .rowdesc{margin:-3px 0 8px;padding:8px 10px;font-size:11px;color:var(--bone2);line-height:1.4;background:#000;border:1px solid var(--gold2);border-top:0}
+  .rowdesc .skdesc{margin-top:0}
+  .ic svg,.link svg,.slot .sup i svg{width:72%;height:72%;display:block}
+  .iic{flex:0 0 auto;width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--gold2);background:#000}
+  .iic svg{width:70%;height:70%}
+  .item,.gslot{display:flex;gap:8px;align-items:flex-start}
+  .item>div:last-child,.gslot>div:last-child{min-width:0;flex:1}
+  .gslot.empty .iic{opacity:.35}
+  #itemCard,#vendorCard{grid-column:1/-1}
+  .item.star{position:relative;border-color:var(--gold)}
+  .item.star::before{content:"";position:absolute;top:-6px;left:-6px;width:16px;height:16px;background:var(--goldHi);clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);filter:drop-shadow(0 0 3px #000)}
+  .desc{margin-top:10px;padding:10px 12px;font-size:12px;color:var(--bone2);min-height:38px;line-height:1.35}
+  .desc b{color:var(--goldHi)}
+
+  /* ---------- character ---------- */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{padding:10px 12px;display:flex;justify-content:space-between;align-items:center}
+  .stat div b{color:var(--goldHi);font-family:var(--disp);font-size:12px}
+  .stat div small{display:block;color:var(--bone2);font-size:11px;margin-top:2px}
+  .stat button{width:36px;height:36px;border:1px solid var(--goldHi);background:linear-gradient(180deg,#4a3a22,#1a130c);color:var(--goldHi);font-size:20px;font-weight:800}
+  .stat button:disabled{border-color:var(--gold2);color:var(--bone2);background:#0b0908}
+  .kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px;margin-top:12px;color:var(--bone2)}
+  .kv b{color:var(--bone);text-align:right}
+
+  /* ---------- gear: Diablo tooltip cards ---------- */
+  .doll{display:grid;grid-template-columns:1fr 1.2fr 1fr;grid-template-areas:". helmet amulet" "weapon body offhand" "ring1 belt ring2" "gloves . boots";gap:6px;margin:4px 0 12px;padding:10px;background:radial-gradient(ellipse at 50% 40%,#1c1610,#070605 75%);border:1px solid var(--gold2)}
+  .gslot{padding:6px;min-height:78px;font-size:11px;line-height:1.1;flex-direction:column;align-items:center;text-align:center;justify-content:flex-start}
+  .gslot .iic{width:40px;height:40px;margin-bottom:3px}
+  .gslot>div:last-child{width:100%}
+  .gslot small.ml{display:none}
+  .gslot.tall{min-height:120px;justify-content:center}
+  .opts{display:flex;gap:6px;flex-wrap:wrap}
+  .opt{padding:9px 14px;border:1px solid var(--gold2);background:#0b0908;color:var(--bone2);font:700 12px var(--disp);letter-spacing:.04em}
+  .opt.on{color:var(--goldHi);border-color:var(--goldHi);background:#231b12}
+  .swapl{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .gslot small{display:block;color:var(--gold);font-size:9px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+  .gslot small.ml{color:var(--bone2);text-transform:none;letter-spacing:0;font-family:var(--font);font-size:10px;margin-top:2px}
+  .gslot.sel,.item.sel{border-color:var(--goldHi);box-shadow:0 0 10px rgba(240,212,138,.3)}
+  .gslot.empty{color:rgba(217,205,176,.3)}
+  .inv{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .item{padding:8px 10px;font-size:12px;line-height:1.15;font-weight:700}
+  .item small{display:block;color:var(--bone2);font-size:10px;font-weight:500;margin-top:2px}
+  .item small.ml{color:var(--bone)}
+  .item.locked::after{content:" ×";color:var(--blood)}
+  .rN{color:var(--rNormal)}.rM{color:var(--rMagic)}.rR{color:var(--rRare)}.rU{color:var(--rUnique)}
+  .card{margin:10px 0;padding:12px;font-size:12px;line-height:1.5;text-align:center;background:#000;border-color:var(--gold)}
+  .card h3{margin:0 0 2px;font-size:15px;font-weight:800;letter-spacing:.03em}
+  .card .base{color:var(--bone2);margin-bottom:6px}
+  .card .imp{color:var(--bone);border-bottom:1px solid var(--gold2);padding-bottom:4px;margin-bottom:4px}
+  .card .mod{color:var(--rMagic)}
+  .card .uq{color:var(--rUnique);font-style:italic}
+  .card .ex{font-size:10px;color:var(--bone2);font-style:normal;line-height:1.3;margin:-1px 0 4px}
+  .card .req{color:var(--bone2);margin-top:6px}.card .req.bad{color:var(--blood)}
+  .card .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+
+  /* ---------- overlays ---------- */
+  .ov{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(20,14,8,.92),rgba(3,2,1,.97));display:none;place-items:center;text-align:center;padding:24px;z-index:40}
+  .ov.on{display:grid}
+  .ov h1{margin:0 0 6px;font-size:36px;font-weight:800;letter-spacing:.08em;color:var(--goldHi);text-shadow:0 0 18px rgba(240,212,138,.35),0 2px 0 #000}
+  .ov p{color:var(--bone2);margin:0 0 20px;max-width:34ch;line-height:1.45}
+  .ov .btn{display:inline-grid;margin:4px}
+  .chars{display:flex;flex-direction:column;gap:8px;margin:0 auto 12px;width:min(320px,90vw)}
+  .cslot{padding:12px 14px;text-align:left;font-weight:700;display:flex;justify-content:space-between;align-items:center;color:var(--gold)}
+  .cslot small{display:block;color:var(--bone2);font-weight:500;font-size:11px;font-family:var(--font)}
+  .cslot.on{border-color:var(--goldHi);color:var(--goldHi)}
+  .cslot .del{font-size:11px;color:var(--bone2);padding:6px}
+  .toast{position:fixed;left:50%;top:38%;transform:translateX(-50%);font:800 22px var(--disp);letter-spacing:.04em;color:var(--goldHi);text-shadow:0 2px 12px #000,0 0 12px rgba(240,212,138,.4);pointer-events:none;opacity:0;transition:opacity .2s;text-align:center;max-width:90vw}
+  .toast.on{opacity:1}
+  #tip{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 66px);transform:translateX(-50%);font-size:12px;color:var(--bone2);background:rgba(7,6,5,.85);border:1px solid var(--gold2);padding:6px 12px;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="orbs">
+    <div class="orb life"><div class="fill" id="bLife"></div><b id="tLife"></b></div>
+    <div class="mid">
+      <div class="bar stam"><i id="bStam"></i><b id="tStam"></b></div>
+      <div class="xp"><i id="bXp"></i></div>
+      <div class="meta"><span>Lv <strong id="tLvl">1</strong></span><span id="tArea">Town</span><span id="tKills">0 kills</span></div>
+    </div>
+    <div class="orb mana"><div class="fill" id="bMana"></div><b id="tMana"></b></div>
+  </div>
+</div>
+<div id="fps" style="position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 82px);font:700 11px monospace;color:#8f8470;text-shadow:0 1px 2px #000;pointer-events:none;text-align:right;line-height:1.3"></div>
+<div id="boss"><div class="bar"><i id="bBoss"></i><b id="tBoss"></b></div><small id="bossHint">tap to focus</small></div>
+
+<div id="ctl">
+  <div class="tk" id="trk" style="width:auto;padding:0 14px;font-size:13px;letter-spacing:.05em">Still</div>
+  <div class="spacer"></div>
+  <div class="btn hide" id="btnTrade" style="border-color:rgba(242,193,78,.5);color:var(--gold)">Trade</div>
+  <div class="btn portal hide" id="btnPortal">Portal</div>
+  <div class="btn dot" id="btnGear" title="Gear"></div>
+  <div class="btn" id="btnEdit">Skills</div>
+</div>
+<div id="tip">drag anywhere to move · walk into the red portal</div>
+
+<div id="drawer">
+  <div class="dh"><h2 id="dTitle">Skill tracks</h2><div class="btn" id="btnResume">Resume</div></div>
+  <div class="tabs"><div class="tab on" data-p="tracks">Tracks</div><div class="tab" data-p="gear" id="tabGear">Gear</div><div class="tab" data-p="char" id="tabChar">Character</div><div class="tab" data-p="settings" id="tabSettings">Settings</div><div class="tab hide" data-p="vendor" id="tabVendor" style="display:none">Trade</div></div>
+  <div class="dbody">
+    <div class="page on" id="pg-tracks">
+      <div class="sticky">
+        <div class="ttabs"><div class="ttab" data-t="0">A</div><div class="ttab" data-t="1">B</div><div class="ttab" data-t="2">C</div><div class="tinfo" id="tinfo"></div></div>
+        <div class="strip" id="strip"></div>
+      </div>
+      <div id="auraBar" class="secl" style="margin-top:2px"></div><div id="auraList" style="display:none"></div>
+      <div class="hint" id="thint"></div>
+      <div id="linkPanel"></div>
+      <div id="listPanel"></div>
+      <div class="desc" id="desc">Skills fire in order while an enemy is in reach. Moving and Still loop on their own and swap the instant you start or stop dragging. Tap plays through once. A slot you can't afford is skipped. Rooted (R) skills hold you in place and are cancelled if you move.</div>
+    </div>
+    <div class="page" id="pg-gear">
+      <div class="doll" id="doll"></div>
+      <div id="swap"></div>
+      <div id="itemCard"></div>
+      <div class="sec"><span>Inventory <b id="invN"></b></span><div class="btn sm" id="btnAuto">Auto-equip</div></div>
+      <div class="inv" id="inv"></div>
+      <div id="stashSec"></div>
+    </div>
+    <div class="page" id="pg-settings">
+      <div class="sec"><span>Loot filter</span></div>
+      <div class="hint">Items below the chosen rarity are hidden on the ground and never picked up. Gold always shows.</div>
+      <div class="opts" id="optRarity"></div>
+      <div class="sec"><span>Performance</span></div>
+      <div class="hint">Render resolution. Auto starts at 1.5× and drops to 1× if the frame rate can't hold.</div>
+      <div class="opts" id="optRes"></div>
+      <div class="opts" id="optFps" style="margin-top:8px"></div>
+      <div class="sec"><span>Testing</span></div>
+      <div class="opts" id="optUnlock"></div>
+    </div>
+    <div class="page" id="pg-vendor">
+      <div class="sec"><span id="vName"></span><b id="vGold"></b></div>
+      <div id="vendorCard"></div>
+      <div class="sec"><span>For sale</span></div>
+      <div class="inv" id="vStock"></div>
+      <div class="sec"><span>Your inventory — tap to sell</span></div>
+      <div class="inv" id="vInv"></div>
+    </div>
+    <div class="page" id="pg-char">
+      <div id="statList" class="stats"></div>
+      <div class="kv" id="kv"></div>
+      <div class="sec"><span>Character slot <b id="tSlot"></b></span><div class="btn sm" id="btnSwitch">Switch character</div></div>
+      <div class="sec"><span>Journal</span></div><div id="journal"></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovStart">
+  <div>
+    <h1>Skillchain</h1>
+    <p>Your fighter acts on its own. One skill loop runs while you move, another while you stand, and a third plays when you tap. The stash in town is shared between your characters.</p>
+    <div class="chars" id="chars"></div>
+    <div class="btn" id="btnStart">Wake up</div>
+  </div>
+</div>
+<div class="ov" id="ovStory"><div><h1 id="storyTitle" style="font-size:24px"></h1><p id="storyTxt" style="max-width:38ch;text-align:left;line-height:1.55"></p><div class="btn" id="btnStoryOk">Continue</div></div></div>
+<div class="ov" id="ovExit">
+  <div><h1 id="exitTitle">Descend</h1><p id="exitTxt"></p><div class="btn" id="btnGo">Descend</div><div class="btn" id="btnStay" style="opacity:.7">Stay</div></div>
+</div>
+<div class="ov" id="ovDead">
+  <div><h1>Fallen</h1><p id="deadTxt"></p><div class="btn" id="btnRespawn">Wake in town</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// ================================================================
+//  Utilities
+// ================================================================
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t, rnd=(a,b)=>a+Math.random()*(b-a), rint=(a,b)=>Math.floor(rnd(a,b+1)), pick=a=>a[Math.floor(Math.random()*a.length)];
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), TAU=6.28318;
+let seed=1; function srand(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;} const sr=(a,b)=>a+srand()*(b-a), sri=(a,b)=>Math.floor(sr(a,b+1)), spick=a=>a[Math.floor(srand()*a.length)];
+const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>13))*1274126177;h=(h^(h>>16))>>>0;return h/4294967295;};
+function toast(t,ms=1400){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),ms);}
+const weighted=(arr,w)=>{let s=0;for(const a of arr)s+=w(a);let r=Math.random()*s;for(const a of arr){r-=w(a);if(r<=0)return a;}return arr[arr.length-1];};
+
+const wallCache={};
+const cv=$('#game'), ctx=cv.getContext('2d');
+let VW=0,VH=0,DPR=1;
+let DPR_CAP=1.5;
+function resize(){DPR=Math.min(devicePixelRatio||1,DPR_CAP);for(const k in wallCache)delete wallCache[k];VW=innerWidth;VH=innerHeight;cv.width=VW*DPR;cv.height=VH*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+addEventListener('resize',resize);resize();
+const T=44, KX=.75, KY=.375;
+const toU=(x,y)=>(x-y)*KX, toV=(x,y)=>(x+y)*KY;
+const fromScreen=(u,v)=>({x:(u/KX+v/KY)/2,y:(v/KY-u/KX)/2});
+
+// ================================================================
+//  Skills & supports
+// ================================================================
+// ================================================================
+//  Skills — data-driven. Each skill is a list of effects (fx) run in order.
+//  fx kinds: arc (cone melee), ring (all around you), proj, line (wall/wave),
+//  circle (area at target, optional delay/duration), chain, buff, aura (follows you), cry
+// ================================================================
+const A_=(o)=>Object.assign({type:'atk',rooted:false},o), S_=(o)=>Object.assign({type:'spl',rooted:false},o);
+const SKILLS={
+  // ---------- attacks (stamina) ----------
+  cleave:   A_({move:true,tags:['attack','melee','area'],name:'Cleave',dmg:16,cost:14,cd:.7,range:80,unlock:1,fx:[{k:'arc',hw:1.1,r:80}],desc:'Sweeping strike hitting all enemies in a wide arc in front of you.'}),
+  dstrike:  A_({move:true,tags:['attack','melee'],name:'Double Strike',dmg:13,cost:12,cd:.6,range:70,unlock:1,fx:[{k:'arc',hw:.5,r:70,single:true},{k:'arc',hw:.5,r:70,single:true,delay:.12}],desc:'Two quick strikes on one target.'}),
+  emberstr: A_({move:true,tags:['attack','melee','fire'],name:'Ember Strike',dmg:20,cost:15,cd:.8,range:75,unlock:1,fx:[{k:'arc',hw:.8,r:75,igBonus:2.5}],desc:'A hot strike. Deals 150% more damage to ignited enemies.'}),
+  heavy:    A_({tags:['attack','melee'],name:'Heavy Blow',dmg:130,cost:34,cd:1.8,range:75,rooted:true,cast:.6,unlock:2,fx:[{k:'arc',hw:.5,r:75,single:true,lowBonus:2,kb:380,shake:8}],desc:'Wind up and crush one target for massive damage. Enemies below 30% life take double. Knocks back hard. You must stand still.'}),
+  lacerate: A_({move:true,tags:['attack','melee','area'],name:'Lacerate',dmg:18,cost:16,cd:.8,range:85,unlock:3,st:{bleed:.6},fx:[{k:'arc',hw:1.3,r:85}],desc:'A wide slash that leaves enemies bleeding.'}),
+  volley:   A_({move:true,tags:['attack','projectile'],name:'Volley',dmg:12,cost:16,cd:.8,range:320,unlock:3,fx:[{k:'proj',n:3,spread:.16,spd:520,r:4,col:'#f0d9b5'}],desc:'Loose three arrows in a spread.'}),
+  whirl:    A_({tags:['attack','melee','area'],name:'Whirlwind',dmg:11,cost:18,cd:.9,range:90,unlock:4,fx:[{k:'ring',r:90}],desc:'Spin, hitting everything around you.'}),
+  splitarrow:A_({move:true,tags:['attack','projectile'],name:'Split Arrow',dmg:11,cost:15,cd:.8,range:340,unlock:4,fx:[{k:'proj',n:4,spread:.2,spd:520,r:4,col:'#f0d9b5',pierce:true}],desc:'Four piercing arrows in a fan.'}),
+  gslam:    A_({tags:['attack','melee','area'],name:'Ground Slam',dmg:34,cost:24,cd:1.3,range:110,unlock:5,fx:[{k:'arc',hw:.9,r:120,kb:200,stun:.6,shake:5}],desc:'Slam the ground: a cone of force that knocks enemies back and interrupts their attacks.'}),
+  puncture: A_({move:true,tags:['attack','projectile'],name:'Puncture',dmg:20,cost:14,cd:.7,range:340,unlock:5,st:{bleed:1},fx:[{k:'proj',n:1,spd:520,r:4,col:'#e0475b'}],desc:'A barbed shot that always causes bleeding.'}),
+  rain:     A_({tags:['attack','projectile','area'],name:'Rain of Arrows',dmg:30,cost:22,cd:1.4,range:300,unlock:6,fx:[{k:'circle',r:90,delay:.7,burst:true,col:'#f0d9b5'}],desc:'Arrows fall on the target area a moment later.'}),
+  glacial:  A_({tags:['attack','melee','cold'],name:'Glacial Hammer',dmg:40,cost:22,cd:1.1,range:72,unlock:6,st:{chill:1,freeze:.35},fx:[{k:'arc',hw:.45,r:72,single:true,kb:120}],desc:'A crushing blow of ice. Always chills, often freezes.'}),
+  lstrike:  A_({move:true,tags:['attack','melee','projectile','lightning'],name:'Lightning Strike',dmg:17,cost:16,cd:.75,range:75,unlock:7,st:{shock:.3},fx:[{k:'arc',hw:.5,r:70,single:true},{k:'proj',n:3,spread:.3,spd:480,r:4,col:'#cfefff',mult:.6}],desc:'Strike, and lightning bolts fly out from the blade.'}),
+  iceshot:  A_({move:true,tags:['attack','projectile','cold','area'],name:'Ice Shot',dmg:18,cost:15,cd:.7,range:340,unlock:7,st:{chill:1},fx:[{k:'proj',n:1,spd:500,r:5,col:'#a8ecff',splash:50}],desc:'A shard that bursts into a chilling cloud on impact.'}),
+  frenzy:   A_({move:true,tags:['attack','melee'],name:'Frenzy',dmg:16,cost:14,cd:.7,range:75,unlock:8,fx:[{k:'arc',hw:.7,r:75},{k:'buff',stat:'aps',val:15,dur:6,name:'Frenzy'}],desc:'A strike that builds attack speed for a few seconds.'}),
+  molten:   A_({move:true,tags:['attack','melee','projectile','fire','area'],name:'Molten Strike',dmg:15,cost:17,cd:.8,range:75,unlock:8,st:{ignite:.3},fx:[{k:'arc',hw:.5,r:70,single:true},{k:'proj',n:3,spread:.5,spd:260,r:6,col:'#ff7a3d',splash:45,life:.5,mult:.7}],desc:'Strike, and molten globs spray out and burst around the target.'}),
+  sunder:   A_({tags:['attack','melee','area'],name:'Sunder',dmg:36,cost:26,cd:1.4,range:110,unlock:9,fx:[{k:'line',len:60,th:220,off:120,life:.3,burst:true,along:true,kb:100,col:'#e0c8a0',shake:4}],desc:'A shockwave that travels forward through the ground.'}),
+  infernal: A_({tags:['attack','melee','fire','area'],name:'Infernal Blow',dmg:28,cost:18,cd:.9,range:75,unlock:10,st:{ignite:.5},fx:[{k:'arc',hw:.6,r:75,single:true,splash:45}],desc:'A burning strike whose heat spreads to nearby enemies.'}),
+  warcry:   A_({tags:['attack','warcry','area','duration'],name:'Enduring Cry',dmg:0,cost:20,cd:6,range:160,unlock:3,noTarget:true,fx:[{k:'cry',r:160,stun:1.2},{k:'buff',stat:'armor',val:25,dur:5,name:'Enduring'}],desc:'A roar that interrupts nearby enemies and hardens you for a few seconds.'}),
+  // ---------- spells (mana) ----------
+  firewall: S_({tags:['spell','fire','area','duration'],name:'Fire Wall',dmg:8,cost:22,cd:2.2,range:260,rooted:true,cast:.5,unlock:1,st:{ignite:1},fx:[{k:'line',len:150,th:26,off:70,life:5,col:'#ff7a3d'}],desc:'Raise a wall of flame in front of you. Enemies crossing it are ignited.'}),
+  firemine: S_({move:true,tags:['spell','fire','area','mine'],name:'Fire Mine',dmg:45,cost:9,cd:.45,range:420,unlock:1,noTarget:true,st:{ignite:.5},fx:[{k:'mine',r:90,col:'#ff7a3d'}],desc:'Drop a fire mine at your feet as you move (slows you for a moment). It waits until you detonate.'}),
+  icemine:  S_({move:true,tags:['spell','cold','area','mine'],name:'Ice Mine',dmg:38,cost:9,cd:.45,range:420,unlock:1,noTarget:true,st:{chill:1,freeze:.4},fx:[{k:'mine',r:90,col:'#a8ecff'}],desc:'Drop an ice mine at your feet as you move (slows you for a moment). It waits until you detonate.'}),
+  detonate: S_({tags:['spell','mine'],name:'Detonate Mines',dmg:0,cost:0,cd:.7,range:420,unlock:1,noTarget:true,fx:[{k:'detonate',shake:5}],desc:'Set off every mine you have laid, all at once. Stand still or tap.'}),
+  spark:    S_({move:true,tags:['spell','projectile','lightning'],name:'Spark',dmg:9,cost:10,cd:.45,range:260,unlock:2,st:{shock:.2},fx:[{k:'proj',n:4,spread:.35,rand:.5,spd:420,r:3,col:'#cfefff'}],desc:'A burst of erratic sparks.'}),
+  fireball: S_({move:true,tags:['spell','fire','projectile','area'],name:'Fireball',dmg:26,cost:18,cd:1.0,range:340,unlock:2,st:{ignite:.5},fx:[{k:'proj',n:1,spd:360,r:8,col:'#ff7a3d',splash:70}],desc:'Hurl a fireball that bursts on impact and can ignite.'}),
+  frost:    S_({move:true,tags:['spell','cold','projectile'],name:'Frost Bolt',dmg:18,cost:12,cd:.6,range:340,unlock:3,st:{chill:1},fx:[{k:'proj',n:1,spd:560,r:5,col:'#a8ecff'}],desc:'A fast shard that chills, slowing enemies.'}),
+  fpulse:   S_({move:true,tags:['spell','cold','projectile'],name:'Freezing Pulse',dmg:22,cost:13,cd:.55,range:260,unlock:3,st:{chill:1,freeze:.15},fx:[{k:'proj',n:1,spd:600,r:6,col:'#dff4ff',pierce:true}],desc:'A piercing wave of cold that passes through enemies.'}),
+  arc:      S_({move:true,tags:['spell','lightning','chain','area'],name:'Arc',dmg:14,cost:16,cd:.8,range:220,unlock:4,st:{shock:.25},fx:[{k:'chain',hops:4,r:140}],desc:'Lightning leaps between up to four nearby enemies.'}),
+  fsurge:   S_({move:true,tags:['spell','fire','area'],name:'Flame Surge',dmg:24,cost:16,cd:.6,range:110,unlock:4,fx:[{k:'arc',hw:.6,r:110,igBonus:1.5}],desc:'A cone of flame. 50% more damage to ignited enemies.'}),
+  contagion:S_({move:true,tags:['spell','chaos','area','duration'],name:'Contagion',dmg:6,cost:16,cd:1.2,range:260,unlock:4,st:{poison:1},fx:[{k:'circle',r:70,burst:true,col:'#8fd15a',poisonStacks:3}],desc:'A cloud of rot that poisons everything it touches.'}),
+  nova:     S_({tags:['spell','cold','area'],name:'Frost Nova',dmg:34,cost:34,cd:2.4,range:150,rooted:true,cast:.6,unlock:5,st:{chill:1},fx:[{k:'ring',r:150,col:'#a8ecff',shake:3}],desc:'A ring of ice bursts from you, chilling everything nearby. You must stand still.'}),
+  coldsnap: S_({tags:['spell','cold','area'],name:'Cold Snap',dmg:38,cost:30,cd:2.6,range:260,unlock:5,st:{chill:1,freeze:.6},fx:[{k:'circle',r:90,burst:true,col:'#dff4ff'}],desc:'Flash-freeze an area. Most enemies caught are frozen solid.'}),
+  moltenshell:S_({tags:['spell','duration'],name:'Molten Shell',dmg:0,cost:30,cd:10,range:400,unlock:5,noTarget:true,fx:[{k:'buff',stat:'armor',val:60,dur:8,name:'Molten Shell'}],desc:'A shell of cooling lava adds heavy armour for a few seconds.'}),
+  firestorm:S_({tags:['spell','fire','area','duration'],name:'Firestorm',dmg:12,cost:30,cd:3,range:300,unlock:6,st:{ignite:.3},fx:[{k:'circle',r:100,delay:.4,life:3,col:'#ff7a3d'}],desc:'Meteors rain on the target area for a few seconds.'}),
+  edrain:   S_({move:true,tags:['spell','chaos','projectile'],name:'Essence Drain',dmg:18,cost:15,cd:.8,range:320,unlock:6,st:{poison:1},fx:[{k:'proj',n:1,spd:400,r:6,col:'#8fd15a',leech:4}],desc:'A bolt of rot that poisons and feeds you life.'}),
+  vortex:   S_({tags:['spell','cold','area','duration'],name:'Vortex',dmg:8,cost:24,cd:2,range:260,unlock:6,st:{chill:1},fx:[{k:'circle',r:90,burstMult:4,life:3,col:'#a8ecff'}],desc:'A whirl of cold that hits, then lingers, chilling anything inside.'}),
+  balllight:S_({move:true,tags:['spell','projectile','lightning','area'],name:'Ball Lightning',dmg:8,cost:20,cd:1.2,range:300,unlock:7,st:{shock:.2},fx:[{k:'proj',n:1,spd:130,r:10,col:'#cfefff',pulse:60,life:2.4,pierce:true}],desc:'A slow orb that zaps everything it drifts past.'}),
+  bvortex:  S_({tags:['spell','area','duration'],name:'Blade Vortex',dmg:9,cost:28,cd:5,range:400,unlock:7,noTarget:true,fx:[{k:'aura',r:65,life:5,col:'#e0c8a0'}],desc:'Blades orbit you for a few seconds, cutting anything that comes close.'}),
+  shocknova:S_({tags:['spell','lightning','area'],name:'Shock Nova',dmg:26,cost:28,cd:1.8,range:130,unlock:8,st:{shock:1},fx:[{k:'ring',r:130,col:'#cfefff',shake:3}],desc:'A ring of lightning that shocks everything around you.'}),
+  flicker:  A_({tags:['attack','melee'],name:'Flicker Strike',dmg:34,cost:20,cd:1.1,range:260,unlock:1,fx:[{k:'blink'},{k:'arc',hw:.7,r:75,single:true}],desc:'Blink to a nearby enemy and strike it.'}),
+  earthquake:A_({tags:['attack','melee','area','duration'],name:'Earthquake',dmg:30,cost:28,cd:1.6,range:110,rooted:true,cast:.4,unlock:1,fx:[{k:'circle',r:90,self:true,burst:true,col:'#c9a35a',kb:80},{k:'circle',r:150,self:true,burst:true,delay:1.1,mult:2,col:'#e0c8a0',shake:6}],desc:'Slam the ground; a much larger aftershock follows a second later.'}),
+  explarrow:A_({move:true,tags:['attack','projectile','fire','area','duration'],name:'Explosive Arrow',dmg:22,cost:16,cd:.8,range:320,unlock:1,st:{ignite:.4},fx:[{k:'proj',n:1,spd:520,r:5,col:'#ff9c5a'},{k:'circle',r:80,delay:.9,burst:true,col:'#ff7a3d',mult:1.6}],desc:'An arrow that lodges and bursts into flame a moment later.'}),
+  lightarrow:A_({move:true,tags:['attack','projectile','lightning'],name:'Lightning Arrow',dmg:16,cost:15,cd:.7,range:340,unlock:1,st:{shock:.25},fx:[{k:'proj',n:1,spd:540,r:4,col:'#cfefff'},{k:'chain',hops:3,r:120,mult:.5}],desc:'An arrow whose lightning leaps to nearby enemies on impact.'}),
+  statics:  A_({move:true,tags:['attack','melee','lightning','area','duration'],name:'Static Strike',dmg:14,cost:14,cd:.7,range:75,unlock:1,st:{shock:.2},fx:[{k:'arc',hw:.7,r:75},{k:'aura',r:70,life:1.5,col:'#cfefff',mult:.4}],desc:'A charged strike that leaves sparks orbiting you briefly.'}),
+  reave:    A_({move:true,tags:['attack','melee','area'],name:'Reave',dmg:15,cost:13,cd:.55,range:85,unlock:1,fx:[{k:'arc',hw:1.4,r:85}],desc:'A very wide, quick slash.'}),
+  icespear: S_({move:true,tags:['spell','cold','projectile'],name:'Ice Spear',dmg:30,cost:16,cd:.8,range:380,unlock:1,st:{chill:1,freeze:.2},fx:[{k:'proj',n:1,spd:720,r:5,col:'#dff4ff',pierce:true}],desc:'A fast piercing spear of ice.'}),
+  flameblast:S_({tags:['spell','fire','area'],name:'Flameblast',dmg:110,cost:40,cd:2.4,range:150,rooted:true,cast:1.1,unlock:1,st:{ignite:.6},fx:[{k:'circle',r:150,self:true,burst:true,col:'#ff7a3d',shake:6}],desc:'Gather flame for a long moment, then release it in a huge blast around you.'}),
+  tendrils: S_({move:true,tags:['spell','lightning','area'],name:'Lightning Tendrils',dmg:11,cost:9,cd:.35,range:110,unlock:1,st:{shock:.15},fx:[{k:'arc',hw:.5,r:110}],desc:'Rapid bursts of lightning in a narrow cone.'}),
+  incinerate:S_({move:true,tags:['spell','fire','area'],name:'Incinerate',dmg:10,cost:8,cd:.3,range:120,unlock:1,st:{ignite:.15},fx:[{k:'arc',hw:.45,r:120}],desc:'A stream of fire in a narrow cone.'}),
+  bane:     S_({tags:['spell','chaos','area','duration'],name:'Bane',dmg:12,cost:26,cd:2,range:120,unlock:1,st:{poison:1},fx:[{k:'circle',r:120,self:true,life:3,col:'#8fd15a'}],desc:'A pool of rot spreads around you and lingers, poisoning anything inside.'}),
+  frostbomb:S_({tags:['spell','cold','area','duration'],name:'Frost Bomb',dmg:70,cost:28,cd:2.4,range:280,unlock:1,st:{chill:1,freeze:.4},fx:[{k:'circle',r:110,delay:1,burst:true,col:'#dff4ff',shake:4}],desc:'Plant a bomb of cold that detonates after a second.'}),
+  kinetic:  S_({move:true,tags:['spell','projectile','area'],name:'Kinetic Blast',dmg:18,cost:14,cd:.7,range:320,unlock:1,fx:[{k:'proj',n:1,spd:480,r:5,col:'#e0c8a0',splash:70}],desc:'A bolt of force that bursts in an area on impact.'}),
+  magma:    S_({move:true,tags:['spell','fire','projectile','area'],name:'Rolling Magma',dmg:24,cost:17,cd:.9,range:300,unlock:1,st:{ignite:.4},fx:[{k:'proj',n:1,spd:300,r:8,col:'#ff7a3d',splash:60,chain:2}],desc:'A ball of magma that bounces from enemy to enemy, bursting each time.'}),
+  stormcall:S_({tags:['spell','lightning','area','duration'],name:'Storm Call',dmg:90,cost:34,cd:3,range:320,unlock:9,st:{shock:1},fx:[{k:'circle',r:120,delay:1.2,burst:true,col:'#cfefff',shake:6}],desc:'Mark the ground; a moment later lightning strikes it hard.'}),
+};
+// ---------- supports ----------
+const SUPPORTS={
+  more:    {allow:['attack','spell'],name:'Brutality',unlock:1,desc:'30% more damage.',mod:m=>{m.dmg*=1.3;}},
+  addfire: {allow:['attack','spell'],name:'Added Fire',unlock:1,desc:'Adds fire damage and a 40% chance to ignite.',mod:m=>{m.dmg*=1.2;m.ignite=Math.max(m.ignite,.4);m.fire=true;}},
+  cheap:   {allow:['attack','spell'],name:'Efficiency',unlock:1,desc:'40% reduced cost. 10% less damage.',mod:m=>{m.cost*=.6;m.dmg*=.9;}},
+  faster:  {allow:['attack','spell'],name:'Haste',unlock:2,desc:'Cooldown and cast time 30% faster.',mod:m=>{m.cd*=.7;m.cast*=.7;}},
+  leech:   {allow:['attack'],name:'Bloodlust',unlock:2,desc:'Recover 2 life per hit.',mod:m=>{m.leech+=2;}},
+  msplash: {allow:['melee'],name:'Melee Splash',unlock:2,desc:'Melee hits also strike enemies near the target. 15% less damage.',mod:m=>{m.splashMelee=Math.max(m.splashMelee,55);m.dmg*=.85;}},
+  bleedS:  {allow:['attack'],name:'Chance to Bleed',unlock:2,desc:'30% chance to cause bleeding. 10% more damage.',mod:m=>{m.bleed+=.3;m.dmg*=1.1;}},
+  durS:    {allow:['duration'],name:'Increased Duration',unlock:2,desc:'Effects last 50% longer.',mod:m=>{m.dur*=1.5;}},
+  area:    {allow:['area'],name:'Wide Reach',unlock:3,desc:'Area and range 40% larger.',mod:m=>{m.area*=1.4;m.range*=1.25;}},
+  proj:    {allow:['projectile'],name:'Split Shot',unlock:3,desc:'One extra projectile. 15% less damage.',mod:m=>{m.proj+=1;m.dmg*=.85;}},
+  fproj:   {allow:['projectile'],name:'Faster Projectiles',unlock:3,desc:'Projectiles fly 50% faster and 30% further. 10% more damage.',mod:m=>{m.projSpd*=1.5;m.range*=1.3;m.dmg*=1.1;}},
+  cull:    {allow:['attack','spell'],name:'Culling Strike',unlock:3,desc:'Hits kill enemies below 10% life outright.',mod:m=>{m.cull=true;}},
+  stunS:   {allow:['attack'],name:'Stun',unlock:3,desc:'Hits interrupt enemies that are winding up an attack.',mod:m=>{m.stun=Math.max(m.stun,.5);}},
+  burn:    {allow:['fire'],name:'Lingering Flame',unlock:4,desc:'Ignites last twice as long and burn 50% harder.',mod:m=>{m.burnDur*=2;m.burnMult*=1.5;}},
+  pierce:  {allow:['projectile'],name:'Pierce',unlock:4,desc:'Projectiles pass through enemies.',mod:m=>{m.pierce=true;}},
+  poisonS: {allow:['attack','spell'],name:'Poison',unlock:4,desc:'50% chance to poison. 10% less damage.',mod:m=>{m.poison+=.5;m.dmg*=.9;}},
+  innervate:{allow:['lightning'],name:'Innervate',unlock:4,desc:'30% chance to shock. 15% more lightning damage.',mod:m=>{m.shock+=.3;m.dmg*=1.15;}},
+  fortify: {allow:['melee'],name:'Fortify',unlock:4,desc:'Melee hits grant armour for 4 seconds.',mod:m=>{m.fortify=true;}},
+  fullLife:{allow:['attack'],name:'Damage on Full Life',unlock:4,desc:'35% more damage while above 90% life.',mod:m=>{m.fullLife=true;}},
+  knock:   {allow:['attack'],name:'Impact',unlock:5,desc:'Hits knock enemies back. 25% more damage to enemies below 30% life.',mod:m=>{m.kb+=120;m.execute=.25;}},
+  elefocus:{allow:['fire','cold','lightning'],name:'Elemental Focus',unlock:5,desc:'35% more elemental damage, but the skill cannot ignite, chill, freeze or shock.',mod:m=>{m.noAil=true;m.dmg*=1.35;}},
+  fork:    {allow:['projectile'],name:'Fork',unlock:5,desc:'Projectiles split in two on their first hit. 15% less damage.',mod:m=>{m.fork=true;m.dmg*=.85;}},
+  lleech:  {allow:['attack','spell'],name:'Life Leech',unlock:5,desc:'Recover 6% of damage dealt as life.',mod:m=>{m.leechPct+=.06;}},
+  mleech:  {allow:['attack','spell'],name:'Mana Leech',unlock:5,desc:'Recover 4% of damage dealt as mana.',mod:m=>{m.manaLeech+=.04;}},
+  multi:   {allow:['melee'],name:'Multistrike',unlock:6,desc:'Melee skills repeat twice more at 75% damage. 30% slower.',mod:m=>{m.repeat+=2;m.dmg*=.75;m.cd*=1.3;}},
+  echo:    {allow:['spell'],name:'Spell Echo',unlock:6,desc:'Spells cast a second time. 40% more cost.',mod:m=>{m.repeat+=1;m.cost*=1.15;m.cd*=1.2;}},
+  freezeS: {allow:['cold'],name:'Hypothermia',unlock:6,desc:'25% chance to freeze on hit.',mod:m=>{m.freeze+=.25;}},
+  onslaught:{allow:['attack','spell'],name:'Onslaught',unlock:6,desc:'Kills grant 20% attack, cast and move speed for 4 seconds.',mod:m=>{m.onslaught=true;}},
+  eleAtk:  {allow:['attack'],name:'Elemental Damage with Attacks',unlock:6,desc:'30% more damage for attacks that carry fire, cold or lightning.',mod:(m,s)=>{if(s.tags.some(t=>t==='fire'||t==='cold'||t==='lightning')||m.fire)m.dmg*=1.3;}},
+  conc:    {allow:['area'],name:'Concentrated Effect',unlock:7,desc:'45% more damage, 30% smaller area.',mod:m=>{m.area*=.7;m.dmg*=1.45;}},
+  prolif:  {allow:['fire','cold','lightning'],name:'Elemental Proliferation',unlock:7,desc:'When an enemy dies, its ignite, chill and shock spread to enemies nearby.',mod:m=>{m.prolif=true;}},
+  chainS:  {allow:['projectile'],name:'Chain',unlock:8,desc:'Projectiles chain to two more enemies. 20% less damage.',mod:m=>{m.chain+=2;m.dmg*=.8;}},
+  swift:   {allow:['duration'],name:'Swift Affliction',unlock:8,desc:'Burns, bleeds and poisons tick 50% harder but effects are 40% shorter.',mod:m=>{m.dur*=.6;m.dotMult*=1.5;}},
+  addcold: {allow:['attack','spell'],name:'Added Cold',unlock:1,desc:'Adds cold damage and always chills.',mod:m=>{m.dmg*=1.15;m.chill=1;m.cold=true;}},
+  addlight:{allow:['attack','spell'],name:'Added Lightning',unlock:1,desc:'Adds lightning damage and a 25% chance to shock.',mod:m=>{m.dmg*=1.2;m.shock=Math.max(m.shock,.25);m.lightning=true;}},
+  coldfire:{allow:['cold'],name:'Cold to Fire',unlock:1,desc:'Cold skills also burn: 30% more damage and a 50% chance to ignite.',mod:m=>{m.dmg*=1.3;m.fire=true;m.ignite=Math.max(m.ignite,.5);}},
+  empower: {allow:['attack','spell'],name:'Empower',unlock:1,desc:'The linked skill acts two levels higher.',mod:m=>{m.dmg*=1.06;m.gemBonus=2;}},
+  unleash: {allow:['spell'],name:'Unleash',unlock:1,desc:'Spells repeat once more at 60% damage, with no extra cost.',mod:m=>{m.repeat+=1;m.dmg*=.85;}},
+  minefield:{allow:['mine'],name:'Minefield',unlock:1,desc:'Each cast lays two extra mines.',mod:m=>{m.extraMines=(m.extraMines||0)+2;}},
+  gmp:     {allow:['projectile'],name:'Greater Multiple Projectiles',unlock:9,desc:'Two extra projectiles. 30% less damage.',mod:m=>{m.proj+=2;m.dmg*=.7;}},
+};
+const SVG=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICONS={
+  sword:SVG('<path d="M4 20l4-4M6 18l9-9M15 5l4 4-2 2-4-4z"/><path d="M8 16l-2 2M10 12l2 2"/>'),
+  wand:SVG('<path d="M5 19l9-9"/><circle cx="17" cy="7" r="2"/><path d="M13 4l.6 1.6M20 11l1.6.6M19 3l-1 1"/>'),
+  shield:SVG('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 3v18"/>'),
+  helmet:SVG('<path d="M5 13a7 7 0 0 1 14 0v5H5z"/><path d="M5 15h14M12 6v4"/>'),
+  body:SVG('<path d="M8 4l4 2 4-2 4 4-3 2v10H7V10L4 8z"/><path d="M12 10v10"/>'),
+  gloves:SVG('<path d="M8 20v-9a2 2 0 0 1 4 0v3M12 12V6a2 2 0 0 1 4 0v6M16 12V8a2 2 0 0 1 4 0v6c0 4-2 6-6 6H8l-4-5 2-2 2 2"/>'),
+  boots:SVG('<path d="M8 4h6v9l5 3v4H6v-6l2-2z"/><path d="M8 14h6"/>'),
+  belt:SVG('<rect x="3" y="9" width="18" height="6" rx="1"/><rect x="9" y="7" width="6" height="10" rx="1"/>'),
+  amulet:SVG('<path d="M6 4c0 6 2 9 6 11 4-2 6-5 6-11"/><circle cx="12" cy="17" r="3"/>'),
+  ring:SVG('<circle cx="12" cy="14" r="6"/><path d="M9 6l3-3 3 3-3 3z"/>'),
+  cleave:SVG('<path d="M4 18C8 8 14 5 20 4c-2 6-6 11-14 15z"/><path d="M4 18l4-4"/>'),
+  heavy:SVG('<path d="M12 13L5 20"/><path d="M11 5l8 8 2-2-8-8z"/><path d="M9 7l8 8"/>'),
+  whirl:SVG('<path d="M12 4a8 8 0 1 1-8 8"/><path d="M12 8a4 4 0 1 1-4 4"/>'),
+  volley:SVG('<path d="M4 20l8-14M12 20V4M20 20L12 6"/><path d="M10 7l2-3 2 3"/>'),
+  emberstr:SVG('<path d="M4 20l9-9"/><path d="M14 5c0 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-4 0 2 2 2 2-4z"/>'),
+  firewall:SVG('<path d="M4 20c0-4 2-6 3-8 1 2 2 3 2 5M10 20c0-5 2-8 3-11 1 3 3 5 3 8M16 20c0-3 1-5 2-7 1 2 2 4 2 7"/>'),
+  fireball:SVG('<circle cx="15" cy="9" r="5"/><path d="M4 20l5-5M5 15h2M9 19v2"/>'),
+  frost:SVG('<path d="M12 3v18M4 8l16 8M4 16l16-8"/><path d="M10 5l2-2 2 2M10 19l2 2 2-2"/>'),
+  arc:SVG('<path d="M13 3L5 13h6l-2 8 10-12h-6z"/>'),
+  nova:SVG('<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>'),
+  more:SVG('<path d="M12 5v14M5 12h14"/>'),
+  faster:SVG('<path d="M5 6l6 6-6 6M13 6l6 6-6 6"/>'),
+  addfire:SVG('<path d="M12 3c0 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 3-6 0 3 2 3 2-4z"/>'),
+  area:SVG('<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="10"/>'),
+  proj:SVG('<path d="M4 12h12M4 6l12 3M4 18l12-3"/><path d="M14 10l3 2-3 2"/>'),
+  leech:SVG('<path d="M12 3c3 5 6 8 6 12a6 6 0 0 1-12 0c0-4 3-7 6-12z"/>'),
+  cheap:SVG('<path d="M12 4v16M6 14l6 6 6-6"/>'),
+  burn:SVG('<path d="M7 12c0-3 2-4 5-4s5 1 5 4-2 4-5 4-5-1-5-4z"/><path d="M12 8c-3-3-3-6 0-6s3 3 0 6M12 16c3 3 3 6 0 6s-3-3 0-6"/>'),
+  pierce:SVG('<path d="M3 12h18M17 8l4 4-4 4"/><circle cx="10" cy="12" r="3"/>'),
+  knock:SVG('<path d="M12 12L5 5M12 12l7-7M12 12l-7 7M12 12l7 7"/><circle cx="12" cy="12" r="3"/>'),
+};
+function autoIcon(def,kind){const t=def.tags||def.allow||[];let base=ICONS.more;
+  if(t.includes('fire'))base=ICONS.addfire;else if(t.includes('cold'))base=ICONS.frost;else if(t.includes('lightning'))base=ICONS.arc;else if(t.includes('chaos'))base=ICONS.leech;else if(t.includes('projectile'))base=ICONS.volley;else if(t.includes('melee'))base=ICONS.cleave;else if(t.includes('area'))base=ICONS.area;else if(t.includes('duration'))base=ICONS.burn;else if(kind==='sup')base=ICONS.more;
+  const L=def.name.replace(/^(the |of )/i,'')[0];return base.replace('</svg>',`<text x="19" y="22" font-size="9" font-weight="700" fill="currentColor" stroke="none" text-anchor="middle">${L}</text></svg>`);}
+for(const id in SKILLS)SKILLS[id].ic=ICONS[id]||autoIcon(SKILLS[id],'skill');for(const id in SUPPORTS)SUPPORTS[id].ic=ICONS[id]||autoIcon(SUPPORTS[id],'sup');
+const itemIcon=it=>it.slot==='weapon'?(it.base.tags.includes('wand')?ICONS.wand:ICONS.sword):it.slot==='offhand'?ICONS.shield:it.slot==='ring'?ICONS.ring:ICONS[it.slot];
+const slotIcon=s=>s==='weapon'?ICONS.sword:s==='offhand'?ICONS.shield:s.startsWith('ring')?ICONS.ring:ICONS[s];
+// supports first, then gear — so gear multiplies the linked result
+function resolve(slot){const s=SKILLS[slot.skill];const st=s.st||{};
+  const m={dmg:s.dmg,cost:s.cost,cd:s.cd,cast:s.cast||0,range:s.range,area:1,proj:0,fire:s.tags.includes('fire'),cold:s.tags.includes('cold'),lightning:s.tags.includes('lightning'),
+    ignite:st.ignite||0,chill:st.chill||0,freeze:st.freeze||0,shock:st.shock||0,bleed:st.bleed||0,poison:st.poison||0,
+    leech:0,leechPct:0,manaLeech:0,burnDur:1,burnMult:1,dotMult:1,dur:1,pierce:false,kb:0,execute:0,cull:false,repeat:1,chain:0,fork:false,projSpd:1,splashMelee:0,noAil:false,stun:0,fortify:false,onslaught:false,fullLife:false,prolif:false};
+  // links are what make a skill expensive: bare skills cost 55% of base, each link adds ~30%, six links ≈ 2.4× base
+  m.cost*=.55+slot.sup.length*.3;
+  for(const id of slot.sup){SUPPORTS[id].mod(m,s);const sl=gem(id).lvl;m.dmg*=(1+.01*(sl-1))*(sl>=30?1.3:1);}
+  const gl=gem(slot.skill).lvl+(m.gemBonus||0);m.dmg*=1+.02*(gl-1);if(gl>=10)m.cost*=.85;if(gl>=20){m.area*=1.2;m.range*=1.15;}if(gl>=30)m.cd*=.8;
+  const G=D?D.g:null; if(G){
+    if(s.type==='atk'){m.dmg=(m.dmg+(s.dmg?G.wdmg*.5+G.atkFlat:0))*(1+G.atkPct/100);m.cd/=1+G.aps/100;}
+    else{m.dmg*=1+G.spellPct/100;m.cd/=1+G.castSpd/100;m.cast/=1+G.castSpd/100;}
+    if(m.fire){m.dmg*=1+G.firePct/100;m.burnMult*=1+G.burn/100;if(G.extraProjFire&&s.tags.includes('projectile'))m.proj+=G.extraProjFire;}
+    m.ignite=Math.min(1,m.ignite+G.ignite/100);m.leech+=G.lifeOnHit;}
+  if(D&&D.more)m.dmg*=1+D.more/100;
+  return m;}
+
+// ---- auras: always on, reserve a share of mana or life ----
+const AURAS={
+  anger:{name:'Anger',pool:'mana',res:.35,stats:{firePct:35},desc:'35% increased fire damage.'},
+  hatred:{name:'Hatred',pool:'mana',res:.35,stats:{atkPct:22,spellPct:22},desc:'22% increased attack and spell damage.'},
+  wrath:{name:'Wrath',pool:'mana',res:.35,stats:{castSpd:10,spellPct:30},desc:'30% increased spell damage, 10% cast speed.'},
+  haste:{name:'Haste',pool:'mana',res:.3,stats:{aps:12,castSpd:12,moveSpd:15},desc:'12% attack and cast speed, 15% movement speed.'},
+  determination:{name:'Determination',pool:'mana',res:.3,stats:{armor:60,armorPct:80},desc:'Heavy armour.'},
+  vitality:{name:'Vitality',pool:'mana',res:.2,stats:{lifeRegen:8},desc:'Regenerate 8 life per second.'},
+  clarity:{name:'Clarity',pool:'mana',res:.15,stats:{manaRegen:60},desc:'60% increased mana regeneration.'},
+  rfire:{name:'Righteous Fire',pool:'life',res:.35,stats:{firePct:40},burn:true,desc:'Burn everything near you every moment. 40% increased fire damage. Reserves life instead of mana.'},
+};
+function auraOn(id){return C.auras.includes(id);}
+function toggleAura(id){const a=AURAS[id];if(auraOn(id)){C.auras=C.auras.filter(x=>x!==id);}else{const used=C.auras.filter(x=>AURAS[x].pool===a.pool).reduce((n,x)=>n+AURAS[x].res,0);if(used+a.res>.95){toast('Not enough '+a.pool+' to reserve');return;}C.auras.push(id);}D=derived();P.life=Math.min(P.life,D.maxLife);P.mana=Math.min(P.mana,D.maxMana);save();}
+// ================================================================
+//  Area modifiers (map mods): rolled per gate, shown above the exit
+// ================================================================
+const AREA_MODS=[
+  {id:'rarity',   text:'+{v}% item rarity',              v:[30,80],  good:true},
+  {id:'gold',     text:'+{v}% gold found',                v:[40,100], good:true},
+  {id:'xp',       text:'+{v}% experience',                v:[15,40],  good:true},
+  {id:'fireRes',  text:'Monsters resist fire ({v}%)',     v:[35,60]},
+  {id:'coldRes',  text:'Monsters resist cold ({v}%)',     v:[35,60]},
+  {id:'lightRes', text:'Monsters resist lightning ({v}%)',v:[35,60]},
+  {id:'life',     text:'Monsters have +{v}% life',        v:[25,60]},
+  {id:'fast',     text:'Monsters are {v}% faster',        v:[15,30]},
+  {id:'burning',  text:'Monsters ignite on hit',          v:[1,1]},
+  {id:'venom',    text:'Monsters poison on hit',          v:[1,1]},
+  {id:'packs',    text:'{v} extra monster packs',         v:[2,4]},
+  {id:'elites',   text:'Every pack has an elite',         v:[1,1]},
+  {id:'lowRegen', text:'-{v}% mana and stamina regen',    v:[30,50]},
+  {id:'armour',   text:'Monsters have {v}% armour',       v:[15,30]},
+];
+function areaMods(dep,vari){seed=dep*33331+vari*7919+7;for(let i=0;i<3;i++)srand();const mods=[];if(dep<=2)return mods;
+  const n=dep<6?1:dep<14?sri(1,2):sri(2,3);const pool=[...AREA_MODS];
+  for(let i=0;i<n&&pool.length;i++){const m=pool.splice(Math.floor(srand()*pool.length),1)[0];mods.push({id:m.id,v:sri(m.v[0],m.v[1]),text:m.text.replace('{v}',String(sri(m.v[0],m.v[1]))),good:!!m.good});}
+  for(const m of mods)m.text=AREA_MODS.find(x=>x.id===m.id).text.replace('{v}',m.v);return mods;}
+const modVal=(id)=>{const m=L&&L.mods&&L.mods.find(x=>x.id===id);return m?m.v:0;};
+
+// ================================================================
+//  Story — Emberhold and the Sink
+// ================================================================
+const STORY=[
+  {id:'wake',   at:{depth:0},title:'Emberhold',text:'You wake in Emberhold, a town built on the lip of the Sink — a wound in the earth that has been swallowing the old world one stratum at a time. Three people still trade here. Everyone else went down, or went away.'},
+  {id:'d1',     at:{depth:1},title:'The Thornwood',text:'The first stratum is a forest that fell a century ago. The trees kept growing in the dark. Brann says his brother went down here with a company of forty. He does not say what came back.'},
+  {id:'d3',     at:{depth:3},title:'Strata',text:'Vessa\'s theory: the Sink is not a hole but a throat. Every layer you pass is something it has already eaten — forests, caverns, cities, tombs — and it is still swallowing. Whatever waits at the bottom is hungry, and it is patient.'},
+  {id:'boss1',  at:{boss:1},title:'Gatekeepers',text:'The things that guard the gates were not always monsters. Orin has a ledger of names from the old expeditions. He asked you to check the gatekeepers for anything they might still be carrying. You did not tell him what you found.'},
+  {id:'d6',     at:{depth:6},title:'The Vaults',text:'The Sunken Vaults belonged to the people who built Emberhold\'s first walls. Their archers are stone now and still shoot. Their warden still walks his rounds. Somebody is still giving orders down here.'},
+  {id:'d10',    at:{depth:10},title:'A Tenth of the Way',text:'Ten strata down and the light from the town is a rumour. Vessa marks your map: the old expeditions never returned from below twelve. She wants you to bring back something — anything — from deeper than that.'},
+  {id:'boss5',  at:{boss:5},title:'The Names',text:'Five gatekeepers. On each, beneath the growth and rot, a scrap of the same red livery. Brann\'s company wore red. Whatever the Sink does to what it eats, it does slowly, and it does not waste anything.'},
+  {id:'d15',    at:{depth:15},title:'Deeper Than Anyone',text:'Below the fifteenth stratum the walls begin to move at the edge of sight. Not monsters — the stone itself, breathing. Orin stops charging you for arrows. "Just come back and tell me what it is."'},
+  {id:'d20',    at:{depth:20},title:'The Cinder Reach',text:'Something down here is still burning from before the Sink took it: a city of forges, a furnace the size of a hill. The Sink did not extinguish it. It is using it.'},
+  {id:'d25',    at:{depth:25},title:'What Vessa Found',text:'Vessa has been reading the scraps you bring back. The livery is not just Brann\'s company. It is older — every expedition, every layer, wore the same red. The town has been sending people down for a very long time, and the town does not remember why.'},
+  {id:'d30',    at:{depth:30},title:'The Frostvault',text:'A layer that fell before the Thornwood was a forest — an age of ice, still frozen, still holding its dead in perfect faces. One of them is looking at you. One of them is wearing red.'},
+  {id:'boss10', at:{boss:10},title:'Ten Gates',text:'You have opened ten gates. The gatekeepers are getting easier to kill and harder to look at. The last one had a smith\'s hammer, and Brann has stopped asking about his brother.'},
+  {id:'d40',    at:{depth:40},title:'The Throat',text:'The strata thin out. The biomes bleed together — forest roots in ice, crypt brick in lava. Whatever is at the bottom is close enough now that the layers cannot keep their shape. Vessa says: it is close enough to notice you.'},
+  {id:'d50',    at:{depth:50},title:'The Bottom',text:'You reach a floor with no exit and a red livery folded neatly at its centre, waiting. This is as far as the prototype goes. The Sink will have more to say.'},
+];
+function storyCheck(){const seen=C.story;let bosses=C.bossKills||0;for(const st of STORY){if(seen.includes(st.id))continue;const ok=st.at.depth!==undefined?(inTown?st.at.depth===0:depth>=st.at.depth&&st.at.depth>0):bosses>=st.at.boss;if(!ok)continue;seen.push(st.id);save();showStory(st);return;}}
+function showStory(st){$('#storyTitle').textContent=st.title;$('#storyTxt').textContent=st.text;$('#ovStory').classList.add('on');paused=true;joy.on=false;}
+$('#btnStoryOk').addEventListener('pointerdown',()=>{$('#ovStory').classList.remove('on');if(!P.dead&&!$('#ovStart').classList.contains('on'))paused=false;});
+// what the townsfolk say, by how deep you have been
+const NPC_LINES={
+  'Brann the Smith':[[0,'"Steel for the road. My brother took forty men down there. Bring back what you can carry."'],[6,'"You\'ve been past the Vaults. Did you see anyone wearing red?"'],[15,'"Don\'t tell me. Just... buy the good steel this time."'],[30,'"I stopped asking. Take the hammer. It was going to be his."']],
+  'Vessa, Alchemist':[[0,'"Trinkets that whisper. The Sink is a throat, not a hole. Mind you don\'t get swallowed."'],[3,'"Every layer is something it already ate. Bring me a scrap from deeper than twelve."'],[12,'"You came back from below twelve. Nobody does that. Sit. Talk."'],[25,'"It\'s all the same red. Every expedition. The town forgot why it sends people down. I intend to remember."']],
+  'Orin the Fletcher':[[0,'"Wands, charms, bad advice. I keep a ledger of the ones who went down. Check the gatekeepers for me."'],[8,'"Any names? Any scraps? ...No. I understand."'],[15,'"No charge for the arrows. Just come back and tell me what it is down there."'],[40,'"If it can notice you, it can be noticed. Finish it."']],
+};
+function npcLine(name){const ls=NPC_LINES[name];if(!ls)return '';let out=ls[0][1];for(const [d,t] of ls)if((C.maxDepth||0)>=d)out=t;return out;}
+
+// ---- gem levels: skills and supports level with you, up to 30 ----
+const GEM_MAX=30, gemXpFor=l=>Math.floor(40*Math.pow(l,1.7));
+const MILES=[[10,'15% reduced cost'],[20,'20% larger area, 15% more range'],[30,'20% faster cooldown']];
+const SUP_MILES=[[10,'can be linked to 2 skills at once'],[20,'can be linked to 3 skills at once'],[30,'+30% more damage on every linked skill']];
+function gem(id){if(!C.gems[id])C.gems[id]={lvl:1,xp:0};return C.gems[id];}
+function gemGain(n){const ids=new Set();for(const tr of C.tracks)for(const s of tr){ids.add(s.skill);s.sup.forEach(x=>ids.add(x));}
+  for(const id of ids){const g=gem(id);if(g.lvl>=GEM_MAX)continue;g.xp+=n;while(g.lvl<GEM_MAX&&g.xp>=gemXpFor(g.lvl)){g.xp-=gemXpFor(g.lvl);g.lvl++;toast((SKILLS[id]||SUPPORTS[id]).name+' is now level '+g.lvl,1500);}}}
+const supUses=id=>Math.min(3,1+Math.floor(gem(id).lvl/10));
+const supUsed=(id,t)=>C.tracks[t].reduce((a,s)=>a+(s.sup.includes(id)?1:0),0);
+const canLink=(sid,supId)=>SUPPORTS[supId].allow.some(t=>SKILLS[sid].tags.includes(t));
+const TAGNAME={mobile:'Mobile',mine:'Mine',attack:'Attack',spell:'Spell',melee:'Melee',area:'AoE',projectile:'Projectile',fire:'Fire',cold:'Cold',lightning:'Lightning',chaos:'Chaos',duration:'Duration',chain:'Chaining',warcry:'Warcry',support:'Support'};
+const tagChips=(tags,def)=>`<div class="tags">${(def&&def.move&&!tags.includes('mobile')?['mobile',...tags]:tags).map(t=>`<span class="tag ${t}">${TAGNAME[t]||t}</span>`).join('')}</div>`;
+const typeBadge=s=>`<span class="badge ${s.type}">${s.type==='atk'?'ATTACK':'SPELL'}</span>`;
+
+// ================================================================
+//  Items — a pocket version of PoE's mods.json / base_items.json
+// ================================================================
+const SLOTS=['weapon','offhand','helmet','body','gloves','boots','belt','amulet','ring1','ring2'];
+const SLOTNAME={weapon:'Weapon',offhand:'Shield',helmet:'Helmet',body:'Body',gloves:'Gloves',boots:'Boots',belt:'Belt',amulet:'Amulet',ring1:'Ring',ring2:'Ring'};
+// Stat vocabulary. fmt: how to print. {k:'life',v:20} → "+20 to maximum Life"
+const STATS={
+  life:['+{v} to maximum Life'],mana:['+{v} to maximum Mana'],stam:['+{v} to maximum Stamina'],armor:['+{v} Armour'],
+  str:['+{v} to Strength'],dex:['+{v} to Dexterity'],int:['+{v} to Intelligence'],vit:['+{v} to Vitality'],
+  atkFlat:['Adds {v} Physical Damage to Attacks'],atkPct:['{v}% increased Attack Damage'],aps:['{v}% increased Attack Speed'],
+  spellPct:['{v}% increased Spell Damage'],castSpd:['{v}% increased Cast Speed'],firePct:['{v}% increased Fire Damage'],
+  armorPct:['{v}% increased Armour'],lifeRegen:['Regenerate {v} Life per second'],manaRegen:['{v}% increased Mana Regeneration'],stamRegen:['{v}% increased Stamina Regeneration'],
+  moveSpd:['{v}% increased Movement Speed'],ignite:['{v}% chance to Ignite'],lifeOnHit:['+{v} Life gained on Hit'],burn:['{v}% increased Ignite Damage'],
+  chainSlots:['+{v} to Skill Chain length'],extraProjFire:['Fire skills fire {v} additional Projectile'],
+};
+const fmt=(k,v)=>STATS[k][0].replace('{v}',v);
+const SHORT={life:'{v} Life',mana:'{v} Mana',stam:'{v} Stamina',armor:'{v} Armour',str:'{v} Str',dex:'{v} Dex',int:'{v} Int',vit:'{v} Vit',atkFlat:'{v} Attack Dmg',atkPct:'{v}% Attack Dmg',aps:'{v}% Attack Speed',spellPct:'{v}% Spell Dmg',castSpd:'{v}% Cast Speed',firePct:'{v}% Fire Dmg',armorPct:'{v}% Armour',lifeRegen:'{v} Life/s',manaRegen:'{v}% Mana Regen',stamRegen:'{v}% Stam Regen',moveSpd:'{v}% Move Speed',ignite:'{v}% Ignite',lifeOnHit:'{v} Life on Hit',burn:'{v}% Ignite Dmg',chainSlots:'{v} Chain Length',extraProjFire:'{v} Fire Projectile',wdmg:'{v} Weapon Dmg'};
+const short=(k,v)=>SHORT[k].replace('{v}',(v>0?'+':'')+v);
+const EXPLAIN={life:'Your health pool.',mana:'Spells draw from mana.',stam:'Attacks draw from stamina.',armor:'Reduces every hit you take by a flat amount.',str:'Each point: +5% attack damage, +5 stamina, a little armour.',dex:'Each point: faster movement and stamina regen.',int:'Each point: +5% spell damage, +9 mana, faster mana regen.',vit:'Each point: +12 life and armour.',
+  atkFlat:'Added to every attack skill\'s hit before multipliers.',atkPct:'Multiplies all attack skill damage.',aps:'Attack skills cool down faster.',spellPct:'Multiplies all spell damage.',castSpd:'Spells cool down and cast faster.',firePct:'Multiplies damage of fire-tagged skills and burns.',armorPct:'Multiplies armour from all gear.',lifeRegen:'Life restored every second, always.',manaRegen:'Multiplies your mana regeneration.',stamRegen:'Multiplies your stamina regeneration.',moveSpd:'You walk faster; enemies get fewer hits in.',ignite:'Chance for any hit to set the enemy burning.',lifeOnHit:'Heal this much every time a skill hits.',burn:'Ignites burn harder.',chainSlots:'One more slot on every skill track.',extraProjFire:'Fireball and Volley fire an extra shot.',wdmg:'Half of this is added to every attack skill.'};
+// Bases: name, slot, drop level, tags (for mod spawn weights), implicit/base props
+const A=(slot,name,lvl,tags,p)=>({slot,name,lvl,tags,...p});
+const BASES=[
+  A('weapon','Rusted Sword',1,['weapon','sword','attack'],{wdmg:8}),A('weapon','Copper Sword',5,['weapon','sword','attack'],{wdmg:14}),A('weapon','Sabre',10,['weapon','sword','attack'],{wdmg:22}),
+  A('weapon','Broad Sword',16,['weapon','sword','attack'],{wdmg:32}),A('weapon','Elegant Sword',24,['weapon','sword','attack'],{wdmg:46}),A('weapon','Dusk Blade',32,['weapon','sword','attack'],{wdmg:64}),
+  A('weapon','Driftwood Wand',1,['weapon','wand','caster'],{imp:[['spellPct',10]]}),A('weapon','Goat\'s Horn',6,['weapon','wand','caster'],{imp:[['spellPct',18]]}),A('weapon','Carved Wand',12,['weapon','wand','caster'],{imp:[['spellPct',28]]}),
+  A('weapon','Quartz Wand',18,['weapon','wand','caster'],{imp:[['spellPct',40]]}),A('weapon','Serpent Wand',26,['weapon','wand','caster'],{imp:[['spellPct',55]]}),A('weapon','Opal Wand',34,['weapon','wand','caster'],{imp:[['spellPct',72]]}),
+  A('offhand','Splintered Tower Shield',1,['armour','shield'],{armor:20}),A('offhand','Corroded Tower Shield',5,['armour','shield'],{armor:35}),A('offhand','Rawhide Tower Shield',10,['armour','shield'],{armor:55}),
+  A('offhand','Cedar Tower Shield',17,['armour','shield'],{armor:80}),A('offhand','Copper Tower Shield',24,['armour','shield'],{armor:110}),A('offhand','Reinforced Tower Shield',33,['armour','shield'],{armor:150}),
+  A('offhand','Twig Spirit Shield',2,['armour','shield','caster'],{armor:6,imp:[['spellPct',8]]}),A('offhand','Yew Spirit Shield',9,['armour','shield','caster'],{armor:14,imp:[['spellPct',12]]}),A('offhand','Bone Spirit Shield',20,['armour','shield','caster'],{armor:30,imp:[['spellPct',16]]}),
+  A('helmet','Iron Hat',1,['armour','helmet'],{armor:9}),A('helmet','Cone Helmet',7,['armour','helmet'],{armor:20}),A('helmet','Barbute Helmet',18,['armour','helmet'],{armor:42}),A('helmet','Close Helmet',26,['armour','helmet'],{armor:60}),A('helmet','Gladiator Helmet',35,['armour','helmet'],{armor:85}),
+  A('body','Plate Vest',1,['armour','body'],{armor:30}),A('body','Chestplate',6,['armour','body'],{armor:52}),A('body','Copper Plate',17,['armour','body'],{armor:110}),A('body','War Plate',21,['armour','body'],{armor:140}),A('body','Full Plate',28,['armour','body'],{armor:190}),A('body','Arena Plate',35,['armour','body'],{armor:240}),
+  A('body','Simple Robe',3,['armour','body','caster'],{armor:8,imp:[['mana',25]]}),A('body','Silken Vest',11,['armour','body','caster'],{armor:16,imp:[['mana',45]]}),A('body','Scholar\'s Robe',22,['armour','body','caster'],{armor:30,imp:[['mana',70]]}),
+  A('gloves','Iron Gauntlets',1,['armour','gloves'],{armor:6}),A('gloves','Plated Gauntlets',11,['armour','gloves'],{armor:22}),A('gloves','Bronze Gauntlets',23,['armour','gloves'],{armor:45}),A('gloves','Steel Gauntlets',35,['armour','gloves'],{armor:70}),
+  A('boots','Iron Greaves',1,['armour','boots'],{armor:6}),A('boots','Rugged Boots',8,['armour','boots'],{armor:16}),A('boots','Steel Greaves',23,['armour','boots'],{armor:45}),A('boots','Plated Greaves',28,['armour','boots'],{armor:58}),A('boots','Reinforced Greaves',33,['armour','boots'],{armor:72}),
+  A('belt','Rustic Sash',1,['belt'],{imp:[['atkPct',14]]}),A('belt','Heavy Belt',8,['belt'],{imp:[['str',12]]}),A('belt','Leather Belt',9,['belt'],{imp:[['life',30]]}),A('belt','Chain Belt',11,['belt'],{imp:[['mana',22]]}),A('belt','Studded Belt',16,['belt'],{imp:[['stam',20]]}),
+  A('amulet','Paua Amulet',1,['amulet','jewel'],{imp:[['manaRegen',30]]}),A('amulet','Coral Amulet',1,['amulet','jewel'],{imp:[['lifeRegen',3]]}),A('amulet','Jade Amulet',1,['amulet','jewel'],{imp:[['dex',18]]}),
+  A('amulet','Lapis Amulet',1,['amulet','jewel'],{imp:[['int',18]]}),A('amulet','Amber Amulet',1,['amulet','jewel'],{imp:[['str',18]]}),A('amulet','Onyx Amulet',20,['amulet','jewel'],{imp:[['str',10],['dex',10],['int',10]]}),
+  A('ring','Iron Ring',1,['ring','jewel'],{imp:[['atkFlat',3]]}),A('ring','Coral Ring',1,['ring','jewel'],{imp:[['life',25]]}),A('ring','Paua Ring',1,['ring','jewel'],{imp:[['mana',20]]}),A('ring','Ruby Ring',16,['ring','jewel'],{imp:[['firePct',20]]}),A('ring','Two-Stone Ring',22,['ring','jewel'],{imp:[['stam',18],['mana',18]]}),
+];
+// Mods: gen prefix|suffix, group (one per item), names per tier, tiers [reqLevel,min,max] worst→best, tags it can spawn on
+const M=(gen,group,stat,names,tiers,tags)=>({gen,group,stat,names,tiers,tags});
+const MODS=[
+  M('p','life','life',['Hale','Healthy','Sanguine','Stalwart','Stout','Robust'],[[1,3,9],[5,10,19],[11,20,29],[18,30,39],[24,40,49],[30,50,59]],['armour','belt','ring','amulet']),
+  M('p','mana','mana',['Beryl','Cobalt','Azure','Sapphire'],[[1,15,24],[11,25,34],[23,35,44],[35,45,54]],['armour','belt','ring','amulet','caster']),
+  M('p','stam','stam',['Rugged','Enduring','Tireless','Unflagging'],[[1,10,17],[9,18,27],[20,28,38],[32,39,50]],['armour','belt','ring','amulet']),
+  M('p','atkFlat','atkFlat',['Glinting','Burnished','Polished','Honed','Gleaming'],[[1,1,3],[7,4,7],[13,8,11],[21,12,17],[29,18,24]],['sword','ring','amulet','gloves']),
+  M('p','atkPct','atkPct',['Heavy','Serrated','Wicked','Vicious','Bloodthirsty'],[[1,10,19],[11,20,39],[23,40,59],[35,60,79]],['sword']),
+  M('p','spellPct','spellPct',['Apprentice\'s','Adept\'s','Scholar\'s','Professor\'s'],[[2,5,12],[11,13,22],[23,23,32],[35,33,44]],['caster','amulet']),
+  M('p','armorPct','armorPct',['Lacquered','Studded','Ribbed','Fortified'],[[3,15,26],[17,27,42],[29,43,55]],['armour']),
+  M('p','firePct','firePct',['Flaming','Blistering','Cremating'],[[4,10,19],[15,20,29],[28,30,39]],['weapon','amulet','ring']),
+  M('p','lifeOnHit','lifeOnHit',['Remora\'s','Lamprey\'s'],[[8,2,3],[20,4,6]],['weapon','gloves','ring']),
+  M('s','str','str',['of the Brute','of the Wrestler','of the Bear','of the Lion'],[[1,3,7],[11,8,12],[22,13,17],[33,18,23]],['armour','belt','ring','amulet','weapon']),
+  M('s','dex','dex',['of the Mongoose','of the Lynx','of the Fox','of the Falcon'],[[1,3,7],[11,8,12],[22,13,17],[33,18,23]],['armour','belt','ring','amulet','weapon']),
+  M('s','int','int',['of the Pupil','of the Student','of the Prodigy','of the Augur'],[[1,3,7],[11,8,12],[22,13,17],[33,18,23]],['armour','belt','ring','amulet','weapon']),
+  M('s','vit','vit',['of Hearth','of Vigour','of Fortitude'],[[1,3,6],[14,7,11],[28,12,16]],['armour','belt','amulet']),
+  M('s','aps','aps',['of Skill','of Ease','of Mastery','of Renown'],[[1,5,7],[11,8,10],[22,11,13],[30,14,17]],['sword','gloves']),
+  M('s','castSpd','castSpd',['of Talent','of Nimbleness','of Expertise'],[[2,5,8],[15,9,12],[30,13,16]],['caster','amulet','ring']),
+  M('s','moveSpd','moveSpd',['of the Cheetah','of the Gazelle','of the Zephyr'],[[1,10,14],[15,15,19],[30,20,24]],['boots']),
+  M('s','ignite','ignite',['of Kindling','of Blazing'],[[6,5,9],[20,10,15]],['weapon','gloves','ring']),
+  M('s','lifeRegen','lifeRegen',['of the Newt','of the Lizard','of the Salamander'],[[1,1,2],[12,3,4],[26,5,7]],['armour','ring']),
+  M('s','manaRegen','manaRegen',['of the Lakeflower','of the Spring','of the Torrent'],[[1,10,19],[15,20,29],[30,30,39]],['caster','ring','amulet','helmet']),
+  M('s','stamRegen','stamRegen',['of Wind','of Gale'],[[1,10,19],[15,20,29]],['weapon','gloves','belt','boots']),
+  M('s','burn','burn',['of Embers','of Cinders'],[[10,20,35],[25,36,55]],['weapon','amulet']),
+];
+// Uniques: fixed base, fixed stat list (with ranges), and effects that touch the skill system
+const UNIQUES=[
+  {name:'Loop of the Tireless',base:'Iron Ring',lvl:8,stats:[['chainSlots',1,1],['stam',20,30],['life',-15,-10]],flavour:'It never asked to rest, so it never learned how.'},
+  {name:'Emberheart',base:'Coral Amulet',lvl:12,stats:[['extraProjFire',1,1],['firePct',25,35],['burn',30,45]],flavour:'Every fire remembers the first spark.'},
+  {name:'Kindling',base:'Sabre',lvl:10,stats:[['ignite',100,100],['atkPct',20,30],['stam',-10,-10]],flavour:'A blade that has forgotten how to be cold.'},
+  {name:'Wanderer\'s Greaves',base:'Rugged Boots',lvl:8,stats:[['moveSpd',30,35],['stamRegen',20,30],['armorPct',-30,-30]],flavour:'Roads end. Wanderers don\'t.'},
+  {name:'The Deep Well',base:'Goat\'s Horn',lvl:14,stats:[['chainSlots',1,1],['manaRegen',80,100],['spellPct',-10,-10]],flavour:'Draw from it and it draws from you.'},
+];
+const RARE_A=['Dread','Grim','Storm','Blood','Soul','Ghoul','Wrath','Doom','Ember','Frost','Viper','Raven','Bramble','Gloam','Iron'];
+const RARE_B=['Bane','Fang','Song','Ward','Bite','Grip','Whisper','Howl','Crown','Veil','Hold','Brand','Edge','Kiss','Mark'];
+const RARITY_COL={normal:'#d9cdb0',magic:'#7b8cff',rare:'#ffe36b',unique:'#d4a05a'};
+let uid=1;
+function rollItem(ilvl,opt={}){
+  ilvl=Math.max(1,Math.round(ilvl));
+  const slot=opt.slot||pick(['weapon','weapon','offhand','helmet','body','gloves','boots','belt','amulet','ring','ring']);
+  // Unique?
+  const uq=Math.random()<(opt.uniqueChance||.015);
+  if(uq){const cands=UNIQUES.filter(u=>u.lvl<=ilvl);if(cands.length){const u=pick(cands);const base=BASES.find(b=>b.name===u.base);
+    return {id:uid++,rarity:'unique',name:u.name,base,slot:base.slot,ilvl,req:u.lvl,imp:base.imp||[],mods:u.stats.map(([k,a,b])=>({k,v:rint(a,b),name:'',tier:0})),flavour:u.flavour};}}
+  // Base scales with area: only bases from the recent level band drop
+  const pool=BASES.filter(b=>b.slot===slot&&b.lvl<=ilvl&&b.lvl>=ilvl-12);const pool2=pool.length?pool:BASES.filter(b=>b.slot===slot&&b.lvl<=ilvl);
+  const base=weighted(pool2,b=>1+b.lvl);
+  const r=Math.random();const rareChance=(opt.rareChance||.14);
+  const rarity=opt.forceRarity||(r<rareChance?'rare':'magic'); // nothing plain ever drops
+  const item={id:uid++,rarity,base,slot:base.slot,ilvl,req:base.lvl,imp:base.imp||[],mods:[]};
+  if(rarity!=='normal'){
+    const maxP=rarity==='rare'?3:1,maxS=maxP;const n=rarity==='rare'?rint(3,Math.min(6,3+Math.floor(ilvl/8))):rint(1,2);
+    const used=new Set();let nP=0,nS=0;
+    for(let i=0;i<n;i++){
+      const cands=MODS.filter(m=>!used.has(m.group)&&m.tiers[0][0]<=ilvl&&m.tags.some(t=>base.tags.includes(t))&&(m.gen==='p'?nP<maxP:nS<maxS));
+      if(!cands.length)break;const mod=pick(cands);used.add(mod.group);mod.gen==='p'?nP++:nS++;
+      const tiers=mod.tiers.map((t,i)=>({t,i})).filter(x=>x.t[0]<=ilvl);
+      const pickT=weighted(tiers,x=>[1000,600,350,200,110,60][x.i]||40); // worse tiers roll more often, like the real spawn weights
+      const [lv,a,b]=pickT.t;item.mods.push({k:mod.stat,v:rint(a,b),name:mod.names[pickT.i],gen:mod.gen,tier:mod.tiers.length-pickT.i});
+      item.req=Math.max(item.req,Math.round(lv*.8));}
+    if(rarity==='magic'){const p=item.mods.find(m=>m.gen==='p'),s=item.mods.find(m=>m.gen==='s');item.name=(p?p.name+' ':'')+base.name+(s?' '+s.name:'');}
+    else item.name=pick(RARE_A)+' '+pick(RARE_B);
+  } else item.name=base.name;
+  return item;
+}
+const itemValue=it=>Math.round(it.base.lvl*3+it.ilvl*2+{normal:4,magic:22,rare:80,unique:400}[it.rarity]+it.mods.reduce((a,m)=>a+(m.tier===1?25:m.tier===2?10:0),0));
+const itemStats=it=>{const o={};for(const [k,v] of it.imp)o[k]=(o[k]||0)+v;for(const m of it.mods)o[m.k]=(o[m.k]||0)+m.v;if(it.base.wdmg)o.wdmg=(o.wdmg||0)+it.base.wdmg;if(it.base.armor)o.armor=(o.armor||0)+it.base.armor;return o;};
+const GEAR_KEYS=['life','mana','stam','armor','str','dex','int','vit','atkFlat','atkPct','aps','spellPct','castSpd','firePct','armorPct','lifeRegen','manaRegen','stamRegen','moveSpd','ignite','lifeOnHit','burn','chainSlots','extraProjFire','wdmg'];
+function gearTotals(){const g={};for(const k of GEAR_KEYS)g[k]=0;for(const s of SLOTS){const it=C.equip[s];if(!it)continue;const st=itemStats(it);for(const k in st)g[k]+=st[k];}g.armor*=1+g.armorPct/100;return g;}
+function canEquip(it){return C.lvl>=it.req;}
+// What your running track cares about: share of attack vs spell skills, and fire/projectile usage
+function buildProfile(){const tr=C.tracks.flat();let atk=0,spl=0,fire=0,proj=0;
+  for(const sl of tr){const sk=SKILLS[sl.skill];sk.type==='atk'?atk++:spl++;if(sk.tags.includes('fire')||sl.sup.includes('addfire'))fire++;if(sk.tags.includes('projectile'))proj++;}
+  const n=Math.max(1,tr.length);return {atk:atk/n,spl:spl/n,fire:fire/n,proj:proj/n,any:tr.length>0};}
+function itemScore(it,pr){const st=itemStats(it);const w={life:1,armor:.25,vit:12,str:5*pr.atk+1,dex:3,int:6*pr.spl+1,wdmg:2.2*pr.atk,atkFlat:4*pr.atk,atkPct:1.3*pr.atk,aps:1.6*pr.atk,stam:.5*pr.atk,stamRegen:.5*pr.atk,
+  spellPct:1.3*pr.spl,castSpd:1.6*pr.spl,mana:.5*pr.spl,manaRegen:.5*pr.spl,firePct:1.3*pr.fire,ignite:.8*pr.fire,burn:.5*pr.fire,extraProjFire:35*Math.max(pr.fire,pr.proj),lifeRegen:3,lifeOnHit:3,moveSpd:1.2,chainSlots:45,armorPct:.6};
+  let sc=0;for(const k in st)sc+=(w[k]||0)*st[k];return sc;}
+function slotFor(it){if(it.slot!=='ring')return it.slot;if(!C.equip.ring1)return 'ring1';if(!C.equip.ring2)return 'ring2';const pr=buildProfile();return itemScore(C.equip.ring1,pr)<=itemScore(C.equip.ring2,pr)?'ring1':'ring2';}
+function slotEmpty(it){return it.slot==='ring'?!(C.equip.ring1&&C.equip.ring2):!C.equip[it.slot];}
+function autoEquip(){const pr=buildProfile();let n=0;const cands=C.inv.filter(canEquip).sort((a,b)=>itemScore(b,pr)-itemScore(a,pr));
+  for(const it of cands){if(!C.inv.includes(it))continue;const slot=slotFor(it);const cur=C.equip[slot];if(cur&&itemScore(cur,pr)>=itemScore(it,pr))continue;
+    C.inv.splice(C.inv.indexOf(it),1);C.equip[slot]=it;if(cur)C.inv.push(cur);n++;}
+  D=derived();for(const tr of C.tracks)while(tr.length>D.maxSlots)tr.pop();save();selItem=null;buildGear();buildChar();
+  toast(n?`Equipped ${n} item${n>1?'s':''} for a ${pr.any?(pr.atk>=pr.spl?'melee':'caster')+(pr.fire>.3?' fire':''):'balanced'} build`:'Nothing better in your pack',1800);}
+
+// ================================================================
+//  Character & save (3 slots + shared stash)
+// ================================================================
+const INV_MAX=150, STASH_MAX=300;
+const KEY='skillchain_v3_', STASH_KEY='skillchain_v3_stash', SET_KEY='skillchain_settings';
+const RANK={magic:1,rare:2,unique:3};
+let SET={minRarity:'magic',fps:true,res:'auto',unlockAll:true};try{Object.assign(SET,JSON.parse(localStorage.getItem(SET_KEY))||{});}catch(e){}
+function saveSet(){localStorage.setItem(SET_KEY,JSON.stringify(SET));}
+const lootVisible=it=>RANK[it.rarity]>=RANK[SET.minRarity];
+let slotIdx=+(localStorage.getItem(KEY+'last')||0);
+const defaultChar=()=>({lvl:1,xp:0,pts:0,attr:{str:0,dex:0,int:0,vit:0},kills:0,depth:1,maxDepth:0,bossKills:0,story:[],track:0,equip:{},inv:[],gems:{},gold:0,auras:[],
+  tracks:[[{skill:'cleave',sup:[]},{skill:'emberstr',sup:[]}],[{skill:'firewall',sup:[]},{skill:'emberstr',sup:[]},{skill:'emberstr',sup:[]}],[{skill:'heavy',sup:[]}]]});
+let C=null,STASH=[];
+function loadSlot(i){try{const j=JSON.parse(localStorage.getItem(KEY+i));if(j&&j.tracks){j.equip=j.equip||{};j.inv=j.inv||[];j.gems=j.gems||{};j.gold=j.gold||0;j.auras=j.auras||[];j.story=j.story||[];j.maxDepth=j.maxDepth||0;j.bossKills=j.bossKills||0;return j;}}catch(e){}return null;}
+function load(){slotIdx=clamp(slotIdx,0,2);C=loadSlot(slotIdx)||defaultChar();try{STASH=JSON.parse(localStorage.getItem(STASH_KEY))||[];}catch(e){STASH=[];}
+  // re-link base objects after JSON roundtrip
+  const fix=it=>{it.base=BASES.find(b=>b.name===it.base.name)||it.base;};for(const s of SLOTS)if(C.equip[s])fix(C.equip[s]);C.inv.forEach(fix);STASH.forEach(fix);
+  uid=Date.now()%1e9;localStorage.setItem(KEY+'last',slotIdx);}
+function save(){localStorage.setItem(KEY+slotIdx,JSON.stringify(C));localStorage.setItem(STASH_KEY,JSON.stringify(STASH));}
+const xpFor=l=>Math.floor(60*Math.pow(l,1.55));
+function derived(){const g=gearTotals();for(const id of C.auras){const st=AURAS[id].stats;for(const k in st)g[k]+=st[k];}const resM=C.auras.filter(x=>AURAS[x].pool==='mana').reduce((n,x)=>n+AURAS[x].res,0),resL=C.auras.filter(x=>AURAS[x].pool==='life').reduce((n,x)=>n+AURAS[x].res,0);const bf=buffTotals();g.aps+=bf.aps;g.castSpd+=bf.castSpd;g.armor+=bf.armor*12.5;g.moveSpd+=bf.moveSpd;const a={str:C.attr.str+g.str,dex:C.attr.dex+g.dex,int:C.attr.int+g.int,vit:C.attr.vit+g.vit};
+  return {g,a,
+  resM,resL,maxLife:Math.round((80+C.lvl*10+a.vit*12+g.life)*(1-resL)), maxMana:Math.round((60+a.int*9+g.mana)*(1-resM)), maxStam:70+a.str*5+a.dex*4+g.stam,
+  manaRegen:(3+a.int*.35)*(1+g.manaRegen/100)*(1-modVal('lowRegen')/100), stamRegen:(11+a.dex*.9)*(1+g.stamRegen/100)*(1-modVal('lowRegen')/100), lifeRegen:g.lifeRegen, speed:(150+a.dex*2.2)*(1+g.moveSpd/100),
+  more:bf.more,atkMult:1+a.str*.05+C.lvl*.02, splMult:1+a.int*.05+C.lvl*.02, armor:a.vit*.6+a.str*.2+g.armor*.08, maxSlots:8+g.chainSlots};}
+
+// ================================================================
+//  Map state
+// ================================================================
+let L=null,dungeon=null,inTown=true;
+const solid=(tx,ty)=>tx<0||ty<0||tx>=L.cols||ty>=L.rows||L.g[ty*L.cols+tx]===1;
+const enemies=[],projectiles=[],zones=[],particles=[],floats=[],spawners=[],loot=[],portals=[],npcs=[],mines=[];
+let boss=null,depth=1,variant=0,shake=0,gameTime=0,paused=true;
+const worldPos=t=>({x:(t.x+.5)*T,y:(t.y+.5)*T});
+function newMap(cols,rows,kind){return {cols,rows,kind,g:new Uint8Array(cols*rows).fill(1),deco:new Uint8Array(cols*rows),rooms:[],start:null,exits:[],dist:null,maxDist:1,bossRoom:null,mandatory:false};}
+let nearNpc=null;
+function stockVendor(n){n.stock=[];const lvl=Math.max(1,C.lvl);for(let i=0;i<7;i++){const slot=pick(n.slots);let it;for(let k=0;k<12;k++){it=rollItem(lvl+(i===6?2:0),{slot,rareChance:i===6?1:.12,uniqueChance:0});if(!n.tag||it.base.tags.includes(n.tag)||!['weapon','offhand'].includes(slot))break;}n.stock.push(it);}}
+function genTown(){
+  const M=newMap(26,26,'town');L=M;const carve=(x,y)=>{if(x>0&&y>0&&x<M.cols-1&&y<M.rows-1)M.g[y*M.cols+x]=0;};
+  for(let y=0;y<M.rows;y++)for(let x=0;x<M.cols;x++){const dx=x-13,dy=y-13;const r=Math.hypot(dx*1.1,dy)+(hash(x,y)-.5)*3.2;if(r<8.5)carve(x,y);}
+  for(let y=0;y<M.rows;y++)for(let x=0;x<M.cols;x++){if(!M.g[y*M.cols+x]&&Math.hypot(x-13,y-13)<4.6)M.deco[y*M.cols+x]=1;}
+  M.start={x:13,y:15};npcs.length=0;portals.length=0;
+  npcs.push({x:9.2*T,y:9.5*T,name:'Stash',col:'#c9a04e',kind:'chest',hint:'Shared stash — tap Open'});
+  npcs.push({x:16.8*T,y:9.2*T,name:'Brann the Smith',col:'#d8975f',kind:'vendor',hint:'"Steel for the road. Tap Trade."',slots:['weapon','offhand','helmet','body','gloves','boots'],tag:'attack'});
+  npcs.push({x:18.5*T,y:14.5*T,name:'Vessa, Alchemist',col:'#8ee3a5',kind:'vendor',hint:'"Trinkets that whisper. Tap Trade."',slots:['belt','amulet','ring','ring'],tag:null});
+  npcs.push({x:7.5*T,y:15*T,name:'Orin the Fletcher',col:'#7fc4ff',kind:'vendor',hint:'"Wands, charms, bad advice. Tap Trade."',slots:['weapon','offhand','amulet','ring'],tag:'caster'});
+  for(const n of npcs)if(n.kind==='vendor')stockVendor(n);
+  portals.push({x:13.5*T,y:7.6*T,to:'dungeon',t:0});inTown=true;$('#btnPortal').classList.add('hide');
+}
+// ================================================================
+//  Biomes: tile sets + procedural generation rules
+// ================================================================
+const BIOMES={
+  forest:{name:'Thornwood',wall:'tree',bg:'#0b1410',gen:'glades',deco:[[.05,2],[.16,3]],floor:(h,heat)=>`rgb(${(40+heat*44+h*6)|0},${(52+h*10-heat*20)|0},${(28+h*6)|0})`},
+  cavern:{name:'Hollow Deep',wall:'rock',bg:'#06060a',gen:'caves',deco:[[.04,4],[.12,2]],floor:(h,heat)=>`rgb(${(30+heat*34+h*6)|0},${(30+h*6)|0},${(46+h*8-heat*12)|0})`},
+  ruins:{name:'Sunken Vaults',wall:'block',bg:'#0b0908',gen:'halls',deco:[[.06,5],[.09,2]],floor:(h,heat)=>`rgb(${(60+heat*30+h*8)|0},${(54+h*8)|0},${(44+h*6)|0})`},
+  swamp:{name:'Rotmire',wall:'deadtree',bg:'#070b07',gen:'river',deco:[[.10,6],[.2,7]],floor:(h,heat)=>`rgb(${(38+heat*30+h*6)|0},${(48+h*8)|0},${(24+h*4)|0})`},
+  volcanic:{name:'Cinder Reach',wall:'obsidian',bg:'#0c0604',gen:'stamps',deco:[[.05,10],[.12,11]],floor:(h,heat)=>`rgb(${(58+heat*40+h*8)|0},${(30+h*6)|0},${(24+h*4)|0})`},
+  frozen:{name:'Frostvault',wall:'ice',bg:'#08101a',gen:'stamps',deco:[[.06,12],[.14,13]],floor:(h,heat)=>`rgb(${(150+heat*30+h*20)|0},${(170+h*20-heat*20)|0},${(195+h*20-heat*30)|0})`},
+  crypt:{name:'Ossuary',wall:'brick',bg:'#0a0708',gen:'crypt',deco:[[.05,8],[.08,9]],floor:(h,heat)=>`rgb(${(42+heat*30+h*6)|0},${(36+h*6)|0},${(38+h*6)|0})`},
+};
+const BIOME_ORDER=['forest','cavern','ruins','swamp','crypt','volcanic','frozen'];
+function biomeFor(dep,vari){if(dep<=2)return 'forest';if(dep<20)return BIOME_ORDER[(dep+vari*2)%5];return BIOME_ORDER[(dep+vari*3)%7];}
+// ---- Room-stamp generation (after Rhys Abraham's ExileCon talk on PoE areas):
+//      big hand-shaped pieces placed along a critical path, overlapping into open unions,
+//      side pieces hung off the path, then the wall art is picked from each tile's neighbours.
+const STAMPS={
+  blob:(w,h)=>{const wob=1+(srand()-.5)*.3;return (x,y)=>Math.hypot((x-w/2)/(w/2),(y-h/2)/(h/2))<=wob;},
+  rect:()=>()=>true,
+  cross:(w,h)=>(x,y)=>Math.abs(x-w/2)<w/4+.5||Math.abs(y-h/2)<h/4+.5,
+  ring:(w,h)=>(x,y)=>{const d=Math.hypot((x-w/2)/(w/2),(y-h/2)/(h/2));return d<=1&&d>.42;},
+  L:(w,h)=>{const q=srand()<.5;return (x,y)=>q?(x<w*.55||y<h*.55):(x>w*.45||y>h*.45);},
+  pillars:(w,h)=>(x,y)=>!((Math.floor(x)-1)%3===0&&(Math.floor(y)-1)%3===0&&x>1.5&&y>1.5&&x<w-1.5&&y<h-1.5),
+};
+function stampRoom(M,cx,cy,w,h,shape){const f=STAMPS[shape](w,h);const x0=cx-Math.floor(w/2),y0=cy-Math.floor(h/2);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(f(x+.5,y+.5)){const gx=x0+x,gy=y0+y;if(gx>0&&gy>0&&gx<M.cols-1&&gy<M.rows-1)M.g[gy*M.cols+gx]=0;}
+  return {cx,cy,w,h,shape};}
+function join(M,a,b,wd){let x=a.cx,y=a.cy;const c=(x,y)=>{for(let dy=-wd;dy<=wd;dy++)for(let dx=-wd;dx<=wd;dx++){const gx=x+dx,gy=y+dy;if(gx>0&&gy>0&&gx<M.cols-1&&gy<M.rows-1&&Math.hypot(dx,dy)<=wd+.5)M.g[gy*M.cols+gx]=0;}};
+  while(x!==b.cx||y!==b.cy){if(Math.abs(b.cx-x)>Math.abs(b.cy-y)||(Math.abs(b.cx-x)===Math.abs(b.cy-y)&&srand()<.5))x+=Math.sign(b.cx-x);else y+=Math.sign(b.cy-y);c(x,y);}}
+function smooth(M,n,keepFloor){for(let it=0;it<n;it++){const g=new Uint8Array(M.g);for(let y=1;y<M.rows-1;y++)for(let x=1;x<M.cols-1;x++){let w=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(M.g[(y+dy)*M.cols+x+dx])w++;
+  if(M.g[y*M.cols+x]){if(w<=3)g[y*M.cols+x]=0;}else if(w>=6&&!keepFloor)g[y*M.cols+x]=1;}M.g=g;}}
+const GENCFG={
+  forest:{shapes:['blob','blob','blob','L'],w:[7,12],h:[6,10],side:5,smooth:1,joinW:1},
+  cavern:{shapes:['blob','blob','ring','L'],w:[8,13],h:[7,11],side:6,smooth:2,joinW:1,noise:.08},
+  ruins:{shapes:['rect','pillars','cross','ring','rect'],w:[7,12],h:[6,10],side:5,smooth:0,joinW:1},
+  swamp:{shapes:['blob','blob','L','blob'],w:[9,15],h:[7,12],side:6,smooth:3,joinW:2,noise:.1},
+  crypt:{shapes:['rect','cross','pillars','ring','rect'],w:[6,11],h:[5,9],side:6,smooth:0,joinW:1},
+  volcanic:{shapes:['blob','ring','L','blob'],w:[8,13],h:[7,11],side:6,smooth:2,joinW:1,noise:.06},
+  frozen:{shapes:['blob','rect','cross','blob'],w:[8,13],h:[7,11],side:5,smooth:1,joinW:1},
+};
+function pathRooms(M,cfg){const rooms=[];const path=[];
+  const pickSize=()=>[sri(cfg.w[0],cfg.w[1]),sri(cfg.h[0],cfg.h[1])];
+  let [w,h]=pickSize();let cx=Math.floor(M.cols/2)+sri(-3,3),cy=M.rows-3-Math.floor(h/2);
+  let prev=stampRoom(M,cx,cy,w,h,spick(cfg.shapes));rooms.push(prev);path.push(prev);
+  while(cy>3+Math.floor(h/2)){const [nw,nh]=pickSize();
+    const overlap=sri(2,4);const dy=Math.max(2,Math.floor((prev.h+nh)/2)-overlap);const span=Math.floor((prev.w+nw)/2)-3;const dx=sri(-span,span);
+    cx=clamp(cx+dx,3+Math.floor(nw/2),M.cols-4-Math.floor(nw/2));cy=Math.max(2+Math.floor(nh/2),cy-dy);
+    const r=stampRoom(M,cx,cy,nw,nh,spick(cfg.shapes));join(M,prev,r,cfg.joinW);rooms.push(r);path.push(r);prev=r;if(cy<=2+Math.floor(nh/2))break;}
+  for(let k=0;k<cfg.side;k++){const a=spick(path);const [nw,nh]=pickSize();const dir=srand()<.5?-1:1;
+    const sx=clamp(a.cx+dir*(Math.floor((a.w+nw)/2)-sri(2,3)),3+Math.floor(nw/2),M.cols-4-Math.floor(nw/2)),sy=clamp(a.cy+sri(-3,3),2+Math.floor(nh/2),M.rows-3-Math.floor(nh/2));
+    const r=stampRoom(M,sx,sy,nw,nh,spick(cfg.shapes));join(M,a,r,cfg.joinW);rooms.push(r);}
+  if(cfg.noise)for(let i=0;i<M.g.length;i++){const x=i%M.cols,y=Math.floor(i/M.cols);if(x>0&&y>0&&x<M.cols-1&&y<M.rows-1&&srand()<cfg.noise)M.g[i]=M.g[i]?0:1;}
+  smooth(M,cfg.smooth,false);
+  M.start={x:rooms[0].cx,y:rooms[0].cy};for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)M.g[(M.start.y+dy)*M.cols+M.start.x+dx]=0;}
+function genLevel(dep,vari){
+  const bk=biomeFor(dep,vari),B=BIOMES[bk];const M=newMap(44,70,bk);M.mods=areaMods(dep,vari);L=M;M.biome=bk;seed=dep*7919+vari*104729+13;for(let i=0;i<5;i++)srand();M.mandatory=dep%2===0;
+  pathRooms(M,GENCFG[bk]);
+  // ---- keep only what the start can reach ----
+  const idx=(x,y)=>y*M.cols+x;const reach=new Uint8Array(M.g.length);let q=[[M.start.x,M.start.y]];reach[idx(M.start.x,M.start.y)]=1;
+  for(let qi=0;qi<q.length;qi++){const [x,y]=q[qi];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=M.cols||ny>=M.rows)continue;const k=idx(nx,ny);if(!M.g[k]&&!reach[k]){reach[k]=1;q.push([nx,ny]);}}}
+  for(let k=0;k<M.g.length;k++)if(!M.g[k]&&!reach[k])M.g[k]=1;
+  const floor=[];for(let y=1;y<M.rows-1;y++)for(let x=1;x<M.cols-1;x++)if(!M.g[idx(x,y)])floor.push({x,y});
+  // BFS distance from start (for exit choice)
+  const dS=new Int32Array(M.g.length).fill(-1);q=[[M.start.x,M.start.y]];dS[idx(M.start.x,M.start.y)]=0;
+  for(let qi=0;qi<q.length;qi++){const [x,y]=q[qi];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;const k=idx(nx,ny);if(!solid(nx,ny)&&dS[k]<0){dS[k]=dS[idx(x,y)]+1;q.push([nx,ny]);}}}
+  // ---- two exits: far from the start, far from each other, high up ----
+  const open=t=>!solid(t.x+1,t.y)&&!solid(t.x-1,t.y)&&!solid(t.x,t.y+1)&&!solid(t.x,t.y-1);
+  let cands=floor.filter(t=>t.y<M.rows*.22&&open(t));if(cands.length<4)cands=floor.filter(open).sort((a,b)=>a.y-b.y).slice(0,40);
+  cands.sort((a,b)=>dS[idx(b.x,b.y)]-dS[idx(a.x,a.y)]);const e1=cands[0];let e2=null,best=-1;for(const t of cands){const d=Math.hypot(t.x-e1.x,t.y-e1.y);if(d>best&&dS[idx(t.x,t.y)]>dS[idx(e1.x,e1.y)]*.6){best=d;e2=t;}}if(!e2)e2=cands[Math.min(1,cands.length-1)];
+  M.exits=[{x:e1.x,y:e1.y,variant:0,locked:M.mandatory},{x:e2.x,y:e2.y,variant:1,locked:M.mandatory}];for(const ex of M.exits){ex.biome=biomeFor(dep+1,ex.variant);ex.mods=areaMods(dep+1,ex.variant);}
+  // BFS from exits (uniform grid → same ordering as A*)
+  M.dist=new Int32Array(M.g.length).fill(-1);q=[];for(const e of M.exits){M.dist[idx(e.x,e.y)]=0;q.push([e.x,e.y]);}
+  for(let qi=0;qi<q.length;qi++){const [x,y]=q[qi];const d=M.dist[idx(x,y)];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!solid(nx,ny)&&M.dist[idx(nx,ny)]<0){M.dist[idx(nx,ny)]=d+1;q.push([nx,ny]);}}}
+  M.maxDist=M.dist[idx(M.start.x,M.start.y)]||1;
+  // ---- spawner sites by farthest-point sampling ----
+  const sites=[];const far=t=>{let m=Math.hypot(t.x-M.start.x,t.y-M.start.y);for(const s of sites)m=Math.min(m,Math.hypot(t.x-s.x,t.y-s.y));for(const e of M.exits)m=Math.min(m,Math.hypot(t.x-e.x,t.y-e.y)*1.5);return m;};
+  const pool=floor.filter(t=>open(t)&&dS[idx(t.x,t.y)]>6);
+  const nSites=10+(M.mods?(M.mods.find(x=>x.id==='packs')||{v:0}).v:0);for(let i=0;i<nSites&&pool.length;i++){let bt=null,bd=-1;for(let k=0;k<pool.length;k+=2){const t=pool[k];const d=far(t);if(d>bd){bd=d;bt=t;}}if(!bt||bd<4)break;sites.push(bt);}
+  // boss site: guard exit 0 on gate floors, otherwise a mid-depth site
+  if(M.mandatory){let bt=null,bd=1e9;for(const t of pool){const d=M.dist[idx(t.x,t.y)];if(d>=3&&d<=6){const dd=Math.hypot(t.x-e1.x,t.y-e1.y);if(dd<bd){bd=dd;bt=t;}}}M.bossAt=bt||e1;}
+  else{sites.sort((a,b)=>M.dist[idx(a.x,a.y)]-M.dist[idx(b.x,b.y)]);M.bossAt=sites.splice(Math.floor(sites.length/2),1)[0]||e1;}
+  spawners.length=0;
+  if(M.mandatory&&M.bossAt){const b=M.bossAt;for(let y=b.y-7;y<=b.y+7;y++)for(let x=b.x-7;x<=b.x+7;x++){if(x>0&&y>0&&x<M.cols-1&&y<M.rows-1&&Math.hypot((x-b.x),(y-b.y)*1.1)<=7)M.g[y*M.cols+x]=0;}
+    M.dist.fill(-1);q=[];for(const e of M.exits){M.dist[idx(e.x,e.y)]=0;q.push([e.x,e.y]);}for(let qi=0;qi<q.length;qi++){const [x,y]=q[qi];const d=M.dist[idx(x,y)];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!solid(nx,ny)&&M.dist[idx(nx,ny)]<0){M.dist[idx(nx,ny)]=d+1;q.push([nx,ny]);}}}M.maxDist=M.dist[idx(M.start.x,M.start.y)]||1;}
+  M.packs=[];for(const t of sites){const d=M.dist[idx(t.x,t.y)];const tt=clamp(1-d/M.maxDist,0,1),tier=Math.round(tt*5);const elvl=dep+Math.round(tier*Math.min(1,.35+dep*.12));M.packs.push({x:(t.x+.5)*T,y:(t.y+.5)*T,tier,lvl:elvl});}
+  for(let i=0;i<M.g.length;i++)if(!M.g[i]){const h=hash(i%M.cols,Math.floor(i/M.cols)+dep*97);M.deco[i]=0;for(const [th,id] of B.deco){if(h<th){M.deco[i]=id;break;}}}
+  npcs.length=0;portals.length=0;inTown=false;$('#btnPortal').classList.remove('hide');
+}
+
+// ================================================================
+//  Entities
+// ================================================================
+const P={x:0,y:0,r:13,face:0,life:1,mana:1,stam:1,moving:false,slot:0,slots:[0,0,0],cur:1,buffs:[],busy:0,gcd:0,cast:null,focusBoss:false,hurt:0,dead:false,inv:0,anim:0,lunge:0};
+// ================================================================
+//  Enemies — five per biome. kind: melee | ranged | dive | caster | charger
+//  shape: figure | beast | wisp.  onhit: status the enemy inflicts.
+// ================================================================
+const E_=(o)=>Object.assign({shape:'figure',wind:.45,rec:.7,reach:38,lunge:100,scale:1},o);
+const ETYPES={
+  // forest
+  skitter:  E_({biome:'forest',name:'Skitter',shape:'beast',col:'#8ee3a5',col2:'#3f8a56',r:10,hp:24,spd:190,dmg:7,xp:6,reach:34,wind:.35,rec:.5,lunge:120,kind:'melee'}),
+  brute:    E_({biome:'forest',name:'Brute',col:'#d8975f',col2:'#7c4b28',r:17,hp:90,spd:85,dmg:18,xp:16,reach:44,wind:.7,rec:.9,lunge:60,aoe:70,kind:'melee',scale:1.35}),
+  spitter:  E_({biome:'forest',name:'Spitter',col:'#c07be0',col2:'#5c2f78',r:12,hp:36,spd:105,dmg:9,xp:10,reach:230,wind:.5,rec:1.2,kind:'ranged',keep:170,tall:true}),
+  wisp:     E_({biome:'forest',name:'Wisp',shape:'wisp',col:'#7fc4ff',col2:'#2f66a8',r:9,hp:14,spd:240,dmg:14,xp:5,reach:120,wind:.45,rec:0,kind:'dive'}),
+  thornhound:E_({biome:'forest',name:'Thornhound',shape:'beast',col:'#6f9a3a',col2:'#2f4a1a',r:13,hp:60,spd:150,dmg:16,xp:14,reach:220,wind:.6,rec:1.1,kind:'charger',onhit:{bleed:.5}}),
+  // cavern
+  crawler:  E_({biome:'cavern',name:'Cave Crawler',shape:'beast',col:'#9fa8c8',col2:'#3f4560',r:11,hp:30,spd:210,dmg:8,xp:7,reach:34,wind:.3,rec:.4,lunge:130,kind:'melee'}),
+  rockhulk: E_({biome:'cavern',name:'Rock Hulk',col:'#7d7f95',col2:'#3a3b4d',r:20,hp:160,spd:65,dmg:26,xp:24,reach:50,wind:.9,rec:1.1,lunge:40,aoe:90,kind:'melee',scale:1.6}),
+  batwing:  E_({biome:'cavern',name:'Batwing',shape:'wisp',col:'#b088d6',col2:'#4a2a6a',r:9,hp:16,spd:260,dmg:12,xp:6,reach:140,wind:.4,rec:0,kind:'dive'}),
+  gloom:    E_({biome:'cavern',name:'Gloomcaster',col:'#6a5aa8',col2:'#2a2050',r:12,hp:44,spd:90,dmg:22,xp:14,reach:260,wind:.9,rec:1.6,kind:'caster',keep:200,tall:true,aoeR:75}),
+  shardling:E_({biome:'cavern',name:'Shardling',col:'#bfeaff',col2:'#4d8aa8',r:10,hp:28,spd:120,dmg:10,xp:9,reach:220,wind:.5,rec:1,kind:'ranged',keep:160,onhit:{chill:.6}}),
+  // ruins
+  sentinel: E_({biome:'ruins',name:'Sentinel',col:'#b8ab8e',col2:'#5c5240',r:14,hp:70,spd:110,dmg:14,xp:13,reach:40,wind:.5,rec:.8,lunge:90,kind:'melee',armor:.25}),
+  statue:   E_({biome:'ruins',name:'Archer Statue',col:'#cfc4a6',col2:'#6c6250',r:12,hp:50,spd:0,dmg:13,xp:11,reach:300,wind:.7,rec:1.4,kind:'ranged',keep:0,tall:true}),
+  guardian: E_({biome:'ruins',name:'Vault Guardian',col:'#8f8262',col2:'#3f3828',r:19,hp:150,spd:80,dmg:24,xp:22,reach:220,wind:.7,rec:1.2,kind:'charger',scale:1.5,armor:.3}),
+  wraith:   E_({biome:'ruins',name:'Wraith',shape:'wisp',col:'#dfe6ff',col2:'#6a75a8',r:10,hp:20,spd:230,dmg:15,xp:7,reach:130,wind:.45,rec:0,kind:'dive'}),
+  cultist:  E_({biome:'ruins',name:'Cultist',col:'#8a2f3a',col2:'#3a1218',r:12,hp:40,spd:95,dmg:20,xp:13,reach:250,wind:.8,rec:1.4,kind:'caster',keep:190,aoeR:70,onhit:{ignite:.5}}),
+  // swamp
+  bogling:  E_({biome:'swamp',name:'Bogling',shape:'beast',col:'#7ba85a',col2:'#2f4a1a',r:10,hp:26,spd:170,dmg:8,xp:6,reach:34,wind:.35,rec:.5,lunge:110,kind:'melee',onhit:{poison:.5}}),
+  leech:    E_({biome:'swamp',name:'Marsh Leech',shape:'beast',col:'#4a6a3a',col2:'#1f2f14',r:12,hp:48,spd:120,dmg:10,xp:9,reach:32,wind:.4,rec:.3,lunge:80,kind:'melee',drain:true}),
+  croaker:  E_({biome:'swamp',name:'Croaker',col:'#8fbf6a',col2:'#3a5a2a',r:14,hp:44,spd:90,dmg:11,xp:11,reach:240,wind:.6,rec:1.3,kind:'ranged',keep:170,onhit:{poison:.7},scale:1.15}),
+  willow:   E_({biome:'swamp',name:'Will-o-wisp',shape:'wisp',col:'#c6ff8a',col2:'#5a8a2a',r:9,hp:15,spd:250,dmg:13,xp:5,reach:130,wind:.45,rec:0,kind:'dive'}),
+  miregiant:E_({biome:'swamp',name:'Mire Giant',col:'#5f6b3a',col2:'#2a3018',r:21,hp:190,spd:60,dmg:28,xp:26,reach:52,wind:1,rec:1.2,lunge:40,aoe:95,kind:'melee',scale:1.7}),
+  // volcanic
+  cinderling:E_({biome:'volcanic',name:'Cinderling',shape:'beast',col:'#ff8a3d',col2:'#6a2a10',r:10,hp:28,spd:200,dmg:9,xp:8,reach:34,wind:.3,rec:.5,lunge:120,kind:'melee',onhit:{ignite:.4}}),
+  magmabrute:E_({biome:'volcanic',name:'Magma Brute',col:'#c8502a',col2:'#4a1a0a',r:20,hp:170,spd:70,dmg:28,xp:26,reach:50,wind:.9,rec:1.1,lunge:40,aoe:95,kind:'melee',scale:1.6,onhit:{ignite:.6}}),
+  ashwraith: E_({biome:'volcanic',name:'Ash Wraith',shape:'wisp',col:'#ffb27a',col2:'#7a3a1a',r:9,hp:18,spd:250,dmg:14,xp:7,reach:140,wind:.4,rec:0,kind:'dive'}),
+  pyromancer:E_({biome:'volcanic',name:'Pyromancer',col:'#a83a2a',col2:'#3a1010',r:12,hp:48,spd:90,dmg:24,xp:16,reach:260,wind:.85,rec:1.5,kind:'caster',keep:200,aoeR:80,onhit:{ignite:.7},tall:true}),
+  slagcannon:E_({biome:'volcanic',name:'Slag Cannon',col:'#8a5a3a',col2:'#3a2010',r:14,hp:60,spd:60,dmg:16,xp:14,reach:280,wind:.7,rec:1.5,kind:'ranged',keep:200,onhit:{ignite:.4},scale:1.2}),
+  // frozen
+  rimehound: E_({biome:'frozen',name:'Rimehound',shape:'beast',col:'#bfeaff',col2:'#3a6a8a',r:12,hp:44,spd:180,dmg:12,xp:10,reach:200,wind:.5,rec:1,kind:'charger',onhit:{chill:.8}}),
+  icegolem:  E_({biome:'frozen',name:'Ice Golem',col:'#9fd0e8',col2:'#2a5a7a',r:21,hp:200,spd:60,dmg:30,xp:28,reach:54,wind:1,rec:1.3,lunge:30,aoe:100,kind:'melee',scale:1.75,armor:.2,onhit:{chill:.6}}),
+  frostwisp: E_({biome:'frozen',name:'Frost Wisp',shape:'wisp',col:'#dff4ff',col2:'#5a9ab8',r:9,hp:16,spd:240,dmg:13,xp:6,reach:130,wind:.45,rec:0,kind:'dive',onhit:{chill:1}}),
+  glacier:   E_({biome:'frozen',name:'Glacial Sage',col:'#6a8ac8',col2:'#20305a',r:12,hp:50,spd:85,dmg:22,xp:16,reach:260,wind:.9,rec:1.6,kind:'caster',keep:210,aoeR:80,onhit:{chill:1},tall:true}),
+  shardbow:  E_({biome:'frozen',name:'Shardbow',col:'#cfe8f5',col2:'#4a7a9a',r:12,hp:34,spd:105,dmg:13,xp:11,reach:270,wind:.55,rec:1.2,kind:'ranged',keep:180,onhit:{chill:.5},tall:true}),
+  // crypt
+  skeleton: E_({biome:'crypt',name:'Skeleton',col:'#e6e0cc',col2:'#8a8270',r:12,hp:34,spd:120,dmg:11,xp:9,reach:38,wind:.45,rec:.7,lunge:100,kind:'melee'}),
+  skarcher: E_({biome:'crypt',name:'Skeleton Archer',col:'#d9d2c0',col2:'#7a7260',r:12,hp:30,spd:100,dmg:12,xp:10,reach:260,wind:.55,rec:1.2,kind:'ranged',keep:180,tall:true}),
+  ghoul:    E_({biome:'crypt',name:'Ghoul',col:'#9aa07a',col2:'#3f4230',r:13,hp:55,spd:160,dmg:15,xp:13,reach:200,wind:.5,rec:1,kind:'charger',onhit:{bleed:.4}}),
+  necro:    E_({biome:'crypt',name:'Necromancer',col:'#3a2a4a',col2:'#1a1020',r:12,hp:46,spd:85,dmg:18,xp:16,reach:260,wind:.9,rec:1.8,kind:'caster',keep:210,aoeR:70,summon:'skeleton',tall:true}),
+  bonetitan:E_({biome:'crypt',name:'Bone Titan',col:'#cfc6ae',col2:'#5a5240',r:22,hp:210,spd:60,dmg:30,xp:28,reach:56,wind:1.1,rec:1.3,lunge:30,aoe:100,kind:'melee',scale:1.8,armor:.2}),
+};
+const POOLS={forest:['skitter','skitter','brute','spitter','wisp','thornhound'],cavern:['crawler','crawler','rockhulk','batwing','gloom','shardling'],ruins:['sentinel','sentinel','statue','guardian','wraith','cultist'],swamp:['bogling','bogling','leech','croaker','willow','miregiant'],crypt:['skeleton','skeleton','skarcher','ghoul','necro','bonetitan'],volcanic:['cinderling','cinderling','magmabrute','ashwraith','pyromancer','slagcannon'],frozen:['rimehound','rimehound','icegolem','frostwisp','glacier','shardbow']};
+// ---- bosses: one per biome, each with telegraphed moves ----
+//  moves: slam (line from boss through player), ring (around boss), charge (dash along a line), rain (circles on player), volley (fan of shots), summon
+const BOSSES={
+  forest:{name:'Thornmother',base:'brute',col:'#4f7a2a',col2:'#243a12',scale:2.6,hpMult:16,moves:['slam','summon','ring'],summon:'skitter',lines:'#c8202f'},
+  cavern:{name:'The Hollow King',base:'rockhulk',col:'#6c7398',col2:'#2a2e48',scale:2.2,hpMult:14,moves:['charge','volley','ring'],lines:'#c8202f'},
+  ruins:{name:'Vault Warden',base:'guardian',col:'#b39a5c',col2:'#4a3f22',scale:2.1,hpMult:15,moves:['cross','slam','charge'],lines:'#c8202f'},
+  swamp:{name:'Mire Hag',base:'croaker',col:'#7f9f4a',col2:'#2c3a16',scale:2.2,hpMult:13,moves:['rain','summon','ring'],summon:'bogling',onhit:{poison:.8},lines:'#c8202f'},
+  volcanic:{name:'The Furnace Lord',base:'magmabrute',col:'#ff6a2a',col2:'#4a1a0a',scale:2.3,hpMult:16,moves:['cross','rain','charge','summon'],summon:'cinderling',onhit:{ignite:.8},lines:'#ff5a2a'},
+  frozen:{name:'The Pale Warden',base:'icegolem',col:'#dff4ff',col2:'#2a5a7a',scale:2.2,hpMult:17,moves:['ring','slam','rain','volley'],onhit:{chill:1},lines:'#c8202f'},
+  crypt:{name:'Bone Sovereign',base:'bonetitan',col:'#ded5bb',col2:'#5a5240',scale:2.1,hpMult:16,moves:['slam','summon','volley','ring'],summon:'skeleton',lines:'#c8202f'},
+};
+const telegraphs=[];
+function spawnEnemy(sp,type,lvl,isBoss=false,bossDef=null){const t=ETYPES[type];const sc=1+(lvl-1)*.13;const bm=isBoss?(bossDef?bossDef.hpMult:12):1;
+  const e={type,t,x:sp.x+rnd(-30,30),y:sp.y+rnd(-30,30),r:t.r*(isBoss?(bossDef?bossDef.scale/1.25:2.2):1),hp:t.hp*sc*bm,maxHp:0,lvl,spd:t.spd*(isBoss?.85:1),dmg:t.dmg*sc*(isBoss?1.4:1),xp:t.xp*sc*(isBoss?25:1),
+    ignite:0,burnDps:0,chill:0,freeze:0,shock:0,bleed:0,bleedT:0,poison:0,poisonT:0,hurt:0,vx:0,vy:0,src:null,boss:isBoss,bd:bossDef,anim:rnd(0,7),drops:true,tier:sp.tier||0,state:sp.idle?'idle':'approach',st:0,face:rnd(0,TAU),strafe:Math.random()<.5?1:-1,strafeT:rnd(.5,1.5),lungeV:0,moveCd:isBoss?1.5:0,elite:!!sp.elite,armor:t.armor||0,home:{x:sp.x,y:sp.y}};
+  if(e.elite){e.hp*=3;e.dmg*=1.4;e.r*=1.3;e.xp*=4;}
+  if(!inTown&&L.mods){e.hp*=1+modVal('life')/100;e.spd*=1+modVal('fast')/100;e.armor=Math.min(.6,e.armor+modVal('armour')/100);if(modVal('burning'))e.onhitX={ignite:.5};if(modVal('venom'))e.onhitX={...(e.onhitX||{}),poison:.5};}
+  e.maxHp=e.hp;enemies.push(e);return e;}
+function spawnPack(site,lvl,tier,bk){const pool=POOLS[bk]||POOLS.forest;const n=3+Math.round(tier*1.3)+rint(0,2);const elite=modVal('elites')?true:Math.random()<.25;
+  for(let i=0;i<n;i++)spawnEnemy({x:site.x,y:site.y,tier,idle:true,elite:elite&&i===0},pick(pool),lvl);}
+
+const joy={on:false,id:null,sx:0,sy:0,x:0,y:0};const JOY_R=48;
+cv.addEventListener('pointerdown',e=>{if(paused)return;joy.on=true;joy.id=e.pointerId;joy.t0=performance.now();joy.far=false;joy.sx=joy.x=e.clientX;joy.sy=joy.y=e.clientY;cv.setPointerCapture(e.pointerId);$('#tip').style.display='none';});
+cv.addEventListener('pointermove',e=>{if(!joy.on||e.pointerId!==joy.id)return;joy.x=e.clientX;joy.y=e.clientY;if(Math.hypot(joy.x-joy.sx,joy.y-joy.sy)>10)joy.far=true;});
+const joyEnd=e=>{if(e.pointerId===joy.id){const quick=!joy.far&&performance.now()-joy.t0<250;joy.on=false;joy.id=null;if(quick&&!inTown&&!paused)startTap();}};
+function startTap(){if(!C.tracks[2].length){toast('Tap track is empty — set it up under Skills',1200);return;}if(tapPlay){tapPlay.queue=(tapPlay.queue||0)+1;floatText(P.x,P.y-30,'queued ×'+tapPlay.queue,'#f0d48a');return;}tapPlay={wait:0,queue:0};P.slots[2]=0;P.busy=0;P.cast=null;P.gcd=0;fx(P.x,P.y,'#f0d48a',8,90,.3,2);}cv.addEventListener('pointerup',joyEnd);cv.addEventListener('pointercancel',joyEnd);
+
+// ================================================================
+//  Combat
+// ================================================================
+function fx(x,y,col,n=6,spd=120,life=.4,sz=3){for(let i=0;i<n;i++){const a=rnd(0,TAU),s=rnd(spd*.3,spd);particles.push({x,y,z:rnd(0,10),vx:Math.cos(a)*s,vy:Math.sin(a)*s,vz:rnd(20,90),life,max:life,col,sz});}}
+function floatText(x,y,txt,col){floats.push({x,y,z:26,txt,col,life:.8});}
+// ---- statuses: ignite, chill, freeze, shock, bleed, poison ----
+function hurtEnemy(e,dmg,m,isSpell,col){if(e.hp<=0)return;let d=dmg;
+  if(m){if(m.execute&&e.hp/e.maxHp<.3)d*=1+m.execute;if(m.fullLife&&P.life>D.maxLife*.9)d*=1.35;}
+  if(e.shock>0)d*=1.3;if(e.armor)d*=1-e.armor;
+  if(m&&L.mods){if(m.fire)d*=1-modVal('fireRes')/100;if(m.cold)d*=1-modVal('coldRes')/100;if(m.lightning)d*=1-modVal('lightRes')/100;}
+  e.hp-=d;e.hurt=.12;floatText(e.x,e.y,Math.round(d),col||(m&&m.fire?'#ffb27a':isSpell?'#9de6f0':'#fff'));fx(e.x,e.y,e.t.col,4,90,.3,2);
+  if(m){
+    if(!m.noAil){const r=Math.random;
+      if(m.ignite&&r()<m.ignite)ignite(e,d*.3*m.burnMult*m.dotMult,3*m.burnDur*m.dur);
+      if(m.chill&&r()<m.chill)e.chill=Math.max(e.chill,2.5*m.dur);
+      if(m.freeze&&r()<m.freeze){e.freeze=Math.max(e.freeze,Math.min(2,(e.boss?.5:1.1)*m.dur));fx(e.x,e.y,'#dff4ff',10,120,.4,3);}
+      if(m.shock&&r()<m.shock)e.shock=Math.max(e.shock,4*m.dur);
+      if(m.bleed&&r()<m.bleed){e.bleedT=Math.max(e.bleedT,4*m.dur);e.bleed=Math.max(e.bleed,d*.15*m.dotMult);}
+      if(m.poison&&r()<m.poison){e.poisonT=Math.max(e.poisonT,4*m.dur);e.poison+=d*.08*m.dotMult;}}
+    if(m.kb){const a=Math.atan2(e.y-P.y,e.x-P.x);e.vx+=Math.cos(a)*m.kb;e.vy+=Math.sin(a)*m.kb;}
+    if(m.stun&&(e.state==='windup'||e.state==='approach')&&!e.boss){e.state='recover';e.st=m.stun;}
+    let heal=m.leech+d*m.leechPct;if(heal)P.life=Math.min(D.maxLife,P.life+heal);if(m.manaLeech)P.mana=Math.min(D.maxMana,P.mana+d*m.manaLeech);
+    if(m.fortify)addBuff('armor',25,4,'Fortify',true);
+    if(m.cull&&e.hp>0&&e.hp/e.maxHp<.1&&!e.boss){e.hp=0;floatText(e.x,e.y-8,'culled','#ffe36b');}}
+  if(e.hp<=0)killEnemy(e,m);}
+function ignite(e,dps,dur){e.ignite=Math.max(e.ignite,dur);e.burnDps=Math.max(e.burnDps,dps);}
+function chillE(e,dur){e.chill=Math.max(e.chill,dur);}
+// ---- temporary buffs on the player ----
+function addBuff(stat,val,dur,name,quiet){const b=P.buffs.find(x=>x.name===name);if(b){b.t=Math.max(b.t,dur);b.val=Math.max(b.val,val);return;}P.buffs.push({stat,val,t:dur,name});if(!quiet)floatText(P.x,P.y-10,name,'#f0d48a');}
+function buffTotals(){const o={aps:0,castSpd:0,armor:0,moveSpd:0,more:0};for(const b of P.buffs){if(b.stat==='speed'){o.aps+=b.val;o.castSpd+=b.val;o.moveSpd+=b.val;}else o[b.stat]+=b.val;}return o;}
+const timers=[];function later(t,f){timers.push({t,f});}
+function xpMult(elvl){const diff=C.lvl-elvl;if(diff<=0)return 1;const m=Math.exp(-.55*diff);return m<.03?0:m;}
+function gainXp(n){C.xp+=n;gemGain(n);while(C.xp>=xpFor(C.lvl)){C.xp-=xpFor(C.lvl);C.lvl++;C.pts++;toast('Level '+C.lvl+' — +1 attribute point',1800);fx(P.x,P.y,'#f2c14e',30,200,.7,3);$('#btnEdit').classList.add('alert');$('#tabChar').classList.add('alert');}}
+function dropLoot(x,y,ilvl,opt){opt={...opt};if(modVal('rarity')&&!opt.forceRarity)opt.rareChance=(opt.rareChance||.14)*(1+modVal('rarity')/100);const it=rollItem(ilvl,opt);loot.push({x:x+rnd(-14,14),y:y+rnd(-14,14),t:0,item:it});}
+function dropGold(x,y,n){n=Math.round(n*(1+modVal('gold')/100));loot.push({x:x+rnd(-14,14),y:y+rnd(-14,14),t:0,gold:n});}
+function killEnemy(e,m){e.dead=true;if(e.src)e.src.active--;
+  if(m&&m.onslaught)addBuff('speed',20,4,'Onslaught');
+  if(m&&m.prolif){for(const o of enemies){if(o.dead||o===e||Math.hypot(o.x-e.x,o.y-e.y)>70)continue;if(e.ignite>0)ignite(o,e.burnDps,e.ignite);if(e.chill>0)o.chill=Math.max(o.chill,e.chill);if(e.shock>0)o.shock=Math.max(o.shock,e.shock);}}fx(e.x,e.y,e.t.col,e.boss?60:12,e.boss?260:160,.6,e.boss?5:3);
+  const gain=Math.round(e.xp*xpMult(e.lvl)*(1+modVal('xp')/100));C.kills++;
+  if(gain>0){gainXp(gain);floatText(e.x,e.y-6,'+'+gain+' xp','#f2c14e');}else floatText(e.x,e.y-6,'no xp','#777');
+  if(e.boss){dropLoot(e.x,e.y,e.lvl+3,{forceRarity:'rare',uniqueChance:L.mandatory?.25:.5});dropLoot(e.x,e.y,e.lvl+2,{forceRarity:'rare',uniqueChance:.1});if(Math.random()<.5)dropLoot(e.x,e.y,e.lvl+1,{rareChance:.6});}
+  else if(e.drops&&Math.random()<.16)dropLoot(e.x,e.y,e.lvl,{rareChance:.06+e.tier*.02});
+  if(e.boss)dropGold(e.x,e.y,rint(40,80)*e.lvl);else if(Math.random()<.3)dropGold(e.x,e.y,rint(1,4)*e.lvl);
+  if(e.boss){boss=null;$('#boss').style.display='none';P.focusBoss=false;for(const ex of L.exits)ex.locked=false;C.bossKills=(C.bossKills||0)+1;later(1.2,storyCheck);toast(L.mandatory?'The way is open':'Boss slain',2000);}
+  save();}
+function hurtPlayer(d,onhit,src){if(P.inv>0||P.dead)return;if(src&&src.onhitX)onhit={...(onhit||{}),...src.onhitX};d=Math.max(1,d-D.armor);if(onhit){if(onhit.poison&&Math.random()<onhit.poison){P.poisonT=Math.max(P.poisonT||0,4);P.poison=(P.poison||0)+d*.06;}if(onhit.bleed&&Math.random()<onhit.bleed){P.bleedT=Math.max(P.bleedT||0,4);P.bleed=Math.max(P.bleed||0,d*.1);}if(onhit.ignite&&Math.random()<onhit.ignite){P.burnT=Math.max(P.burnT||0,3);P.burn=Math.max(P.burn||0,d*.15);}if(onhit.chill&&Math.random()<onhit.chill)P.chillT=Math.max(P.chillT||0,2);}P.life-=d;P.hurt=.2;P.inv=.25;shake=Math.min(8,shake+4);floatText(P.x,P.y,'-'+Math.round(d),'#ff6b7a');if(P.life<=0)die();}
+function die(){P.dead=true;paused=true;shake=0;joy.on=false;const cut=Math.floor(C.xp*.15);C.xp-=cut;
+  for(const e of enemies){e.hp=e.maxHp;e.state='idle';e.home={x:e.x,y:e.y};e.ignite=e.chill=e.freeze=e.shock=e.bleedT=e.poisonT=0;}if(boss)boss.state='approach';
+  telegraphs.length=0;projectiles.length=0;zones.length=0;P.poisonT=P.bleedT=P.burnT=P.chillT=0;
+  stow();dungeon.deathPortal={x:P.x,y:P.y};save();
+  $('#deadTxt').textContent=`You lost ${cut} experience (15% of this level's progress). A portal marks where you fell on depth ${depth}; nothing there respawns, but whatever you left alive has recovered.`;$('#ovDead').classList.add('on');}
+function target(range,s){if(P.focusBoss&&boss&&!boss.dead&&dist(P,boss)<=range*1.6)return boss;let best=null,bd=range;for(const e of enemies){if(e.dead)continue;const d=dist(P,e);if(d<bd){bd=d;best=e;}}
+  for(const sp of spawners){if(sp.dead)continue;const d=dist(P,sp)-20;if(d<bd){bd=d;best=sp;}}
+  if(!best&&s&&s.noTarget){for(const e of enemies){if(!e.dead&&dist(P,e)<420)return P;}}return best;}
+function fire(slot,m,tgt){
+  const s=SKILLS[slot.skill],isSpl=s.type==='spl';const dmg=m.dmg*(isSpl?D.splMult:D.atkMult);
+  const ang=tgt===P?P.face:Math.atan2(tgt.y-P.y,tgt.x-P.x);P.face=ang;P.lunge=isSpl?.1:.22;
+  const run=()=>{for(const f of s.fx){if(f.delay)later(f.delay,()=>doFx(f,s,m,dmg,ang,tgt,isSpl));else doFx(f,s,m,dmg,ang,tgt,isSpl);}};
+  run();for(let r=1;r<m.repeat;r++)later(r*.14,()=>{if(!P.dead)run();});}
+function doFx(f,s,m,dmg,ang,tgt,isSpl){const d=dmg*(f.mult||1);const col=f.col||(m.fire?'#ff9c5a':isSpl?'#9de6f0':'#ffd9a8');
+  const hitOne=(e,dd)=>{if(f.lowBonus&&e.hp/e.maxHp<.3)dd*=f.lowBonus;if(f.igBonus&&e.ignite>0){dd*=f.igBonus;fx(e.x,e.y,'#ff7a3d',10,160,.4);}
+    const mm=(f.kb||f.stun)?{...m,kb:m.kb+(f.kb||0),stun:Math.max(m.stun,f.stun||0)}:m;hurtEnemy(e,dd,mm,isSpl);
+    const spl=Math.max(m.splashMelee,f.splash||0);if(spl){for(const o of enemies){if(o!==e&&!o.dead&&Math.hypot(o.x-e.x,o.y-e.y)<spl*m.area+o.r)hurtEnemy(o,dd*.6,m,isSpl);}}};
+  switch(f.k){
+    case 'arc':{const r=f.r*m.area;let hit=false;const cands=[];for(const e of enemies){if(e.dead)continue;const dd=dist(P,e);if(dd>r+e.r)continue;const a=Math.atan2(e.y-P.y,e.x-P.x);let da=Math.abs(a-ang);da=Math.min(da,TAU-da);if(da<=f.hw)cands.push([dd,e]);}
+      cands.sort((a,b)=>a[0]-b[0]);for(const [,e] of cands){hitOne(e,d);hit=true;if(f.single)break;}
+      for(const sp of spawners){if(sp.dead)continue;const dd=dist(P,sp);if(dd<r+26){let da=Math.abs(Math.atan2(sp.y-P.y,sp.x-P.x)-ang);da=Math.min(da,TAU-da);if(da<=f.hw)hurtSpawner(sp,d);}}
+      fxArc(ang,r,col);if(f.shake)shake+=f.shake;break;}
+    case 'ring':{const r=f.r*m.area;for(const e of enemies){if(!e.dead&&dist(P,e)<r+e.r)hitOne(e,d);}for(const sp of spawners){if(!sp.dead&&dist(P,sp)<r+26)hurtSpawner(sp,d);}fxRing(r,col);if(f.shake)shake+=f.shake;break;}
+    case 'proj':{const n=(f.n||1)+m.proj;const spd=f.spd*m.projSpd;for(let i=0;i<n;i++){const off=(n===1?0:(i-(n-1)/2)*(f.spread||.22))+(f.rand?rnd(-f.rand,f.rand):0);const a=ang+off;
+      projectiles.push({x:P.x+Math.cos(a)*18,y:P.y+Math.sin(a)*18,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r:f.r||5,col,dmg:d,life:(f.life?f.life*m.dur:m.range/spd)+.15,pierce:m.pierce||!!f.pierce,chain:m.chain,fork:m.fork,splash:(f.splash||0)*m.area,pulse:f.pulse?f.pulse*m.area:0,pt:0,leech:f.leech||0,hit:new Set(),m,isSpl});}break;}
+    case 'line':{const c=Math.cos(ang),sn=Math.sin(ang);const cx=P.x+c*(f.off||70),cy=P.y+sn*(f.off||70);
+      zones.push({shape:'line',x:cx,y:cy,ang:f.along?ang:ang+1.5708,len:f.len*m.area,th:f.th*(f.along?m.area:1),life:f.life*m.dur,dps:d,burst:!!f.burst,kb:f.kb||0,col,m,isSpl,tick:0});if(f.shake)shake+=f.shake;break;}
+    case 'circle':{let cx=tgt.x,cy=tgt.y;if(f.self||tgt===P){cx=P.x;cy=P.y;}const dd=Math.hypot(cx-P.x,cy-P.y);if(dd>m.range){cx=P.x+(cx-P.x)/dd*m.range;cy=P.y+(cy-P.y)/dd*m.range;}
+      zones.push({shape:'circle',x:cx,y:cy,r:f.r*m.area,delay:f.delay||0,life:f.burst?.35:(f.life||1)*m.dur,dps:d,burst:!!f.burst,burstMult:f.burstMult||0,poisonStacks:f.poisonStacks||0,col,m,isSpl,tick:0,shake:f.shake||0,born:true});break;}
+    case 'chain':{let cur=tgt===P?null:tgt,hitset=new Set(),px=P.x,py=P.y;for(let k=0;k<f.hops&&cur;k++){if(cur.t)hurtEnemy(cur,d*(k?0.8:1),m,true);else hurtSpawner(cur,d);hitset.add(cur);particles.push({bolt:[px,py,cur.x,cur.y],life:.15,max:.15});px=cur.x;py=cur.y;let nb=null,nd=f.r*m.area;for(const e of enemies){if(e.dead||hitset.has(e))continue;const dd=Math.hypot(e.x-px,e.y-py);if(dd<nd){nd=dd;nb=e;}}cur=nb;}break;}
+    case 'buff':addBuff(f.stat,f.val,f.dur*m.dur,f.name);break;
+    case 'blink':{if(tgt===P)break;const dd=dist(P,tgt);if(dd>40){const nx=tgt.x-Math.cos(ang)*(tgt.r+P.r+6),ny=tgt.y-Math.sin(ang)*(tgt.r+P.r+6);if(!solid(Math.floor(nx/T),Math.floor(ny/T))){fx(P.x,P.y,'#cfefff',12,140,.35,2);P.x=nx;P.y=ny;fx(P.x,P.y,'#cfefff',12,140,.35,2);}}break;}
+    case 'mine':for(let k=0;k<1+(m.extraMines||0);k++)mines.push({x:P.x+rnd(-14,14),y:P.y+rnd(-14,14),r:f.r*m.area,dmg:d,col,m,isSpl,t:0});while(mines.length>16)mines.shift();P.slow=.45;floatText(P.x,P.y-16,'mine '+mines.length,'#f0d48a');break;
+    case 'detonate':{if(!mines.length){floatText(P.x,P.y,'no mines','#a9a291');break;}for(const mn of mines)zones.push({shape:'circle',x:mn.x,y:mn.y,r:mn.r,delay:0,life:.35,dps:mn.dmg,burst:true,col:mn.col,m:mn.m,isSpl:mn.isSpl,tick:0,shake:1});mines.length=0;if(f.shake)shake+=f.shake;break;}
+    case 'aura':zones.push({shape:'circle',follow:true,x:P.x,y:P.y,r:f.r*m.area,delay:0,life:f.life*m.dur,dps:d,col,m,isSpl,tick:0});break;
+    case 'cry':{const r=f.r*m.area;for(const e of enemies){if(e.dead||dist(P,e)>r+e.r)continue;if(!e.boss){e.state='recover';e.st=f.stun*m.dur;floatText(e.x,e.y,'!','#f0d48a');}}fxRing(r,'#f0d48a');shake+=3;break;}
+  }}
+function hurtSpawner(sp,d){sp.hp-=d;floatText(sp.x,sp.y,Math.round(d),'#fff');}
+function fxArc(ang,r,col){particles.push({arc:[ang,r],life:.18,max:.18,col});}
+function fxRing(r,col){particles.push({ring:r,life:.3,max:.3,col});}
+function tickTrack(dt){
+  const ti=activeTrack();if(ti!==P.cur){P.cur=ti;if(P.busy>0&&ti===0){P.busy=0;P.cast=null;}if(ti===2){P.gcd=Math.min(P.gcd,.1);}}
+  const tr=C.tracks[ti];P.gcd=Math.max(0,P.gcd-dt);
+  const adv=()=>{P.slots[ti]=(P.slots[ti]+1)%Math.max(1,tr.length);if(ti===2&&P.slots[2]===0){if(tapPlay&&tapPlay.queue>0)tapPlay={wait:0,queue:tapPlay.queue-1};else tapPlay=null;}};
+  if(!tr.length){if(ti===2)tapPlay=null;return;}if(P.slots[ti]>=tr.length)P.slots[ti]=0;
+  if(P.busy>0){if(P.moving&&ti!==2){P.busy=0;P.cast=null;floatText(P.x,P.y,'cancelled','#a9a291');adv();P.gcd=.2;return;}
+    P.busy-=dt;if(P.busy<=0){const c=P.cast;P.cast=null;const t=target(c.m.range,SKILLS[c.slot.skill])||c.tgt;if(t)fire(c.slot,c.m,t);P.gcd=c.m.cd;adv();}return;}
+  if(P.gcd>0)return;const slot=tr[P.slots[ti]],s=SKILLS[slot.skill],m=resolve(slot);const tgt=target(m.range,s);
+  if(!tgt){if(ti===2){tapPlay.wait+=dt;if(tapPlay.wait>1.5){tapPlay=null;floatText(P.x,P.y,'no target','#a9a291');}}return;}
+  const pool=s.type==='atk'?'stam':'mana';
+  if(P[pool]<m.cost){adv();P.gcd=.12;floatText(P.x,P.y,'skip','#666');return;}
+  if(ti===0&&!s.move){adv();P.gcd=.12;return;} // only Mobile skills work while moving
+  if(s.rooted&&P.moving){adv();P.gcd=.12;return;}
+  P[pool]-=m.cost;
+  if(s.rooted){P.busy=m.cast;P.cast={slot,m,tgt,name:s.name};}else{fire(slot,m,tgt);P.gcd=m.cd;adv();}}
+function enemyAI(e,dt){const t=e.t,d=dist(P,e),a=Math.atan2(P.y-e.y,P.x-e.x);const spd=e.spd*(e.chill>0?.5:1);e.st-=dt;let mvx=0,mvy=0;
+  let sx=0,sy=0;for(const o of enemies){if(o===e||o.dead)continue;const dd=Math.hypot(o.x-e.x,o.y-e.y);if(dd<e.r+o.r+6&&dd>0){sx+=(e.x-o.x)/dd;sy+=(e.y-o.y)/dd;}}
+  if(e.boss&&e.bd){bossAI(e,dt,d,a,spd);return;}
+  switch(e.state){
+    case 'idle': // packs wait, shuffling around their spot, until you come near
+      if(d<380||e.hp<e.maxHp){e.state='approach';for(const o of enemies){if(!o.dead&&o.state==='idle'&&Math.hypot(o.x-e.x,o.y-e.y)<200)o.state='approach';}break;}
+      e.strafeT-=dt;if(e.strafeT<=0){e.strafeT=rnd(1,3);e.face=rnd(0,TAU);e.wander=Math.random()<.5;}
+      if(e.wander&&Math.hypot(e.x-e.home.x,e.y-e.home.y)<90){mvx=Math.cos(e.face)*spd*.25;mvy=Math.sin(e.face)*spd*.25;}else e.wander=false;break;
+    case 'approach':e.face=a;
+      if(t.kind==='ranged'){if(t.spd===0){if(d<t.reach){e.state='windup';e.st=t.wind;}}else if(d>t.reach*.9){mvx=Math.cos(a)*spd;mvy=Math.sin(a)*spd;}else if(d<t.keep*.7){mvx=-Math.cos(a)*spd*.8;mvy=-Math.sin(a)*spd*.8;}else{e.state='windup';e.st=t.wind;}}
+      else if(t.kind==='caster'){if(d>t.reach){mvx=Math.cos(a)*spd;mvy=Math.sin(a)*spd;}else if(d<t.keep*.6){mvx=-Math.cos(a)*spd*.7;mvy=-Math.sin(a)*spd*.7;}else{e.state='windup';e.st=t.wind;
+          if(t.summon&&Math.random()<.35){e.castSummon=true;}else{e.castSummon=false;telegraphs.push({shape:'circle',x:P.x,y:P.y,r:t.aoeR,t:t.wind+.1,total:t.wind+.1,dmg:e.dmg,onhit:t.onhit,col:'#c8202f'});}}}
+      else if(t.kind==='charger'){if(d>t.reach){mvx=Math.cos(a)*spd;mvy=Math.sin(a)*spd;}else{e.state='windup';e.st=t.wind;e.chargeA=a;telegraphs.push({shape:'line',x:e.x,y:e.y,ang:a,len:t.reach+60,w:e.r*2+16,t:t.wind,total:t.wind,dmg:0,col:'#c8202f'});}}
+      else if(t.kind==='dive'){if(d>t.reach){mvx=Math.cos(a)*spd;mvy=Math.sin(a)*spd;}else{e.state='windup';e.st=t.wind;}}
+      else{if(d>t.reach+P.r){mvx=Math.cos(a)*spd;mvy=Math.sin(a)*spd;}else{e.state='windup';e.st=t.wind;}}break;
+    case 'windup':if(t.kind!=='charger')e.face=a;if(t.kind==='ranged'&&t.spd){mvx=Math.cos(a+1.57)*e.strafe*spd*.25;mvy=Math.sin(a+1.57)*e.strafe*spd*.25;}
+      if(e.st<=0){
+        if(t.kind==='caster'){if(e.castSummon){for(let i=0;i<2;i++)spawnEnemy({x:e.x,y:e.y,tier:e.tier},t.summon,e.lvl);fx(e.x,e.y,e.t.col,14,160,.5,3);}e.state='recover';e.st=t.rec;break;}
+        if(t.kind==='charger'){e.state='strike';e.st=.32;e.lungeV=(t.reach+60)/.32;e.face=e.chargeA;e.hitDone=false;break;}
+        e.state='strike';e.st=t.kind==='dive'?.32:t.kind==='ranged'?.15:.18;e.lungeV=t.kind==='dive'?520:(t.lunge||0);e.hitDone=false;
+        if(t.kind==='ranged'){const n=e.elite?3:1;for(let i=0;i<n;i++){const aa=a+(i-(n-1)/2)*.2;projectiles.push({x:e.x,y:e.y,vx:Math.cos(aa)*300,vy:Math.sin(aa)*300,r:5,col:e.t.col,dmg:e.dmg,life:1.4,enemy:true,onhit:t.onhit});}}}break;
+    case 'strike':mvx=Math.cos(e.face)*e.lungeV;mvy=Math.sin(e.face)*e.lungeV;
+      if(t.kind==='charger'){if(!e.hitDone&&d<e.r+P.r+6){e.hitDone=true;hurtPlayer(e.dmg,t.onhit,e);}}
+      else if(!e.hitDone&&t.kind!=='ranged'){const prog=1-e.st/(t.kind==='dive'?.32:.18);if(prog>.45){e.hitDone=true;
+        if(t.kind==='dive'){if(d<e.r+P.r+8){hurtPlayer(e.dmg,t.onhit,e);fx(e.x,e.y,e.t.col,18,200,.45,3);e.hp=0;killEnemy(e);return;}}
+        else if(t.aoe){if(d<t.aoe+P.r)hurtPlayer(e.dmg,t.onhit,e);fxSlam(e.x,e.y,t.aoe,e.t.col);shake+=2;}
+        else if(d<t.reach+P.r+14){let da=Math.abs(a-e.face);da=Math.min(da,TAU-da);if(da<1.2){hurtPlayer(e.dmg,t.onhit,e);if(t.drain)e.hp=Math.min(e.maxHp,e.hp+e.dmg*2);}}}}
+      if(e.st<=0){e.state=t.rec>0?'recover':'approach';e.st=t.rec;e.strafeT=rnd(.4,1.2);}break;
+    case 'recover':e.face=a;e.strafeT-=dt;if(e.strafeT<=0){e.strafe*=-1;e.strafeT=rnd(.4,1.2);}
+      {const back=d<t.reach*.8?-.5:0;mvx=(Math.cos(a+1.57)*e.strafe*.55+Math.cos(a)*back)*spd;mvy=(Math.sin(a+1.57)*e.strafe*.55+Math.sin(a)*back)*spd;}if(e.st<=0)e.state='approach';break;}
+  if(e.state!=='strike'&&Math.hypot(mvx,mvy)>1)e.anim+=dt*8;moveWithWalls(e,(mvx+sx*70+e.vx)*dt,(mvy+sy*70+e.vy)*dt);e.vx*=Math.pow(.02,dt);e.vy*=Math.pow(.02,dt);}
+// ---- boss brain: approach, then pick a telegraphed move off cooldown ----
+function bossAI(e,dt,d,a,spd){const bd=e.bd;let mvx=0,mvy=0;e.moveCd-=dt;
+  if(e.state==='cast'){if(e.st<=0){e.state='approach';e.moveCd=rnd(1.4,2.4);}else if(e.castMove==='charge'&&e.st<.3){mvx=Math.cos(e.face)*e.chargeSpd;mvy=Math.sin(e.face)*e.chargeSpd;if(!e.hitDone&&d<e.r+P.r+8){e.hitDone=true;hurtPlayer(e.dmg*1.5,bd.onhit,e);shake+=6;}}}
+  else if(e.state==='strike'){mvx=Math.cos(e.face)*e.lungeV;mvy=Math.sin(e.face)*e.lungeV;if(!e.hitDone&&e.st<.09){e.hitDone=true;if(d<e.r+P.r+30)hurtPlayer(e.dmg,bd.onhit,e);fxSlam(e.x,e.y,e.r+30,e.t.col);shake+=4;}if(e.st<=0){e.state='approach';}}
+  else if(e.state==='windup'){e.face=a;if(e.st<=0){e.state='strike';e.st=.2;e.lungeV=40;e.hitDone=false;}}
+  else{ // approach
+    e.face=a;
+    if(e.moveCd<=0&&d<520){const mv=pick(bd.moves);e.castMove=mv;e.state='cast';e.hitDone=false;
+      const col=bd.lines;
+      if(mv==='slam'){e.st=1.1;telegraphs.push({shape:'line',x:e.x,y:e.y,ang:a,len:340,w:70,t:1.0,total:1.0,dmg:e.dmg*2.2,onhit:bd.onhit,col,kb:300});}
+      else if(mv==='cross'){e.st=1.2;for(let i=0;i<4;i++)telegraphs.push({shape:'line',x:e.x,y:e.y,ang:a+i*1.5708,len:300,w:60,t:1.1,total:1.1,dmg:e.dmg*1.8,onhit:bd.onhit,col,kb:250});}
+      else if(mv==='ring'){e.st=1.3;telegraphs.push({shape:'ring',x:e.x,y:e.y,r:190,inner:e.r+30,t:1.2,total:1.2,dmg:e.dmg*1.6,onhit:bd.onhit,col,kb:200});}
+      else if(mv==='charge'){e.st=1.05;e.chargeSpd=(d+120)/.3;telegraphs.push({shape:'line',x:e.x,y:e.y,ang:a,len:d+120,w:e.r*2+20,t:.75,total:.75,dmg:0,col});}
+      else if(mv==='rain'){e.st=1.4;for(let i=0;i<4;i++){const rx=P.x+(i?rnd(-140,140):0),ry=P.y+(i?rnd(-140,140):0);telegraphs.push({shape:'circle',x:rx,y:ry,r:80,t:1.2+i*.12,total:1.2+i*.12,dmg:e.dmg*1.4,onhit:bd.onhit,col});}}
+      else if(mv==='volley'){e.st=.9;later(.5,()=>{if(e.dead)return;for(let i=-3;i<=3;i++){const aa=Math.atan2(P.y-e.y,P.x-e.x)+i*.22;projectiles.push({x:e.x,y:e.y,vx:Math.cos(aa)*320,vy:Math.sin(aa)*320,r:6,col:e.t.col,dmg:e.dmg*.8,life:1.6,enemy:true,onhit:bd.onhit});}});telegraphs.push({shape:'line',x:e.x,y:e.y,ang:a,len:320,w:200,t:.5,total:.5,dmg:0,col});}
+      else if(mv==='summon'){e.st=1;later(.6,()=>{if(e.dead)return;for(let i=0;i<3;i++)spawnEnemy({x:e.x+rnd(-40,40),y:e.y+rnd(-40,40),tier:5},bd.summon,e.lvl-2);fx(e.x,e.y,e.t.col,24,200,.6,4);});}
+    }
+    else if(d>e.r+P.r+16){mvx=Math.cos(a)*spd;mvy=Math.sin(a)*spd;}else{e.state='windup';e.st=.5;}}
+  if(e.state!=='cast'&&Math.hypot(mvx,mvy)>1)e.anim+=dt*6;moveWithWalls(e,(mvx+e.vx)*dt,(mvy+e.vy)*dt);e.vx*=Math.pow(.02,dt);e.vy*=Math.pow(.02,dt);}
+function fxSlam(x,y,r,col){particles.push({slam:[x,y,r],life:.35,max:.35,col});}
+function tickTelegraphs(dt){for(const tg of telegraphs){tg.t-=dt;if(tg.t>0)continue;tg.done=true;let hit=false;
+    if(tg.shape==='line'){const c=Math.cos(tg.ang),s=Math.sin(tg.ang);const dx=P.x-tg.x,dy=P.y-tg.y;const along=dx*c+dy*s,perp=Math.abs(-dx*s+dy*c);hit=along>-10&&along<tg.len&&perp<tg.w/2+P.r;}
+    else if(tg.shape==='circle')hit=dist(P,tg)<tg.r+P.r;else if(tg.shape==='ring'){const dd=dist(P,tg);hit=dd<tg.r+P.r&&dd>tg.inner-P.r;}
+    if(tg.dmg){if(hit){hurtPlayer(tg.dmg,tg.onhit);if(tg.kb){const an=Math.atan2(P.y-tg.y,P.x-tg.x);moveWithWalls(P,Math.cos(an)*tg.kb*.15,Math.sin(an)*tg.kb*.15);}}
+      shake+=4;if(tg.shape==='line'){for(let i=0;i<8;i++){const k=i/8*tg.len;fx(tg.x+Math.cos(tg.ang)*k,tg.y+Math.sin(tg.ang)*k,tg.col,3,120,.4,3);}}else fx(tg.x,tg.y,tg.col,20,220,.5,3);}}
+  prune(telegraphs,t=>!t.done);}
+function drawTelegraphs(){for(const tg of telegraphs){const k=1-tg.t/tg.total;const fl=.35+.35*Math.abs(Math.sin(gameTime*(14+k*20)));const rgb=hexRgb(tg.col);
+    ctx.fillStyle=`rgba(${rgb},${fl*(.35+k*.5)})`;ctx.strokeStyle=`rgba(${rgb},${.5+k*.5})`;ctx.lineWidth=2;
+    if(tg.shape==='line'){const c=Math.cos(tg.ang),s=Math.sin(tg.ang),px=-s*tg.w/2,py=c*tg.w/2;const pts=[[tg.x+px,tg.y+py],[tg.x+c*tg.len+px,tg.y+s*tg.len+py],[tg.x+c*tg.len-px,tg.y+s*tg.len-py],[tg.x-px,tg.y-py]];
+      ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(toU(x,y),toV(x,y)):ctx.moveTo(toU(x,y),toV(x,y)));ctx.closePath();ctx.fill();ctx.stroke();
+      // fill sweeps outward as the hit approaches
+      ctx.fillStyle=`rgba(${rgb},${.55})`;const L2=tg.len*k;const q=[[tg.x+px,tg.y+py],[tg.x+c*L2+px,tg.y+s*L2+py],[tg.x+c*L2-px,tg.y+s*L2-py],[tg.x-px,tg.y-py]];ctx.beginPath();q.forEach(([x,y],i)=>i?ctx.lineTo(toU(x,y),toV(x,y)):ctx.moveTo(toU(x,y),toV(x,y)));ctx.closePath();ctx.fill();}
+    else{const u=toU(tg.x,tg.y),v=toV(tg.x,tg.y);ctx.beginPath();ctx.ellipse(u,v,tg.r*KX*1.33,tg.r*KY*1.33,0,0,TAU);if(tg.shape==='ring'){ctx.ellipse(u,v,tg.inner*KX*1.33,tg.inner*KY*1.33,0,TAU,0,true);}ctx.fill('evenodd');ctx.stroke();
+      ctx.fillStyle=`rgba(${rgb},.55)`;ctx.beginPath();ctx.ellipse(u,v,tg.r*KX*1.33*k,tg.r*KY*1.33*k,0,0,TAU);if(tg.shape==='ring'){ctx.ellipse(u,v,tg.inner*KX*1.33,tg.inner*KY*1.33,0,TAU,0,true);}ctx.fill('evenodd');}}}
+
+let D=null;
+function moveWithWalls(o,dx,dy){const ok=(nx,ny)=>{const r=o.r*.8;for(const [ox,oy] of [[-r,-r],[r,-r],[-r,r],[r,r]])if(solid(Math.floor((nx+ox)/T),Math.floor((ny+oy)/T)))return false;return true;};if(ok(o.x+dx,o.y))o.x+=dx;if(ok(o.x,o.y+dy))o.y+=dy;}
+function update(dt){gameTime+=dt;D=derived();let mx=0,my=0;
+  if(joy.on){const du=joy.x-joy.sx,dv=joy.y-joy.sy,d=Math.hypot(du,dv);if(d>6){const k=Math.min(1,d/JOY_R);const w=fromScreen(du,dv);const wl=Math.hypot(w.x,w.y)||1;mx=w.x/wl*k;my=w.y/wl*k;}}
+  P.moving=Math.hypot(mx,my)>.05;P.slow=Math.max(0,(P.slow||0)-dt);if(P.moving){const sl=(P.chillT>0?.6:1)*(P.slow>0?.65:1);moveWithWalls(P,mx*D.speed*sl*dt,my*D.speed*sl*dt);if(!boss||!P.focusBoss)P.face=Math.atan2(my,mx);P.anim+=dt*9;}
+  if(P.poisonT>0){P.poisonT-=dt;P.life-=P.poison*dt;if(P.poisonT<=0)P.poison=0;}if(P.bleedT>0){P.bleedT-=dt;P.life-=P.bleed*(P.moving?2:1)*dt;}if(P.burnT>0){P.burnT-=dt;P.life-=P.burn*dt;}if(P.chillT>0)P.chillT-=dt;if(P.life<=0&&!P.dead){die();return;}
+  P.lunge=Math.max(0,P.lunge-dt);P.mana=Math.min(D.maxMana,P.mana+D.manaRegen*dt);P.stam=Math.min(D.maxStam,P.stam+D.stamRegen*(P.moving?.6:1)*dt);P.life=Math.min(D.maxLife,P.life+D.lifeRegen*dt);
+  P.hurt=Math.max(0,P.hurt-dt);P.inv=Math.max(0,P.inv-dt);
+  for(const po of portals){po.t+=dt;if(dist(P,po)<26){if(po.to==='dungeon')enterDungeon();else returnToTown();return;}}
+  if(inTown){for(let i=timers.length-1;i>=0;i--){timers[i].t-=dt;if(timers[i].t<=0){const f=timers[i].f;timers.splice(i,1);f();}}nearNpc=null;for(const n of npcs){const d=dist(P,n);if(d<64&&(!nearNpc||d<dist(P,nearNpc)))nearNpc=n;if(d<40&&!n.said){n.said=true;toast(n.name+': '+(npcLine(n.name)||n.hint),3200);}else if(d>80)n.said=false;}
+    const bt=$('#btnTrade');if(nearNpc){bt.classList.remove('hide');bt.textContent=nearNpc.kind==='chest'?'Open stash':'Trade';}else bt.classList.add('hide');tickParticles(dt);prune(particles,p=>p.life>0);updateHud();return;}
+  tickTrack(dt);
+  if(!boss&&L.bossAt&&!L.bossDone){const w=worldPos(L.bossAt);if(dist(P,w)<3.5*T){L.bossDone=true;const bd=BOSSES[L.biome];boss=spawnEnemy({x:w.x,y:w.y,tier:5},bd.base,depth+(L.mandatory?4:3),true,bd);boss.state='approach';shake+=8;toast((L.mandatory?'Gatekeeper: ':'A lurking horror: ')+bd.name,2400);$('#boss').style.display='block';}}
+  tickTelegraphs(dt);
+  for(const e of enemies){if(e.dead)continue;e.hurt=Math.max(0,e.hurt-dt);
+    if(e.ignite>0){e.ignite-=dt;e.hp-=e.burnDps*dt;if(Math.random()<dt*8)particles.push({x:e.x+rnd(-e.r,e.r),y:e.y+rnd(-e.r,e.r),z:rnd(0,e.r),vx:rnd(-20,20),vy:rnd(-20,20),vz:rnd(40,90),life:.5,max:.5,col:'#ff7a3d',sz:3});}
+    if(e.bleedT>0){e.bleedT-=dt;e.hp-=e.bleed*dt;if(Math.random()<dt*6)particles.push({x:e.x+rnd(-e.r,e.r),y:e.y+rnd(-e.r,e.r),z:rnd(4,e.r),vx:0,vy:0,vz:-20,life:.5,max:.5,col:'#c8202f',sz:3});}
+    if(e.poisonT>0){e.poisonT-=dt;e.hp-=e.poison*dt;if(e.poisonT<=0)e.poison=0;if(Math.random()<dt*6)particles.push({x:e.x+rnd(-e.r,e.r),y:e.y+rnd(-e.r,e.r),z:rnd(0,e.r),vx:rnd(-10,10),vy:rnd(-10,10),vz:rnd(20,50),life:.6,max:.6,col:'#8fd15a',sz:3});}
+    if(e.hp<=0){killEnemy(e);continue;}
+    if(e.chill>0)e.chill-=dt;if(e.shock>0)e.shock-=dt;
+    if(e.freeze>0){e.freeze-=dt;continue;}
+    enemyAI(e,dt);}
+  for(const p of projectiles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(solid(Math.floor(p.x/T),Math.floor(p.y/T))){p.life=0;fx(p.x,p.y,p.col,4,80,.25,2);}
+    if(p.enemy){if(dist(p,P)<p.r+P.r){hurtPlayer(p.dmg,p.onhit);p.life=0;}continue;}
+    if(p.pulse){p.pt-=dt;if(p.pt<=0){p.pt=.15;for(const e of enemies){if(!e.dead&&Math.hypot(e.x-p.x,e.y-p.y)<p.pulse+e.r)hurtEnemy(e,p.dmg*.5,p.m,p.isSpl);}for(const sp of spawners){if(!sp.dead&&Math.hypot(sp.x-p.x,sp.y-p.y)<p.pulse+24)hurtSpawner(sp,p.dmg*.5);}particles.push({bolt:[p.x,p.y,p.x+rnd(-p.pulse,p.pulse),p.y+rnd(-p.pulse,p.pulse)],life:.12,max:.12});}continue;}
+    for(const e of enemies){if(e.dead||p.hit.has(e))continue;if(Math.hypot(e.x-p.x,e.y-p.y)<e.r+p.r){p.hit.add(e);
+      if(p.splash){for(const o of enemies){if(!o.dead&&Math.hypot(o.x-p.x,o.y-p.y)<p.splash+o.r)hurtEnemy(o,p.dmg,p.m,p.isSpl);}fx(p.x,p.y,p.col,14,180,.4,3);}else hurtEnemy(e,p.dmg,p.m,p.isSpl);
+      if(p.leech)P.life=Math.min(D.maxLife,P.life+p.leech);
+      if(p.fork&&!p.forked){for(const sgn of [-1,1]){const a=Math.atan2(p.vy,p.vx)+sgn*.45,sp=Math.hypot(p.vx,p.vy);projectiles.push({...p,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.6,forked:true,hit:new Set(p.hit)});}}
+      if(p.chain>0){let nb=null,nd=180;for(const o of enemies){if(o.dead||p.hit.has(o))continue;const dd=Math.hypot(o.x-p.x,o.y-p.y);if(dd<nd){nd=dd;nb=o;}}if(nb){const a=Math.atan2(nb.y-p.y,nb.x-p.x),sp=Math.hypot(p.vx,p.vy);p.vx=Math.cos(a)*sp;p.vy=Math.sin(a)*sp;p.chain--;p.life=Math.max(p.life,.6);continue;}}
+      if(!p.pierce){p.life=0;break;}}}}
+  for(const z of zones){
+    if(z.follow){z.x=P.x;z.y=P.y;}
+    if(z.delay>0){z.delay-=dt;if(z.delay>0)continue;z.tick=0;}
+    z.life-=dt;z.tick-=dt;
+    const inside=z.shape==='line'?(o)=>{const c=Math.cos(z.ang),s=Math.sin(z.ang);const dx=o.x-z.x,dy=o.y-z.y;return Math.abs(dx*c+dy*s)<z.len/2+o.r&&Math.abs(-dx*s+dy*c)<z.th/2+o.r;}:(o)=>Math.hypot(o.x-z.x,o.y-z.y)<z.r+o.r;
+    if(z.burst){if(!z.done){z.done=true;for(const e of enemies){if(e.dead||!inside(e))continue;let mm=z.m;if(z.kb)mm={...z.m,kb:z.m.kb+z.kb};hurtEnemy(e,z.dps,mm,z.isSpl);if(z.poisonStacks)for(let k=1;k<z.poisonStacks;k++){e.poisonT=Math.max(e.poisonT,4*z.m.dur);e.poison+=z.dps*.08*z.m.dotMult;}}
+        for(const sp of spawners){if(!sp.dead&&inside({x:sp.x,y:sp.y,r:24}))hurtSpawner(sp,z.dps);}if(z.shake)shake+=z.shake;fx(z.x,z.y,z.col,16,200,.45,3);}}
+    else if(z.tick<=0){z.tick=.25;const first=!z.ticked;z.ticked=true;const mult=(first&&z.burstMult)?z.burstMult:.25;
+      for(const e of enemies){if(!e.dead&&inside(e))hurtEnemy(e,z.dps*mult,z.m,z.isSpl);}
+      for(const sp of spawners){if(!sp.dead&&inside({x:sp.x,y:sp.y,r:24}))hurtSpawner(sp,z.dps*mult);}}
+    if(Math.random()<dt*20){let px,py;if(z.shape==='line'){const c=Math.cos(z.ang),s=Math.sin(z.ang);const t=rnd(-z.len/2,z.len/2);px=z.x+c*t;py=z.y+s*t;}else{const a=rnd(0,TAU),rr=Math.sqrt(Math.random())*z.r;px=z.x+Math.cos(a)*rr;py=z.y+Math.sin(a)*rr;}
+      particles.push({x:px,y:py,z:0,vx:rnd(-15,15),vy:rnd(-15,15),vz:rnd(50,110),life:.45,max:.45,col:z.col,sz:3});}}
+  if(auraOn('rfire')){P.rf=(P.rf||0)-dt;if(P.rf<=0){P.rf=.25;const d=(6+C.lvl*1.5)*D.splMult*(1+D.g.firePct/100)*.25;for(const e of enemies){if(!e.dead&&dist(P,e)<85+e.r)hurtEnemy(e,d,{ignite:.3,burnMult:1,burnDur:1,dotMult:1,dur:1,fire:true,stun:0,kb:0,leech:0,leechPct:0,manaLeech:0},true);}for(const sp of spawners){if(!sp.dead&&dist(P,sp)<110)hurtSpawner(sp,d);}}if(Math.random()<dt*14){const a=rnd(0,TAU),rr=rnd(20,80);particles.push({x:P.x+Math.cos(a)*rr,y:P.y+Math.sin(a)*rr,z:0,vx:0,vy:0,vz:rnd(40,90),life:.5,max:.5,col:Math.random()<.5?'#ff7a3d':'#ffc46b',sz:3});}}
+  for(let i=timers.length-1;i>=0;i--){timers[i].t-=dt;if(timers[i].t<=0){const f=timers[i].f;timers.splice(i,1);f();}}
+  for(const b of P.buffs)b.t-=dt;prune(P.buffs,b=>b.t>0);
+  for(const sp of spawners){if(sp.dead)continue;
+    for(const p of projectiles){if(!p.enemy&&p.life>0&&Math.hypot(sp.x-p.x,sp.y-p.y)<28+p.r&&!p.hit.has(sp)){p.hit.add(sp);sp.hp-=p.dmg;floatText(sp.x,sp.y,Math.round(p.dmg),'#fff');if(!p.pierce)p.life=0;}}
+    if(sp.hp<=0){sp.dead=true;fx(sp.x,sp.y,'#c94fb8',40,240,.8,4);shake+=6;toast('Spawner destroyed');gainXp(Math.round(30*sp.lvl*xpMult(sp.lvl)));if(Math.random()<.6)dropLoot(sp.x,sp.y,sp.lvl+1,{rareChance:.3});save();}}
+  for(const l of loot){l.t+=dt;if(!l.gold&&!lootVisible(l.item))continue;if(dist(P,l)<P.r+16){if(l.gold){l.got=true;C.gold+=l.gold;floatText(l.x,l.y,'+'+l.gold+' gold','#f2c14e');fx(l.x,l.y,'#f2c14e',6,100,.3,2);continue;}if(C.inv.length>=INV_MAX){if(!l.warned){toast('Inventory full');l.warned=true;}continue;}l.got=true;C.inv.push(l.item);fx(l.x,l.y,RARITY_COL[l.item.rarity],10,120,.4,2);toast(l.item.name,1100);if(slotEmpty(l.item))$('#btnGear').classList.add('alert');save();}}
+  for(const ex of L.exits){const w=worldPos(ex);const d=dist(P,w);if(d>70)ex.asked=false;if(d<30&&!ex.asked){ex.asked=true;if(ex.locked)toast('The gate is sealed. Find the gatekeeper.',1200);else{askExit(ex);return;}}}
+  tickParticles(dt);for(const f of floats){f.life-=dt;f.z+=30*dt;}
+  prune(enemies,e=>!e.dead);prune(projectiles,p=>p.life>0);prune(zones,z=>z.life>0);prune(particles,p=>p.life>0);prune(floats,f=>f.life>0);prune(loot,l=>!l.got);updateHud();}
+function tickParticles(dt){for(const p of particles){p.life-=dt;if(p.vx!==undefined){p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.vz-=200*dt;if(p.z<0){p.z=0;p.vz*=-.3;}p.vx*=Math.pow(.1,dt);p.vy*=Math.pow(.1,dt);}}}
+function prune(a,keep){let j=0;for(let i=0;i<a.length;i++)if(keep(a[i]))a[j++]=a[i];a.length=j;}
+
+// ================================================================
+//  Render
+// ================================================================
+const cam={u:0,v:0};let frameDt=1/60;
+function diamond(u,v,w,h){ctx.beginPath();ctx.moveTo(u,v-h/2);ctx.lineTo(u+w/2,v);ctx.lineTo(u,v+h/2);ctx.lineTo(u-w/2,v);ctx.closePath();}
+const _sc={};function hexShade(hex,k){const key=hex+k;if(_sc[key])return _sc[key];const n=parseInt(hex.slice(1),16);return _sc[key]=`rgb(${Math.round(((n>>16)&255)*k)},${Math.round(((n>>8)&255)*k)},${Math.round((n&255)*k)})`;}
+function wallSprite(kind,variant,sh){const key=kind+variant+'_'+sh;if(wallCache[key])return wallCache[key];
+  const h1=hash(variant,7),h2=hash(variant*3,11),h3=hash(variant*7,13);const W=120,H=160,ox=W/2,oy=H-16;const c=document.createElement('canvas');c.width=W*DPR;c.height=H*DPR;const x=c.getContext('2d');x.setTransform(DPR,0,0,DPR,0,0);x.translate(ox,oy);
+  const sc=k=>hexShade(k,sh);
+  if(kind==='tree'){const size=.85+h3*.5,th=(52+h1*30)*size;const g=[['#1d4a2f','#276540','#3a8a52'],['#173f2c','#1f5a3a','#2f7e4a'],['#22502a','#2f6b34','#458a43']][Math.floor(h2*3)];
+    x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(0,4,22*size,10*size,0,0,TAU);x.fill();x.fillStyle=`rgb(${Math.round(70*sh)},${Math.round(48*sh)},${Math.round(30*sh)})`;x.fillRect(-4*size,-th,8*size,th);
+    for(const [bx,by,br] of [[0,-th-4,26],[-14,-th+8,19],[15,-th+6,20],[-6,-th-18,18],[9,-th-16,16]]){const r=br*size;const gr=x.createRadialGradient(bx-r*.3,by-r*.35,r*.15,bx,by,r);gr.addColorStop(0,sc(g[2]));gr.addColorStop(1,sc(g[0]));x.fillStyle=gr;x.beginPath();x.arc(bx,by,r,0,TAU);x.fill();}}
+  else if(kind==='deadtree'){const th=60+h1*30;x.fillStyle='rgba(0,0,0,.25)';x.beginPath();x.ellipse(0,4,16,7,0,0,TAU);x.fill();x.strokeStyle=sc('#2e2a24');x.lineCap='round';x.lineWidth=7;x.beginPath();x.moveTo(0,0);x.quadraticCurveTo(h2*8-4,-th*.5,(h3-.5)*10,-th);x.stroke();
+    x.lineWidth=3;for(let i=0;i<4;i++){const t=.35+i*.17,y=-th*t;const dir=i%2?1:-1;x.beginPath();x.moveTo((h2*8-4)*t,y);x.quadraticCurveTo(dir*14,y-8,dir*(22+h1*10),y-18-i*4);x.stroke();}
+    if(h3>.5){x.fillStyle='rgba(90,110,70,.5)';x.beginPath();x.ellipse(0,-th*.6,10,5,0,0,TAU);x.fill();}}
+  else if(kind==='rock'){x.fillStyle='rgba(0,0,0,.3)';x.beginPath();x.ellipse(0,4,30,13,0,0,TAU);x.fill();
+    for(const [bx,by,bw,bh,k] of [[-12,-14,22,18,'#3d4258'],[10,-12,20,16,'#4a5068'],[-2,-30,18,14,'#555c78']]){const g=x.createRadialGradient(bx-bw*.3,by-bh*.4,2,bx,by,bw);g.addColorStop(0,sc(hexLighten(k,1.35)));g.addColorStop(1,sc(k));x.fillStyle=g;x.beginPath();x.ellipse(bx+(h1-.5)*6,by,bw,bh,(h2-.5)*.4,0,TAU);x.fill();x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=1.5;x.stroke();}}
+  else if(kind==='obsidian'){x.fillStyle='rgba(0,0,0,.35)';x.beginPath();x.ellipse(0,4,30,13,0,0,TAU);x.fill();
+    for(const [bx,by,bw,bh] of [[-12,-16,22,20],[10,-14,20,18],[-2,-34,18,16]]){const g=x.createRadialGradient(bx-bw*.3,by-bh*.4,2,bx,by,bw);g.addColorStop(0,sc('#3a2a2a'));g.addColorStop(1,sc('#120a0a'));x.fillStyle=g;x.beginPath();x.moveTo(bx-bw,by+bh*.6);x.lineTo(bx-bw*.4,by-bh);x.lineTo(bx+bw*.5,by-bh*.8);x.lineTo(bx+bw,by+bh*.5);x.closePath();x.fill();}
+    x.strokeStyle=`rgba(255,${120+Math.floor(h1*60)},40,${.5+h2*.4})`;x.lineWidth=2;x.beginPath();x.moveTo(-14,-10);x.lineTo(-4,-22);x.lineTo(2,-14);x.lineTo(12,-30);x.stroke();}
+  else if(kind==='ice'){x.fillStyle='rgba(0,0,0,.25)';x.beginPath();x.ellipse(0,4,24,11,0,0,TAU);x.fill();
+    for(const [bx,h,w,k] of [[-12,54,12,'#8fd0f0'],[8,70,14,'#b8e4f8'],[-2,40,9,'#dff4ff']]){const g=x.createLinearGradient(bx-w,0,bx+w,0);g.addColorStop(0,sc(hexLighten(k,.7)));g.addColorStop(.5,sc(k));g.addColorStop(1,sc(hexLighten(k,.6)));x.fillStyle=g;x.beginPath();x.moveTo(bx-w,0);x.lineTo(bx-w*.3,-h*(.9+h1*.3));x.lineTo(bx+w*.4,-h*(.75+h2*.3)-6);x.lineTo(bx+w,-4);x.closePath();x.fill();x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=1;x.stroke();}}
+  else if(kind==='block'||kind==='brick'){const top=kind==='block'?'#8a8070':'#6a4a48',lf=kind==='block'?'#5e5648':'#4a3030',rt=kind==='block'?'#4a4238':'#3a2424';const hh=40;
+    x.fillStyle=sc(lf);x.beginPath();x.moveTo(-33,0);x.lineTo(0,16);x.lineTo(0,16-hh);x.lineTo(-33,-hh);x.closePath();x.fill();
+    x.fillStyle=sc(rt);x.beginPath();x.moveTo(33,0);x.lineTo(0,16);x.lineTo(0,16-hh);x.lineTo(33,-hh);x.closePath();x.fill();
+    x.fillStyle=sc(top);x.beginPath();x.moveTo(0,16-hh);x.lineTo(33,-hh);x.lineTo(0,-16-hh);x.lineTo(-33,-hh);x.closePath();x.fill();
+    x.strokeStyle='rgba(0,0,0,.35)';x.lineWidth=1;if(kind==='brick'){for(let i=1;i<4;i++){const y=16-hh*i/4;x.beginPath();x.moveTo(-33,y-16);x.lineTo(0,y);x.lineTo(33,y-16);x.stroke();}x.beginPath();x.moveTo(-16,-8-hh/2);x.lineTo(-16,-8-hh/2+hh/4);x.moveTo(16,-8-hh/2);x.lineTo(16,-8-hh/2+hh/4);x.stroke();if(h1>.7){x.fillStyle='rgba(230,225,210,.8)';x.beginPath();x.arc(-14,-hh-4,3,0,TAU);x.fill();}}
+    else{x.beginPath();x.moveTo(-20,-hh+6);x.lineTo(-10,-hh+18);x.lineTo(-14,-hh+30);x.stroke();if(h2>.6){x.fillStyle='rgba(90,120,70,.5)';x.beginPath();x.ellipse(12,-hh-6,8,3,0,0,TAU);x.fill();}}
+    x.strokeStyle='rgba(0,0,0,.5)';x.beginPath();x.moveTo(-33,-hh);x.lineTo(0,16-hh);x.lineTo(33,-hh);x.moveTo(0,16-hh);x.lineTo(0,16);x.stroke();}
+  return wallCache[key]={c,W,H,ox,oy};}
+function hexLighten(h,k){const n=parseInt(h.slice(1),16);const f=v=>Math.min(255,Math.round(v*k));return '#'+[f((n>>16)&255),f((n>>8)&255),f(n&255)].map(v=>v.toString(16).padStart(2,'0')).join('');}
+let pScr={u:0,v:0,k:0};
+function drawTree(tx,ty,sh){const kind=inTown?'tree':BIOMES[L.biome].wall;const cube=kind==='block'||kind==='brick';const h1=cube?.5:hash(tx,ty),h2=cube?.5:hash(ty,tx*3);const cx=(tx+.5+(h1-.5)*.5)*T,cy=(ty+.5+(h2-.5)*.5)*T;const u=toU(cx,cy),v=toV(cx,cy);
+  const sp=wallSprite(kind,Math.floor(hash(tx*5,ty*9)*12),sh);
+  let a=1;if((cx+cy)/T>pScr.k){const du=u-pScr.u,dv=(v-40)-(pScr.v-24);const d=Math.hypot(du,dv*1.4);if(d<120)a=.18+.82*Math.max(0,(d-50)/70);}
+  if(a<1)ctx.globalAlpha=a;ctx.drawImage(sp.c,Math.round(u-sp.ox),Math.round(v-sp.oy),sp.W,sp.H);if(a<1)ctx.globalAlpha=1;}
+function drawDeco(id,tx,ty){const h=hash(tx*3,ty*11);const x=(tx+.5)*T,y=(ty+.5)*T;const u=toU(x,y),v=toV(x,y);
+  switch(id){
+    case 2:ctx.fillStyle='#4f5570';ctx.beginPath();ctx.ellipse(u+(h-.5)*20,v-3,9+h*6,6+h*3,0,0,TAU);ctx.fill();ctx.fillStyle='#6a7191';ctx.beginPath();ctx.ellipse(u+(h-.5)*20-2,v-6,6+h*4,3+h*2,0,0,TAU);ctx.fill();break;
+    case 3:{const uu=u+(h-.5)*30,vv=v+(h-.5)*10;ctx.strokeStyle=h<.4?'#5f8f4a':'#7ba85a';ctx.lineWidth=2;ctx.beginPath();for(let i=-1;i<=1;i++){ctx.moveTo(uu+i*3,vv);ctx.lineTo(uu+i*5,vv-9-h*5);}ctx.stroke();if(h>.8){ctx.fillStyle=['#f2c14e','#e0a0c8','#eadfc6'][Math.floor(h*10)%3];ctx.beginPath();ctx.arc(uu,vv-11,2,0,TAU);ctx.fill();}break;}
+    case 4:{const g=ctx.createRadialGradient(u,v-8,2,u,v-8,26);g.addColorStop(0,'rgba(140,220,255,.45)');g.addColorStop(1,'rgba(140,220,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v-4,26,14,0,0,TAU);ctx.fill();ctx.fillStyle='#bfeaff';ctx.beginPath();ctx.moveTo(u,v-22-h*8);ctx.lineTo(u+6,v-6);ctx.lineTo(u,v);ctx.lineTo(u-6,v-6);ctx.closePath();ctx.fill();ctx.fillStyle='#7fc9ee';ctx.beginPath();ctx.moveTo(u+8,v-14);ctx.lineTo(u+12,v-4);ctx.lineTo(u+7,v-1);ctx.closePath();ctx.fill();break;}
+    case 5:for(let i=0;i<3;i++){const ox=(hash(tx+i,ty)-.5)*28,oy=(hash(ty+i,tx)-.5)*10;ctx.fillStyle=i?'#5a5044':'#6e6254';ctx.fillRect(u+ox-5,v+oy-8,10,8);ctx.fillStyle='#7f7364';ctx.fillRect(u+ox-5,v+oy-10,10,3);}break;
+    case 6:{ctx.fillStyle='rgba(20,50,60,.75)';ctx.beginPath();ctx.ellipse(u,v,18+h*10,8+h*4,0,0,TAU);ctx.fill();ctx.strokeStyle='rgba(150,210,220,.35)';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(u-3,v-2,8+h*5,3,0,0,TAU);ctx.stroke();break;}
+    case 7:{const uu=u+(h-.5)*24;ctx.strokeStyle='#4d7a55';ctx.lineWidth=2;ctx.beginPath();for(let i=-2;i<=2;i++){ctx.moveTo(uu+i*3,v);ctx.lineTo(uu+i*4,v-18-h*8);}ctx.stroke();ctx.fillStyle='#6b5a3a';ctx.fillRect(uu-1,v-20-h*8,3,7);break;}
+    case 8:{ctx.fillStyle='#d9d2c0';ctx.beginPath();ctx.ellipse(u-6+(h-.5)*20,v-3,6,4,0,0,TAU);ctx.fill();ctx.strokeStyle='#d9d2c0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(u+(h-.5)*20,v);ctx.lineTo(u+14+(h-.5)*20,v-5);ctx.stroke();ctx.fillStyle='#1a1410';ctx.fillRect(u-8+(h-.5)*20,v-4,2,2);break;}
+    case 10:{const g=ctx.createRadialGradient(u,v,2,u,v,34);g.addColorStop(0,'rgba(255,170,60,.7)');g.addColorStop(1,'rgba(255,90,30,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v,34,17,0,0,TAU);ctx.fill();ctx.fillStyle=`rgba(255,${120+Math.sin(gameTime*3+h*9)*30|0},40,.85)`;ctx.beginPath();ctx.ellipse(u,v,16+h*8,7+h*4,0,0,TAU);ctx.fill();break;}
+    case 11:{ctx.fillStyle='#2a1a16';ctx.beginPath();ctx.ellipse(u+(h-.5)*20,v-3,9+h*6,6+h*3,0,0,TAU);ctx.fill();ctx.fillStyle=`rgba(255,${100+h*80|0},40,${.5+.5*Math.abs(Math.sin(gameTime*4+h*7))})`;ctx.beginPath();ctx.arc(u+(h-.5)*20-2,v-6,2,0,TAU);ctx.fill();break;}
+    case 12:{ctx.fillStyle='rgba(235,245,255,.85)';ctx.beginPath();ctx.ellipse(u+(h-.5)*20,v-2,16+h*8,7+h*3,0,0,TAU);ctx.fill();break;}
+    case 13:{ctx.fillStyle='#bfeaff';ctx.beginPath();ctx.moveTo(u,v-18-h*10);ctx.lineTo(u+5,v-4);ctx.lineTo(u,v);ctx.lineTo(u-5,v-4);ctx.closePath();ctx.fill();ctx.fillStyle='#dff4ff';ctx.beginPath();ctx.moveTo(u+7,v-12);ctx.lineTo(u+11,v-3);ctx.lineTo(u+6,v-1);ctx.closePath();ctx.fill();break;}
+    case 9:{const g=ctx.createRadialGradient(u,v-14,1,u,v-14,22);g.addColorStop(0,'rgba(255,190,90,.6)');g.addColorStop(1,'rgba(255,150,60,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(u,v-12,22,0,TAU);ctx.fill();ctx.fillStyle='#c9b58a';ctx.fillRect(u-2,v-12,4,12);ctx.fillStyle='#ffd27a';ctx.beginPath();ctx.ellipse(u,v-15+Math.sin(gameTime*9+h*9)*1,2.5,4,0,0,TAU);ctx.fill();break;}
+  }}
+function drawFigure(o,opts){const u=toU(o.x,o.y),v=toV(o.x,o.y);const s=opts.scale||1;const col=opts.col,col2=opts.col2||'#222';const walk=Math.sin(o.anim||0);const bob=Math.abs(walk)*2*s;
+  const facing=o.face||0;const fu=Math.cos(facing)*KX-Math.sin(facing)*KX,fv=(Math.cos(facing)+Math.sin(facing))*KY;const fl=Math.hypot(fu,fv)||1;const dirU=fu/fl,dirV=fv/fl;
+  let lean=0;if(opts.state==='windup')lean=-6*s;else if(opts.state==='strike')lean=9*s;else if(opts.lunge)lean=8*s*opts.lunge;
+  ctx.save();ctx.translate(u,v);ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,2,11*s,5*s,0,0,TAU);ctx.fill();
+  if(opts.ring){ctx.strokeStyle=opts.ring;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,2,(o.r+6)*KX*1.3,(o.r+6)*KY*1.3,0,0,TAU);ctx.stroke();}
+  if(opts.state==='windup'){const k=1-(o.st/(o.t.wind||1));ctx.strokeStyle=`rgba(224,71,91,${.3+k*.6})`;ctx.lineWidth=2+k*2;ctx.beginPath();ctx.ellipse(0,2,(o.r+10)*KX*1.3,(o.r+10)*KY*1.3,0,0,TAU);ctx.stroke();}
+  ctx.translate(dirU*lean,dirV*lean*.5-bob);ctx.strokeStyle=col2;ctx.lineWidth=3*s;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-4*s,-8*s);ctx.lineTo(-4*s+walk*4*s,0);ctx.moveTo(4*s,-8*s);ctx.lineTo(4*s-walk*4*s,0);ctx.stroke();
+  const bodyH=opts.tall?22:16;ctx.fillStyle=o.hurt>0?'#fff':opts.chill?'#bfe9ff':col;ctx.beginPath();ctx.ellipse(0,-8*s-bodyH*s/2,8*s,bodyH*s/2,0,0,TAU);ctx.fill();ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1.5;ctx.stroke();
+  const armA=(opts.state==='strike'||opts.lunge)?1:(opts.state==='windup'?-.6:walk*.3);ctx.strokeStyle=col2;ctx.lineWidth=3*s;ctx.beginPath();ctx.moveTo(6*s,-8*s-bodyH*s*.7);ctx.lineTo(6*s+dirU*12*s*armA+2*s,-8*s-bodyH*s*.7+dirV*12*s*armA+4*s);ctx.stroke();
+  if(opts.weapon){ctx.strokeStyle=opts.weapon;ctx.lineWidth=2.5*s;ctx.beginPath();const hx=6*s+dirU*12*s*armA+2*s,hy=-8*s-bodyH*s*.7+dirV*12*s*armA+4*s;ctx.moveTo(hx,hy);ctx.lineTo(hx+dirU*14*s,hy+dirV*14*s-6*s);ctx.stroke();}
+  ctx.fillStyle=o.hurt>0?'#fff':opts.head||col;ctx.beginPath();ctx.arc(0,-8*s-bodyH*s-5*s,5.5*s,0,TAU);ctx.fill();ctx.fillStyle='#0f1420';ctx.beginPath();ctx.arc(dirU*3*s,-8*s-bodyH*s-5*s+dirV*1.5*s,1.4*s,0,TAU);ctx.fill();ctx.restore();}
+function drawBeast(e,col,col2){col=col||e.t.col;col2=col2||e.t.col2;const u=toU(e.x,e.y),v=toV(e.x,e.y);const s=e.r/10;const walk=e.anim;ctx.save();ctx.translate(u,v);ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,1,12*s,5*s,0,0,TAU);ctx.fill();
+  if(e.state==='windup'){const k=1-e.st/e.t.wind;ctx.strokeStyle=`rgba(224,71,91,${.3+k*.6})`;ctx.lineWidth=2+k*2;ctx.beginPath();ctx.ellipse(0,1,18*s,9*s,0,0,TAU);ctx.stroke();}
+  const lean=e.state==='strike'?6:e.state==='windup'?-4:0;const du=Math.cos(e.face)-Math.sin(e.face),dv=(Math.cos(e.face)+Math.sin(e.face))*.5;const dl=Math.hypot(du,dv)||1;ctx.translate(du/dl*lean,dv/dl*lean);
+  ctx.strokeStyle=col2;ctx.lineWidth=2;ctx.beginPath();for(let i=0;i<3;i++){const ph=Math.sin(walk+i*2.1)*4;ctx.moveTo(-6+i*6,-4);ctx.lineTo(-10+i*6-ph,3);ctx.moveTo(-6+i*6,-4);ctx.lineTo(-2+i*6+ph,3);}ctx.stroke();
+  ctx.fillStyle=e.hurt>0?'#fff':e.chill>0?'#bfe9ff':col;ctx.beginPath();ctx.ellipse(0,-6*s,11*s,7*s,0,0,TAU);ctx.fill();ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle=col2;ctx.beginPath();ctx.ellipse(0,-6*s,5*s,3*s,0,0,TAU);ctx.fill();
+  ctx.fillStyle='#ffe08a';ctx.beginPath();ctx.arc(du/dl*7*s,-7*s+dv/dl*4*s,1.6*s,0,TAU);ctx.fill();ctx.restore();}
+function drawWisp(e,col){col=col||e.t.col;const u=toU(e.x,e.y),v=toV(e.x,e.y)-14;const k=e.state==='windup'?1-e.st/e.t.wind:0;ctx.save();ctx.translate(u,v+Math.sin(gameTime*5+e.anim)*3);
+  const g=ctx.createRadialGradient(0,0,1,0,0,e.r*2.2);g.addColorStop(0,'#fff');g.addColorStop(.35,k?'#ff9db0':col);g.addColorStop(1,'rgba(127,196,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,e.r*2.2*(1+k*.5),0,TAU);ctx.fill();
+  for(let i=0;i<3;i++){const a=gameTime*4+i*2.1;ctx.fillStyle='rgba(200,230,255,.6)';ctx.beginPath();ctx.arc(Math.cos(a)*e.r*1.3,Math.sin(a)*e.r*.6,2,0,TAU);ctx.fill();}ctx.restore();}
+function render(){
+  ctx.fillStyle=inTown?'#0d1a14':BIOMES[L.biome].bg;ctx.fillRect(0,0,VW,VH);const pu=toU(P.x,P.y),pv=toV(P.x,P.y);pScr={u:pu,v:pv,k:(P.x+P.y)/T};const ck=1-Math.pow(.0005,frameDt);cam.u=lerp(cam.u,pu-VW/2,ck);cam.v=lerp(cam.v,pv-VH/2+30,ck);
+  const su=(Math.random()-.5)*shake,sv=(Math.random()-.5)*shake;ctx.save();ctx.translate(-(cam.u+su),-(cam.v+sv));
+  const cs=[fromScreen(cam.u,cam.v),fromScreen(cam.u+VW,cam.v),fromScreen(cam.u,cam.v+VH),fromScreen(cam.u+VW,cam.v+VH)];
+  const x0=clamp(Math.floor(Math.min(...cs.map(c=>c.x))/T)-2,0,L.cols),x1=clamp(Math.ceil(Math.max(...cs.map(c=>c.x))/T)+2,0,L.cols);
+  const y0=clamp(Math.floor(Math.min(...cs.map(c=>c.y))/T)-2,0,L.rows),y1=clamp(Math.ceil(Math.max(...cs.map(c=>c.y))/T)+4,0,L.rows);
+  for(let ty=y0;ty<y1;ty++)for(let tx=x0;tx<x1;tx++){const i=ty*L.cols+tx;if(L.g[i])continue;const x=(tx+.5)*T,y=(ty+.5)*T,u=toU(x,y),v=toV(x,y);const h=hash(tx,ty);let col;
+    if(L.deco[i]===1)col=h<.5?'#4a4d5e':'#535668';else if(inTown)col=h<.5?'#3a6a34':'#40733a';
+    else{const d=L.dist[i];const heat=d<0?0:clamp(1-d/L.maxDist,0,1);col=BIOMES[L.biome].floor(h,heat);}
+    ctx.fillStyle=col;diamond(u,v,T*KX*2+1,T*KY*2+1);ctx.fill();}
+  if(!inTown)drawTelegraphs();
+  const items=[];
+  for(let ty=y0;ty<y1;ty++)for(let tx=x0;tx<x1;tx++){const i=ty*L.cols+tx;
+    if(L.g[i]){let edge=false,near=false;for(let dy=-1;dy<=1&&!edge;dy++)for(let dx=-1;dx<=1;dx++)if(!solid(tx+dx,ty+dy)){edge=true;break;}
+      if(!edge)for(let dy=-2;dy<=2&&!near;dy++)for(let dx=-2;dx<=2;dx++)if(!solid(tx+dx,ty+dy)){near=true;break;}
+      if(edge)items.push({d:tx+ty+.4,f:()=>drawTree(tx,ty,1)});else if(near&&(inTown||hash(tx*2,ty*2)<.7))items.push({d:tx+ty+.4,f:()=>drawTree(tx,ty,.62)});}
+    else if(L.deco[i]>=2){const id=L.deco[i];items.push({d:tx+ty+.2,f:()=>drawDeco(id,tx,ty)});}}
+  const key=o=>(o.x+o.y)/T;
+  for(const ex of L.exits){const w=worldPos(ex);items.push({d:key(w)-.5,f:()=>{const u=toU(w.x,w.y),v=toV(w.x,w.y);const col=ex.locked?'224,71,91':'242,193,78';const g=ctx.createRadialGradient(u,v,4,u,v,50);g.addColorStop(0,`rgba(${col},.85)`);g.addColorStop(1,`rgba(${col},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v,50,25,0,0,TAU);ctx.fill();ctx.strokeStyle=ex.locked?'#e0475b':'#f2c14e';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(u,v,22+Math.sin(gameTime*3)*2,11+Math.sin(gameTime*3),0,0,TAU);ctx.stroke();
+      if(dist(P,w)<520){ctx.textAlign='center';const lines=[BIOMES[ex.biome].name+' · depth '+(depth+1),...(ex.mods||[]).map(m=>m.text)];const y0=v-46-lines.length*13;ctx.font='700 11px system-ui';let wmax=0;for(const l of lines)wmax=Math.max(wmax,ctx.measureText(l).width);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(u-wmax/2-8,y0-12,wmax+16,lines.length*13+8);
+        lines.forEach((l,i)=>{ctx.fillStyle=i===0?'#f0d48a':(ex.mods[i-1].good?'#b9e26b':'#ff8a95');ctx.fillText(l,u,y0+i*13);});}}});}
+  for(const po of portals)items.push({d:key(po),f:()=>drawPortal(po)});
+  {const w=worldPos(L.start);if(!inTown)items.push({d:key(w)-.5,f:()=>{ctx.strokeStyle='rgba(234,223,198,.25)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(toU(w.x,w.y),toV(w.x,w.y),22,11,0,0,TAU);ctx.stroke();}});}
+  for(const n of npcs)items.push({d:key(n),f:()=>drawNpc(n)});for(const sp of spawners)items.push({d:key(sp),f:()=>drawSpawner(sp)});for(const z of zones)items.push({d:key(z)-1,f:()=>drawZone(z)});
+  for(const l of loot)if(l.gold||lootVisible(l.item))items.push({d:key(l),f:()=>drawLoot(l)});
+  for(const mn of mines)items.push({d:key(mn)-.3,f:()=>{const u=toU(mn.x,mn.y),v=toV(mn.x,mn.y);const rgb=hexRgb(mn.col);const k=.5+.5*Math.sin(gameTime*6+mn.x);ctx.fillStyle=`rgba(${rgb},${.35+k*.4})`;ctx.beginPath();ctx.ellipse(u,v,10,5,0,0,TAU);ctx.fill();ctx.strokeStyle=`rgba(${rgb},.9)`;ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(u,v,10,5,0,0,TAU);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(u,v-3,1.5+k,0,TAU);ctx.fill();}});for(const e of enemies)items.push({d:key(e),f:()=>drawEnemy(e)});items.push({d:key(P),f:drawPlayer});
+  for(const p of projectiles)items.push({d:key(p),f:()=>{const u=toU(p.x,p.y),v=toV(p.x,p.y)-12;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(u,v,p.r,0,TAU);ctx.fill();ctx.strokeStyle=p.col;ctx.globalAlpha=.4;ctx.lineWidth=p.r;ctx.beginPath();ctx.moveTo(u,v);ctx.lineTo(u-toU(p.vx,p.vy)*.05,v-toV(p.vx,p.vy)*.05);ctx.stroke();ctx.globalAlpha=1;}});
+  for(const p of particles){if(p.vx!==undefined)items.push({d:key(p),f:()=>{ctx.fillStyle=p.col;ctx.globalAlpha=p.life/p.max;ctx.fillRect(toU(p.x,p.y)-p.sz/2,toV(p.x,p.y)-p.z-p.sz/2,p.sz,p.sz);ctx.globalAlpha=1;}});}
+  items.sort((a,b)=>a.d-b.d);for(const it of items)it.f();
+  for(const p of particles){const a=p.life/p.max;
+    if(p.arc){ctx.strokeStyle=p.col;ctx.globalAlpha=a;ctx.lineWidth=6;ctx.beginPath();const r=p.arc[1]-6;for(let k=0;k<=12;k++){const an=p.arc[0]-1+k/6;const x=P.x+Math.cos(an)*r,y=P.y+Math.sin(an)*r;k?ctx.lineTo(toU(x,y),toV(x,y)-8):ctx.moveTo(toU(x,y),toV(x,y)-8);}ctx.stroke();ctx.globalAlpha=1;}
+    else if(p.ring){ctx.strokeStyle=p.col;ctx.globalAlpha=a;ctx.lineWidth=4;ctx.beginPath();const r=p.ring*(1.2-a*.2);ctx.ellipse(toU(P.x,P.y),toV(P.x,P.y),r*KX*1.33,r*KY*1.33,0,0,TAU);ctx.stroke();ctx.globalAlpha=1;}
+    else if(p.slam){ctx.strokeStyle=p.col;ctx.globalAlpha=a;ctx.lineWidth=5;ctx.beginPath();const r=p.slam[2]*(1.3-a*.3);ctx.ellipse(toU(p.slam[0],p.slam[1]),toV(p.slam[0],p.slam[1]),r*KX*1.33,r*KY*1.33,0,0,TAU);ctx.stroke();ctx.globalAlpha=1;}
+    else if(p.bolt){ctx.strokeStyle='#cfefff';ctx.globalAlpha=a;ctx.lineWidth=3;ctx.beginPath();const [x1,y1,x2,y2]=p.bolt;ctx.moveTo(toU(x1,y1),toV(x1,y1)-14);ctx.lineTo((toU(x1,y1)+toU(x2,y2))/2+rnd(-10,10),(toV(x1,y1)+toV(x2,y2))/2-14+rnd(-10,10));ctx.lineTo(toU(x2,y2),toV(x2,y2)-14);ctx.stroke();ctx.globalAlpha=1;}}
+  ctx.font='700 13px system-ui';ctx.textAlign='center';for(const f of floats){const u=toU(f.x,f.y),v=toV(f.x,f.y)-f.z;ctx.globalAlpha=Math.min(1,f.life*2);ctx.fillStyle='#000';ctx.fillText(f.txt,u+1,v+1);ctx.fillStyle=f.col;ctx.fillText(f.txt,u,v);}ctx.globalAlpha=1;
+  ctx.restore();
+  if(joy.on){ctx.strokeStyle='rgba(234,223,198,.35)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(joy.sx,joy.sy,JOY_R,0,TAU);ctx.stroke();const dx=joy.x-joy.sx,dy=joy.y-joy.sy,d=Math.hypot(dx,dy)||1,k=Math.min(d,JOY_R);ctx.fillStyle='rgba(234,223,198,.55)';ctx.beginPath();ctx.arc(joy.sx+dx/d*k,joy.sy+dy/d*k,18,0,TAU);ctx.fill();}}
+function drawPlayer(){const w=C.equip.weapon;drawFigure(P,{col:P.hurt>0?'#ff8a95':(C.equip.body?'#8d7c5c':'#eadfc6'),col2:'#6b5c3e',head:'#e6c7a0',lunge:P.lunge/.22,scale:1.05,weapon:w?(w.base.tags.includes('wand')?'#62d5e6':'#cfd3e0'):null});
+  if(P.busy>0){const u=toU(P.x,P.y),v=toV(P.x,P.y);ctx.strokeStyle='#f2c14e';ctx.lineWidth=3;ctx.beginPath();ctx.arc(u,v-46,12,-1.57,-1.57+TAU*(1-P.busy/P.cast.m.cast));ctx.stroke();ctx.fillStyle='#eadfc6';ctx.font='700 11px system-ui';ctx.textAlign='center';ctx.fillText(P.cast.name,u,v-64);}}
+function drawEnemy(e){const u=toU(e.x,e.y),v=toV(e.x,e.y);
+  if(e.ignite>0){const g=ctx.createRadialGradient(u,v-8,e.r*.4,u,v-8,e.r*2.2);g.addColorStop(0,'rgba(255,122,61,.55)');g.addColorStop(1,'rgba(255,122,61,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(u,v-8,e.r*2.2,0,TAU);ctx.fill();}
+  const col=e.bd?e.bd.col:e.t.col,col2=e.bd?e.bd.col2:e.t.col2;const sc=(e.bd?e.bd.scale:e.boss?2.2:e.t.scale)*(e.elite?1.3:1);
+  if(e.t.shape==='beast')drawBeast(e,col,col2);else if(e.t.shape==='wisp')drawWisp(e,col);else drawFigure(e,{col:e.freeze>0?'#dff4ff':col,col2,state:e.freeze>0?'idle':(e.state==='cast'?'windup':e.state),chill:e.chill>0,scale:sc,tall:!!e.t.tall,ring:e.boss?(P.focusBoss?'#f2c14e':'rgba(242,193,78,.45)'):e.elite?'rgba(200,120,255,.6)':null});
+  if(e.elite&&!e.boss){ctx.fillStyle='#d9a0ff';ctx.font='700 9px system-ui';ctx.textAlign='center';ctx.fillText(e.t.name,u,v-e.r*2.6-20);}
+  if(e.hp<e.maxHp&&!e.boss){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(u-e.r,v-e.r*2.6-16,e.r*2,3);ctx.fillStyle=e.t.col;ctx.fillRect(u-e.r,v-e.r*2.6-16,e.r*2*e.hp/e.maxHp,3);}}
+function drawSpawner(sp){const u=toU(sp.x,sp.y),v=toV(sp.x,sp.y);
+  if(sp.dead){ctx.fillStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.ellipse(u,v,26,13,0,0,TAU);ctx.fill();ctx.fillStyle='#2a1d3d';for(let i=0;i<4;i++){ctx.beginPath();ctx.ellipse(u+(hash(i,sp.x)-.5)*30,v+(hash(sp.y,i)-.5)*12,6,3,0,0,TAU);ctx.fill();}return;}
+  const heat=sp.t,pulse=1+Math.sin(sp.pulse*4)*.08;const g=ctx.createRadialGradient(u,v,0,u,v,70);g.addColorStop(0,`rgba(201,79,184,${.35+heat*.3})`);g.addColorStop(1,'rgba(201,79,184,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v,70,35,0,0,TAU);ctx.fill();
+  ctx.fillStyle='#3a3350';ctx.beginPath();ctx.ellipse(u,v,26,13,0,0,TAU);ctx.fill();ctx.strokeStyle='#5e5580';ctx.lineWidth=2;ctx.stroke();
+  const ch=18+Math.sin(sp.pulse*2)*4;ctx.save();ctx.translate(u,v-ch);ctx.rotate(sp.pulse*.8);ctx.fillStyle=`rgb(${160+heat*90},80,190)`;ctx.beginPath();ctx.moveTo(0,-16*pulse);ctx.lineTo(9,0);ctx.lineTo(0,16*pulse);ctx.lineTo(-9,0);ctx.closePath();ctx.fill();ctx.fillStyle='#fff';ctx.globalAlpha=.5;ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(4,0);ctx.lineTo(0,4);ctx.closePath();ctx.fill();ctx.globalAlpha=1;ctx.restore();
+  ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(u-24,v-58,48,5);ctx.fillStyle='#c94fb8';ctx.fillRect(u-24,v-58,48*sp.hp/sp.maxHp,5);ctx.fillStyle='#eadfc6';ctx.font='700 10px system-ui';ctx.textAlign='center';ctx.fillText('lv '+sp.lvl,u,v-62);for(let i=0;i<sp.loot;i++){ctx.fillStyle='#f2c14e';ctx.fillRect(u-24+i*5,v+16,3,3);}}
+function drawZone(z){const a=Math.min(1,z.life);const rgb=hexRgb(z.col);
+  if(z.shape==='line'){const c=Math.cos(z.ang),s=Math.sin(z.ang);
+    for(let i=-z.len/2;i<z.len/2;i+=10){const x=z.x+c*i,y=z.y+s*i;const u=toU(x,y),v=toV(x,y);const h=10+Math.sin(gameTime*14+i)*6;const g=ctx.createLinearGradient(0,v,0,v-h-14);g.addColorStop(0,`rgba(${rgb},${.85*a})`);g.addColorStop(1,`rgba(${rgb},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(u-6,v);ctx.quadraticCurveTo(u-4,v-h,u,v-h-14);ctx.quadraticCurveTo(u+4,v-h,u+6,v);ctx.closePath();ctx.fill();}
+    ctx.beginPath();for(let k=0;k<=8;k++){const i=-z.len/2+k*z.len/8;const x=z.x+c*i,y=z.y+s*i;k?ctx.lineTo(toU(x,y),toV(x,y)+4):ctx.moveTo(toU(x,y),toV(x,y)+4);}ctx.lineWidth=Math.min(40,z.th*.6);ctx.strokeStyle=`rgba(${rgb},${.25*a})`;ctx.stroke();return;}
+  const u=toU(z.x,z.y),v=toV(z.x,z.y);
+  if(z.delay>0){const k=1-z.delay/1.2;ctx.strokeStyle=`rgba(${rgb},${.4+k*.5})`;ctx.lineWidth=2+k*3;ctx.setLineDash([6,6]);ctx.beginPath();ctx.ellipse(u,v,z.r*KX*1.33,z.r*KY*1.33,0,0,TAU);ctx.stroke();ctx.setLineDash([]);return;}
+  const g=ctx.createRadialGradient(u,v,2,u,v,z.r*KX*1.33);g.addColorStop(0,`rgba(${rgb},${.35*a})`);g.addColorStop(1,`rgba(${rgb},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v,z.r*KX*1.33,z.r*KY*1.33,0,0,TAU);ctx.fill();
+  ctx.strokeStyle=`rgba(${rgb},${.6*a})`;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(u,v,z.r*KX*1.33,z.r*KY*1.33,0,0,TAU);ctx.stroke();
+  if(z.follow){for(let i=0;i<4;i++){const an=gameTime*6+i*1.57;ctx.fillStyle=`rgba(${rgb},.9)`;ctx.beginPath();ctx.ellipse(u+Math.cos(an)*z.r*KX*1.2,v-10+Math.sin(an)*z.r*KY*1.2,5,3,an,0,TAU);ctx.fill();}}}
+const _rgb={};function hexRgb(h){if(_rgb[h])return _rgb[h];const n=parseInt(h.slice(1),16);return _rgb[h]=`${(n>>16)&255},${(n>>8)&255},${n&255}`;}
+function drawPortal(po){const u=toU(po.x,po.y),v=toV(po.x,po.y);const g=ctx.createRadialGradient(u,v,2,u,v,48);g.addColorStop(0,'rgba(224,71,91,.6)');g.addColorStop(1,'rgba(224,71,91,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v,48,24,0,0,TAU);ctx.fill();
+  ctx.save();ctx.translate(u,v-30);for(let i=0;i<3;i++){const ph=po.t*2+i*2.1;ctx.strokeStyle=`rgba(255,${120+i*30},${140+i*20},${.5+Math.sin(ph)*.3})`;ctx.lineWidth=4-i;ctx.beginPath();ctx.ellipse(0,0,14+i*5+Math.sin(ph)*2,28+i*6+Math.cos(ph)*3,Math.sin(ph*.5)*.2,0,TAU);ctx.stroke();}
+  const gg=ctx.createRadialGradient(0,0,2,0,0,22);gg.addColorStop(0,'#fff0f2');gg.addColorStop(.4,'#e0475b');gg.addColorStop(1,'rgba(120,20,40,.2)');ctx.fillStyle=gg;ctx.beginPath();ctx.ellipse(0,0,13,26,0,0,TAU);ctx.fill();ctx.restore();
+  ctx.fillStyle='#eadfc6';ctx.font='700 11px system-ui';ctx.textAlign='center';ctx.fillText(po.to==='dungeon'?'Depth '+depth:'Town',u,v-70);}
+function drawNpc(n){const u=toU(n.x,n.y),v=toV(n.x,n.y);
+  if(n.kind==='chest'){ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(u,v+2,18,8,0,0,TAU);ctx.fill();ctx.fillStyle='#5a3d22';ctx.fillRect(u-14,v-18,28,18);ctx.fillStyle='#7a5430';ctx.fillRect(u-14,v-24,28,8);ctx.fillStyle=n.col;ctx.fillRect(u-3,v-16,6,7);}
+  else drawFigure(n,{col:n.col,col2:'#3c3128',head:'#e6c7a0'});
+  ctx.fillStyle='#eadfc6';ctx.font='600 11px system-ui';ctx.textAlign='center';ctx.fillText(n.name,u,v-(n.kind==='chest'?32:52));}
+function drawLoot(l){const u=toU(l.x,l.y),v=toV(l.x,l.y);const b=Math.sin(l.t*4)*2;
+  if(l.gold){ctx.fillStyle='#f2c14e';for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(u-6+i*6,v-3+b-(i%2)*3,4,2.2,0,0,TAU);ctx.fill();}ctx.fillStyle='#8a6a1c';ctx.beginPath();ctx.ellipse(u,v-3+b,4,1,0,0,TAU);ctx.fill();return;}
+  const col=RARITY_COL[l.item.rarity];
+  if(l.item.rarity!=='normal'){const g=ctx.createRadialGradient(u,v,2,u,v,30);g.addColorStop(0,col.replace(')',',.35)').replace('#','rgba(').replace(/rgba\(([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i,(m,r,gg,bb)=>`rgba(${parseInt(r,16)},${parseInt(gg,16)},${parseInt(bb,16)}`));g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(u,v,30,15,0,0,TAU);ctx.fill();}
+  ctx.save();ctx.translate(u,v-8+b);ctx.rotate(.785);ctx.fillStyle=col;ctx.fillRect(-6,-6,12,12);ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=1.5;ctx.strokeRect(-6,-6,12,12);ctx.restore();
+  ctx.font='700 10px system-ui';ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,.55)';const w=ctx.measureText(l.item.name).width+8;ctx.fillRect(u-w/2,v-34,w,13);ctx.fillStyle=col;ctx.fillText(l.item.name,u,v-24);}
+
+// ================================================================
+//  HUD & drawer
+// ================================================================
+function updateHud(){$('#bLife').style.height=(P.life/D.maxLife*100)+'%';$('#tLife').textContent=Math.ceil(P.life);$('#bMana').style.height=(P.mana/D.maxMana*100)+'%';$('#tMana').textContent=Math.floor(P.mana);
+  $('#bStam').style.width=(P.stam/D.maxStam*100)+'%';$('#tStam').textContent=Math.floor(P.stam);$('#bXp').style.width=(C.xp/xpFor(C.lvl)*100)+'%';$('#tLvl').textContent=C.lvl;$('#tKills').textContent=C.kills+' kills';
+  $('#tArea').textContent=inTown?'Town':'Depth '+depth+' · '+BIOMES[L.biome].name+(L.mandatory?' · gate':'');const ti=activeTrack();const tk=$('#trk');tk.textContent=TRACKS[ti].name;tk.classList.toggle('on',ti===2||(!inTown&&C.tracks[ti].length>0));if(boss){$('#bBoss').style.width=(boss.hp/boss.maxHp*100)+'%';$('#tBoss').textContent=(boss.bd?boss.bd.name:boss.t.name)+' lv '+boss.lvl;}}
+$('#boss').addEventListener('pointerdown',e=>{e.stopPropagation();P.focusBoss=!P.focusBoss;$('#boss').classList.toggle('focus',P.focusBoss);$('#bossHint').textContent=P.focusBoss?'focused — tap to release':'tap to focus';});
+const TRACKS=[{name:'Moving',desc:'Runs on its own while you drag to move. Rooted skills are skipped here.'},{name:'Still',desc:'Runs on its own while you stand in place. This is where rooted skills belong.'},{name:'Tap',desc:'Plays once from the start each time you tap the screen. Interrupts whatever is running.'}];
+let tapPlay=null; // {wait} while the Tap track is playing through once
+function activeTrack(){return tapPlay?2:(P.moving?0:1);}
+$('#btnEdit').addEventListener('pointerdown',e=>{e.stopPropagation();openDrawer();showPage('tracks');});
+$('#btnGear').innerHTML=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4l4 2 4-2 4 4-3 2v10H7V10L4 8z"/><path d="M12 10v10"/></svg>`;
+$('#btnGear').addEventListener('pointerdown',e=>{e.stopPropagation();openDrawer();showPage('gear');});
+$('#btnPortal').addEventListener('pointerdown',e=>{e.stopPropagation();if(inTown)return;if(portals.some(p=>p.to==='town')){toast('Your portal is already open');return;}portals.push({x:P.x+Math.cos(P.face+3.14)*50,y:P.y+Math.sin(P.face+3.14)*50,to:'town',t:0});fx(P.x,P.y,'#e0475b',20,150,.6,3);toast('A portal opens behind you',1200);});
+$('#btnResume').addEventListener('pointerdown',()=>closeDrawer());
+$('#btnAuto').addEventListener('click',autoEquip);
+$('#btnTrade').addEventListener('pointerdown',e=>{e.stopPropagation();if(!nearNpc)return;openDrawer();if(nearNpc.kind==='chest')showPage('gear');else{$('#tabVendor').style.display='';showPage('vendor');}});
+$$('.tab').forEach(t=>t.addEventListener('pointerdown',()=>showPage(t.dataset.p)));
+function showPage(p){if(p!=='vendor')$('#tabVendor').style.display='none';$$('.tab').forEach(x=>x.classList.toggle('on',x.dataset.p===p));$$('.page').forEach(x=>x.classList.toggle('on',x.id==='pg-'+p));$('#tab'+p[0].toUpperCase()+p.slice(1))?.classList.remove('alert');if(p==='gear')buildGear();if(p==='char')buildChar();if(p==='tracks')buildEditor();if(p==='vendor')buildVendor();if(p==='settings')buildSettings();}
+function openDrawer(){paused=true;joy.on=false;D=derived();$('#tabVendor').style.display='none';$('#drawer').classList.add('open');$('#btnEdit').classList.remove('alert');$('#btnGear').classList.remove('alert');buildEditor();buildGear();buildChar();}
+function closeDrawer(){$('#drawer').classList.remove('open');if(!P.dead&&!$('#ovStart').classList.contains('on'))paused=false;D=derived();P.life=Math.min(P.life,D.maxLife);save();}
+
+// ---------- track editor: slots → link line → compatible supports ----------
+let editT=0,selSlot=0,openRow=null;
+function statLine(slot){const s=SKILLS[slot.skill],m=resolve(slot);const base=resolve({skill:slot.skill,sup:[]});const d=(a,b)=>a!==b?` <span style="opacity:.6">(base ${Math.round(b)})</span>`:'';
+  return `<b>${Math.round(m.dmg)}</b> damage${d(Math.round(m.dmg),Math.round(base.dmg))} · costs <b>${Math.round(m.cost)}</b> ${s.type==='atk'?'stamina':'mana'} · every <b>${m.cd.toFixed(2)}s</b>${m.cast?' · <b>'+m.cast.toFixed(2)+'s</b> cast, stand still':''} · reach <b>${Math.round(m.range)}</b>${m.proj?' · <b>+'+m.proj+'</b> projectiles':''}${m.ignite?' · <b>'+Math.round(m.ignite*100)+'%</b> ignite':''}${m.chill?' · chills':''}${m.freeze?' · <b>'+Math.round(m.freeze*100)+'%</b> freeze':''}${m.shock?' · <b>'+Math.round(m.shock*100)+'%</b> shock':''}${m.bleed?' · <b>'+Math.round(m.bleed*100)+'%</b> bleed':''}${m.poison?' · <b>'+Math.round(m.poison*100)+'%</b> poison':''}${m.repeat>1?' · ×'+m.repeat:''}${m.chain?' · chains '+m.chain:''}${m.fork?' · forks':''}${m.leech?' · <b>'+m.leech+'</b> life per hit':''}${m.pierce?' · pierces':''}${m.kb?' · knocks back':''}${m.area!==1?' · area ×'+m.area.toFixed(2):''}`;}
+function buildEditor(){editT=clamp(editT,0,2);const tr=C.tracks[editT];const max=D?D.maxSlots:8;selSlot=clamp(selSlot,0,Math.min(tr.length,max-1));
+  $$('.ttab').forEach(t=>{t.classList.toggle('on',+t.dataset.t===editT);t.textContent=TRACKS[t.dataset.t].name;});
+  const cost=tr.reduce((a,s)=>{const m=resolve(s);return {st:a.st+(SKILLS[s.skill].type==='atk'?m.cost:0),mn:a.mn+(SKILLS[s.skill].type==='spl'?m.cost:0)};},{st:0,mn:0});
+  $('#tinfo').innerHTML=`${tr.length}/${max} slots<br><span style="color:var(--stam)">${Math.round(cost.st)}</span> stam · <span style="color:var(--mana)">${Math.round(cost.mn)}</span> mana per loop`;
+  const strip=$('#strip');strip.innerHTML='';
+  for(let i=0;i<max;i++){const slot=tr[i];const el=document.createElement('div');el.className='slot'+(slot?' filled':'')+(i===selSlot?' sel':'');el.dataset.t=editT;el.dataset.i=i;
+    if(slot){const s=SKILLS[slot.skill];el.innerHTML=`<span class="n">${i+1}</span><span class="badge ${s.type}" style="position:absolute;top:2px;right:4px;margin:0;padding:0 3px">${s.type==='atk'?'A':'S'}</span><div class="ic ${s.type}">${s.ic}</div><div>${s.name}</div><div class="sup">${slot.sup.map(x=>'<i>'+SUPPORTS[x].ic+'</i>').join('')}</div>${s.rooted?'<span class="anchor">R</span>':''}<div class="x">×</div>`;
+      el.querySelector('.x').addEventListener('pointerdown',e=>{e.stopPropagation();tr.splice(i,1);P.slots=[0,0,0];save();buildEditor();});}
+    else el.innerHTML=`<span class="n">${i+1}</span><span style="opacity:.4;font-size:18px">+</span>`;
+    el.addEventListener('pointerdown',()=>{selSlot=i;buildEditor();});strip.appendChild(el);}
+  buildAuras();
+  const th=$('#thint');th.innerHTML=`<b style="color:var(--goldHi);font-family:var(--disp)">${TRACKS[editT].name} track</b> — ${TRACKS[editT].desc}`+(editT===0?'<br><span style="color:var(--bone2)">Only skills tagged <b>Mobile</b> can go here — quick, lighter hits and mine laying.</span>':'');
+  // ---- link panel for the selected skill ----
+  const slot=tr[selSlot];const lp=$('#linkPanel'),lpl=$('#listPanel');lp.innerHTML='';lpl.innerHTML='';
+  if(slot){const s=SKILLS[slot.skill],g=gem(slot.skill);
+    const box=document.createElement('div');box.className='lp';
+    box.innerHTML=`<div class="head"><div class="ic ${s.type}">${s.ic}</div><div style="flex:1">${s.name}${typeBadge(s)}<small>level ${g.lvl}${g.lvl<GEM_MAX?' · '+g.xp+' / '+gemXpFor(g.lvl)+' xp':' · max level'}</small><div class="xpb"><i style="width:${g.lvl>=GEM_MAX?100:g.xp/gemXpFor(g.lvl)*100}%"></i></div>${tagChips(s.tags,s)}</div></div><div class="skdesc">${s.desc}</div><div class="skstat">${statLine(slot)}${slot.sup.length?'<br>Linked: '+slot.sup.map(x=>'<b>'+SUPPORTS[x].name+'</b> — '+SUPPORTS[x].desc).join(' · '):''}</div><div class="links"></div><div class="miles"></div>`;
+    const links=box.querySelector('.links');const src=document.createElement('div');src.className='link src';src.innerHTML=s.ic;links.appendChild(src);
+    for(let i=0;i<6;i++){const bar=document.createElement('div');bar.className='lbar'+(i<slot.sup.length?' on':'');links.appendChild(bar);
+      const id=slot.sup[i];const el=document.createElement('div');el.className='link'+(id?' filled':'');el.dataset.t=editT;el.dataset.i=selSlot;el.dataset.l=i;
+      if(id){el.innerHTML=SUPPORTS[id].ic+'<div class="x">×</div>';el.querySelector('.x').addEventListener('pointerdown',e=>{e.stopPropagation();slot.sup.splice(i,1);P.slots=[0,0,0];save();buildEditor();describeSlot(slot);});
+        el.addEventListener('pointerdown',()=>{const u=SUPPORTS[id],gg=gem(id);$('#desc').innerHTML=`<b>${u.name}</b> level ${gg.lvl}<br>${u.desc}`;});}
+      links.appendChild(el);}
+    box.querySelector('.miles').innerHTML=MILES.map(([l,t])=>`<div>${g.lvl>=l?'<b>✓</b>':'<span style="opacity:.5">Lv'+l+'</span>'} ${t}</div>`).join('');
+    lp.appendChild(box);
+    const head=document.createElement('div');head.className='secl';head.textContent='Supports for '+s.name;lpl.appendChild(head);
+    let any=false;for(const [id,d] of Object.entries(SUPPORTS)){if(!canLink(slot.skill,id))continue;any=true;lpl.appendChild(rowEl(id,d,'sup'));}
+    if(!any)lpl.insertAdjacentHTML('beforeend','<div class="hint">No supports fit this skill yet.</div>');
+    const h2=document.createElement('div');h2.className='secl';h2.textContent='Replace with another skill';lpl.appendChild(h2);}
+  else{const head=document.createElement('div');head.className='secl';head.textContent='Skills — tap one to place it in slot '+(selSlot+1);lpl.appendChild(head);}
+  for(const [id,d] of Object.entries(SKILLS)){if(editT===0&&!d.move)continue;lpl.appendChild(rowEl(id,d,'skill'));}
+  const hint=document.createElement('div');hint.className='hint';hint.textContent='Tap a slot to see the skill, its tags, numbers and links. Tap a row to read it; tap its + to place or link it. Supports only appear under skills they fit.';lpl.appendChild(hint);}
+let aurasOpen=false;
+function buildAuras(){const bar=$('#auraBar'),list=$('#auraList');const d=derived();
+  bar.innerHTML=`<span>Auras: ${C.auras.length?C.auras.map(x=>AURAS[x].name).join(', '):'none'} <span style="color:var(--bone2);text-transform:none;letter-spacing:0;font-family:var(--font)">— ${Math.round(d.resM*100)}% mana${d.resL?', '+Math.round(d.resL*100)+'% life':''} reserved</span></span><span class="btn sm">${aurasOpen?'Close':'Manage'}</span>`;
+  bar.querySelector('.btn').addEventListener('click',()=>{aurasOpen=!aurasOpen;buildAuras();});list.style.display=aurasOpen?'block':'none';list.innerHTML='';if(!aurasOpen)return;
+  for(const [id,a] of Object.entries(AURAS)){const on=auraOn(id);const el=document.createElement('div');el.className='row'+(on?'':' spent');el.style.opacity=on?'1':'.7';
+    el.innerHTML=`<div class="ic ${a.pool==='life'?'atk':'spl'}">${(ICONS[id]||autoIcon({name:a.name,tags:[a.burn?'fire':'spell']},'skill'))}</div><div class="nm">${a.name}<small>reserves ${Math.round(a.res*100)}% ${a.pool} · ${a.desc}</small></div><div class="add" style="width:auto;padding:0 8px">${on?'On':'Off'}</div>`;
+    el.addEventListener('click',()=>{toggleAura(id);buildAuras();buildEditor();});list.appendChild(el);}}
+function describeSlot(slot){if(!slot){$('#desc').textContent='Empty slot. Tap a skill to place it here.';return;}const s=SKILLS[slot.skill],m=resolve(slot);
+  $('#desc').innerHTML=`<b>${s.name}</b>${typeBadge(s)}${slot.sup.length?' + '+slot.sup.map(x=>SUPPORTS[x].name).join(', '):''}${tagChips(s.tags,s)}${s.desc}<br>dmg ${Math.round(m.dmg)} · cost ${Math.round(m.cost)} ${s.type==='atk'?'stam':'mana'} · cd ${m.cd.toFixed(2)}s${m.cast?' · cast '+m.cast.toFixed(2)+'s':''}${m.proj?' · +'+m.proj+' proj':''}`;}
+function rowEl(id,def,kind){const el=document.createElement('div');const locked=!SET.unlockAll&&def.unlock>C.lvl;const g=gem(id);let spent=false,sub='';
+  if(kind==='sup'){const used=supUsed(id,editT),uses=supUses(id);spent=used>=uses;sub=`${used}/${uses} linked on this track`;}
+  else sub=(def.type==='atk'?Math.round(def.cost*.55)+' stamina':Math.round(def.cost*.55)+' mana')+' unlinked'+(def.rooted?' · rooted':'');
+  const chips=tagChips(kind==='sup'?['support',...def.allow]:def.tags,kind==='sup'?null:def);
+  el.className='row'+(locked?' locked':'')+(spent?' spent':'');
+  el.innerHTML=`<div class="ic ${kind==='sup'?'sup':def.type}">${def.ic}</div><div class="nm">${def.name}${kind==='sup'?'':typeBadge(def)}<small>${locked?'unlocks at level '+def.unlock:sub}</small>${chips}<div class="xpb"><i style="width:${g.lvl>=GEM_MAX?100:g.xp/gemXpFor(g.lvl)*100}%"></i></div></div><div class="lv">Lv${g.lvl}</div>${locked?'':'<div class="add">+</div>'}`;
+  const miles=kind==='sup'?SUP_MILES:MILES;const rd=document.createElement('div');rd.className='rowdesc';rd.style.display=openRow===id?'block':'none';
+  rd.innerHTML=`<div class="skdesc">${def.desc}</div>${kind==='skill'?'<div class="skstat">'+statLine({skill:id,sup:[]})+'</div>':''}<div class="skstat" style="margin-top:4px">Level ${g.lvl}${g.lvl<GEM_MAX?' · '+g.xp+' / '+gemXpFor(g.lvl)+' xp':''} · ${miles.map(([l,t])=>(g.lvl>=l?'<b>done</b> ':'<b>Lv'+l+'</b>: ')+t).join(' · ')}</div>${locked?'<div class="skstat" style="color:var(--blood)">Unlocks at character level '+def.unlock+'</div>':'<div class="skstat">Tap + to '+(kind==='sup'?'link it to the selected skill':'place it in the selected slot')+'.</div>'}`;
+  el.querySelector('.add')?.addEventListener('click',e=>{e.stopPropagation();place(kind,id,editT,selSlot);});
+  el.addEventListener('click',e=>{if(e.target.closest('.add'))return;openRow=openRow===id?null:id;rd.style.display=openRow===id?'block':'none';});
+  const wrap=document.createElement('div');wrap.appendChild(el);wrap.appendChild(rd);return wrap;}
+function place(kind,id,t,i){const tr=C.tracks[t];const max=D?D.maxSlots:8;
+  if(kind==='skill'){if(t===0&&!SKILLS[id].move){toast(SKILLS[id].name+' is too heavy to use while moving — put it on Still or Tap');return;}if(i<tr.length)tr[i]={skill:id,sup:[]};else if(tr.length<max){tr.push({skill:id,sup:[]});i=tr.length-1;}else{toast('Track is full');return;}selSlot=i;}
+  else{const slot=tr[i];if(!slot){toast('Select a skill slot first');return;}if(!canLink(slot.skill,id)){toast(SUPPORTS[id].name+' doesn\'t fit '+SKILLS[slot.skill].name);return;}
+    if(slot.sup.length>=6){toast('All six links are used');return;}if(slot.sup.includes(id)){toast('Already linked here');return;}
+    if(supUsed(id,t)>=supUses(id)){toast(SUPPORTS[id].name+' can only be on '+supUses(id)+' skill'+(supUses(id)>1?'s':'')+' at level '+gem(id).lvl);return;}slot.sup.push(id);selSlot=i;}
+  P.slots=[0,0,0];save();buildEditor();describeSlot(tr[i]);}
+$$('.ttab').forEach(t=>t.addEventListener('pointerdown',()=>{editT=+t.dataset.t;selSlot=0;buildEditor();}));
+
+// ---------- gear ----------
+let selItem=null; // {where:'equip'|'inv'|'stash'|'stock', key}
+function itemLabel(it,price){const st=itemStats(it);const parts=Object.entries(st).filter(([k])=>k!=='wdmg'&&k!=='armor'||!it.base[k]).map(([k,v])=>short(k,v));
+  return `<div class="iic r${it.rarity[0].toUpperCase()}">${itemIcon(it)}</div><div><span class="r${it.rarity[0].toUpperCase()}">${it.name}</span><small>${it.base.name} · ${SLOTNAME[it.slot==='ring'?'ring1':it.slot]} · lv ${it.req}${price!==undefined?' · <span style="color:var(--gold)">'+price+' g</span>':''}</small><small class="ml">${[it.base.wdmg?it.base.wdmg+' dmg':'',it.base.armor?it.base.armor+' armour':'',...parts].filter(Boolean).join(' · ')}</small></div>`;}
+function tile(cls,html,onTap){const el=document.createElement('div');el.className=cls;el.innerHTML=html;el.addEventListener('click',onTap);return el;}
+let selGear=null; // which body slot is open for swapping
+function buildGear(){const doll=$('#doll');doll.innerHTML='';
+  for(const s of SLOTS){const it=C.equip[s];const el=tile('gslot'+(it?'':' empty')+(s==='weapon'||s==='offhand'||s==='body'?' tall':'')+(selGear===s?' sel':''),
+    it?`<div class="iic r${it.rarity[0].toUpperCase()}">${itemIcon(it)}</div><div><small>${SLOTNAME[s]}</small><span class="r${it.rarity[0].toUpperCase()}">${it.name}</span></div>`:`<div class="iic">${slotIcon(s)}</div><div><small>${SLOTNAME[s]}</small>empty</div>`,
+    ()=>{selGear=selGear===s?null:s;selItem=null;buildGear();});el.style.gridArea=s;doll.appendChild(el);}
+  // ---- swap panel: what's equipped there + everything in pack/stash that fits ----
+  const sw=$('#swap');sw.innerHTML='';
+  if(selGear){const cur=C.equip[selGear];const fits=it=>it.slot===selGear||(it.slot==='ring'&&selGear.startsWith('ring'));
+    const head=document.createElement('div');head.className='sec';head.innerHTML=`<span>${SLOTNAME[selGear]} — ${cur?'equipped':'nothing equipped'}</span><span style="color:var(--bone2);text-transform:none;letter-spacing:0;font-family:var(--font)">tap the slot again to close</span>`;sw.appendChild(head);
+    if(cur){const grid=document.createElement('div');grid.className='swapl';grid.appendChild(tile('item'+(selItem&&selItem.where==='equip'?' sel':''),itemLabel(cur),()=>{selItem={where:'equip',key:selGear};buildGear();}));sw.appendChild(grid);}
+    const pool=[];C.inv.forEach((it,i)=>{if(fits(it))pool.push({it,where:'inv',key:i});});if(inTown)STASH.forEach((it,i)=>{if(fits(it))pool.push({it,where:'stash',key:i});});
+    const pr=buildProfile();pool.sort((a,b)=>itemScore(b.it,pr)-itemScore(a.it,pr));
+    const h2=document.createElement('div');h2.className='sec';h2.innerHTML=`<span>Swap for</span><span style="text-transform:none;letter-spacing:0;font-family:var(--font);color:var(--bone2)">best fit for your track first</span>`;sw.appendChild(h2);
+    const grid=document.createElement('div');grid.className='swapl';
+    if(!pool.length)grid.innerHTML='<div class="item" style="opacity:.5;font-weight:500">Nothing in your pack'+(inTown?' or stash':'')+' fits this slot</div>';
+    for(const p of pool)grid.appendChild(tile('item'+(canEquip(p.it)?'':' locked')+(p.where==='stash'?' fromstash':'')+(selItem&&selItem.where===p.where&&selItem.key===p.key?' sel':''),itemLabel(p.it)+(p.where==='stash'?'<small style="color:var(--gold)">in stash</small>':''),()=>{selItem={where:p.where,key:p.key};buildGear();}));
+    sw.appendChild(grid);}
+  // ---- full pack ----
+  const inv=$('#inv');inv.innerHTML='';$('#invN').innerHTML=C.inv.length+'/'+INV_MAX+' · <span style="color:var(--gold)">'+C.gold+' gold</span>';
+  const order=C.inv.map((it,i)=>i).sort((a,b)=>(slotEmpty(C.inv[b])?1:0)-(slotEmpty(C.inv[a])?1:0));
+  for(const i of order){const it=C.inv[i];inv.appendChild(tile('item'+(canEquip(it)?'':' locked')+(slotEmpty(it)?' star':'')+(selItem&&selItem.where==='inv'&&selItem.key===i&&!selGear?' sel':''),itemLabel(it),()=>{selGear=null;selItem={where:'inv',key:i};buildGear();}));}
+  const ss=$('#stashSec');ss.innerHTML='';
+  if(inTown){ss.innerHTML=`<div class="sec"><span>Shared stash <b>${STASH.length}/${STASH_MAX}</b></span></div>`;const grid=document.createElement('div');grid.className='inv';
+    STASH.forEach((it,i)=>grid.appendChild(tile('item'+(canEquip(it)?'':' locked')+(selItem&&selItem.where==='stash'&&selItem.key===i&&!selGear?' sel':''),itemLabel(it),()=>{selGear=null;selItem={where:'stash',key:i};buildGear();})));
+    if(!STASH.length)grid.innerHTML='<div class="item" style="opacity:.5;font-weight:500">Empty — items placed here are shared by all your characters</div>';ss.appendChild(grid);}
+  else ss.innerHTML='<div class="sec"><span>Shared stash is in town</span></div>';
+  $('#itemCard')?.remove();const card=document.createElement('div');card.id='itemCard';const selEl=$('#pg-gear .sel:not(.gslot)');(selEl||doll).after(card);buildCard(card);if(selItem&&selEl)card.scrollIntoView({block:'nearest'});}
+function getSel(){if(!selItem)return null;if(selItem.where==='equip')return C.equip[selItem.key];if(selItem.where==='inv')return C.inv[selItem.key];if(selItem.where==='stash')return STASH[selItem.key];return nearNpc&&nearNpc.stock[selItem.key];}
+function equippedFor(it){return C.equip[it.slot==='ring'?(C.equip.ring1?(C.equip.ring2?'ring1':'ring2'):'ring1'):it.slot];}
+function itemLines(it){const cur=selItem.where!=='equip'?equippedFor(it):null;const lines=[];
+  lines.push(`<h3 class="r${it.rarity[0].toUpperCase()}">${it.name}</h3>`);
+  lines.push(`<div class="base">${it.rarity!=='normal'?it.base.name+' · ':''}${SLOTNAME[it.slot==='ring'?'ring1':it.slot]}${it.base.wdmg?' · '+it.base.wdmg+' damage':''}${it.base.armor?' · '+it.base.armor+' armour':''} · item level ${it.ilvl}</div>`);
+  if(it.base.wdmg)lines.push(`<div class="imp">Weapon damage ${it.base.wdmg}<div class="ex">${EXPLAIN.wdmg}</div></div>`);if(it.base.armor)lines.push(`<div class="imp">Armour ${it.base.armor}<div class="ex">${EXPLAIN.armor}</div></div>`);
+  if(it.imp.length)lines.push(`<div class="imp">${it.imp.map(([k,v])=>fmt(k,v)+'<div class="ex">'+EXPLAIN[k]+'</div>').join('')}</div>`);
+  if(it.mods.length)lines.push(it.mods.map(m=>`<div class="${it.rarity==='unique'?'uq':'mod'}">${fmt(m.k,m.v)}${m.tier?` <span style="opacity:.5">T${m.tier}</span>`:''}<div class="ex">${EXPLAIN[m.k]}</div></div>`).join(''));
+  if(it.flavour)lines.push(`<div class="uq" style="margin-top:6px;opacity:.8">${it.flavour}</div>`);
+  lines.push(`<div class="req ${canEquip(it)?'':'bad'}">Requires level ${it.req}${canEquip(it)?'':' — you are '+C.lvl}</div>`);
+  if(cur&&cur!==it){const a=itemStats(cur),b=itemStats(it);const keys=[...new Set([...Object.keys(a),...Object.keys(b)])];const diff=keys.map(k=>{const d=(b[k]||0)-(a[k]||0);if(!d)return '';return `<span style="color:${d>0?'var(--stam)':'var(--blood)'}">${short(k,d)}</span>`;}).filter(Boolean).join(' · ');if(diff)lines.push(`<div class="req">vs equipped: ${diff}</div>`);}
+  return lines.join('');}
+function buildCard(card,vendor){const it=getSel();if(!it||(vendor&&selItem.where!=='stock'&&selItem.where!=='inv')){card.innerHTML='';return;}
+  const acts=[];const done=()=>{D=derived();for(const tr of C.tracks)while(tr.length>D.maxSlots)tr.pop();save();if(vendor)buildVendor();else buildGear();buildChar();};
+  if(vendor){const price=itemValue(it);
+    if(selItem.where==='stock')acts.push([`Buy for ${price} g`,()=>{if(C.gold<price){toast('Not enough gold');return;}if(C.inv.length>=INV_MAX){toast('Inventory full');return;}C.gold-=price;C.inv.push(it);nearNpc.stock.splice(selItem.key,1);selItem=null;toast('Bought '+it.name,1000);}]);
+    else acts.push([`Sell for ${Math.max(1,Math.round(price*.3))} g`,()=>{C.gold+=Math.max(1,Math.round(price*.3));C.inv.splice(selItem.key,1);selItem=null;}]);}
+  else{
+    if(selItem.where==='equip')acts.push(['Unequip',()=>{if(C.inv.length>=INV_MAX){toast('Inventory full');return;}C.inv.push(it);delete C.equip[selItem.key];selItem=null;}]);
+    else if(canEquip(it))acts.push(['Equip',()=>equip(it)]);
+    if(selItem.where==='inv'&&inTown)acts.push(['To stash',()=>{if(STASH.length>=STASH_MAX){toast('Stash full');return;}STASH.push(it);C.inv.splice(selItem.key,1);selItem=null;}]);
+    if(selItem.where==='stash')acts.push(['Take',()=>{if(C.inv.length>=INV_MAX){toast('Inventory full');return;}C.inv.push(it);STASH.splice(selItem.key,1);selItem=null;}]);
+    acts.push(['Destroy',null,'Really destroy?',()=>{if(selItem.where==='equip')delete C.equip[selItem.key];else if(selItem.where==='inv')C.inv.splice(selItem.key,1);else STASH.splice(selItem.key,1);selItem=null;selGear=null;toast('Destroyed '+it.name,900);}]);}
+  card.innerHTML=`<div class="card">${itemLines(it)}<div class="acts"></div></div>`;const box=card.querySelector('.acts');
+  for(const [n,f,confirmLabel,f2] of acts){const b=document.createElement('div');b.className='btn sm';b.textContent=n;let armed=false;
+    b.addEventListener('click',()=>{if(f){f();done();return;}if(!armed){armed=true;b.textContent=confirmLabel;b.style.color='#ff6d7c';b.style.borderColor='#7a1f2a';setTimeout(()=>{if(armed){armed=false;b.textContent=n;b.style.color='';b.style.borderColor='';}},3000);return;}f2();done();});box.appendChild(b);}}
+function buildVendor(){if(!nearNpc||nearNpc.kind!=='vendor'){showPage('gear');return;}$('#vName').textContent=nearNpc.name;$('#vGold').innerHTML='<span style="color:var(--gold)">'+C.gold+' gold</span>';
+  const st=$('#vStock');st.innerHTML='';nearNpc.stock.forEach((it,i)=>st.appendChild(tile('item'+(canEquip(it)?'':' locked')+(selItem&&selItem.where==='stock'&&selItem.key===i?' sel':''),itemLabel(it,itemValue(it)),()=>{selItem={where:'stock',key:i};buildVendor();})));
+  if(!nearNpc.stock.length)st.innerHTML='<div class="item" style="opacity:.5;font-weight:500">Sold out — stock refreshes when you return to town</div>';
+  const vi=$('#vInv');vi.innerHTML='';C.inv.forEach((it,i)=>vi.appendChild(tile('item'+(selItem&&selItem.where==='inv'&&selItem.key===i?' sel':''),itemLabel(it,Math.max(1,Math.round(itemValue(it)*.3))),()=>{selItem={where:'inv',key:i};buildVendor();})));
+  $('#vendorCard')?.remove();const card=document.createElement('div');card.id='vendorCard';const selEl=$('#pg-vendor .sel');(selEl||st).after(card);buildCard(card,true);if(selItem&&selEl)card.scrollIntoView({block:'nearest'});}
+function equip(it){let slot=it.slot;if(slot==='ring')slot=(selGear&&selGear.startsWith('ring'))?selGear:!C.equip.ring1?'ring1':!C.equip.ring2?'ring2':'ring1';
+  const old=C.equip[slot];const from=selItem.where==='inv'?C.inv:STASH;from.splice(selItem.key,1);C.equip[slot]=it;if(old)from.push(old);selItem={where:'equip',key:slot};if(selGear)selGear=slot;toast('Equipped '+it.name,1000);
+  // chain length can shrink when Loop of the Tireless comes off
+  D=derived();for(const tr of C.tracks)while(tr.length>D.maxSlots)tr.pop();}
+
+// ---------- settings ----------
+function optRow(box,opts,cur,on){box.innerHTML='';for(const [v,label] of opts){const el=document.createElement('div');el.className='opt'+(v===cur?' on':'');el.textContent=label;el.addEventListener('click',()=>{on(v);saveSet();buildSettings();});box.appendChild(el);}}
+function buildSettings(){
+  optRow($('#optRarity'),[['magic','Magic and up'],['rare','Rare and up'],['unique','Unique only']],SET.minRarity,v=>SET.minRarity=v);
+  optRow($('#optRes'),[['auto','Auto'],['1','1× (fastest)'],['1.5','1.5×'],['2','2× (sharpest)']],SET.res,v=>{SET.res=v;DPR_CAP=v==='auto'?1.5:+v;resize();});
+  optRow($('#optUnlock'),[['on','All skills unlocked'],['off','Unlock by level']],SET.unlockAll?'on':'off',v=>SET.unlockAll=v==='on');
+  optRow($('#optFps'),[['on','FPS counter on'],['off','FPS counter off']],SET.fps?'on':'off',v=>SET.fps=v==='on');}
+DPR_CAP=SET.res==='auto'?1.5:+SET.res;resize();
+// ---------- character ----------
+const ATTRS={str:['Strength','attack damage, stamina, armor'],dex:['Dexterity','move speed, stamina regen'],int:['Intelligence','spell damage, mana, mana regen'],vit:['Vitality','life, armor']};
+function buildChar(){const box=$('#statList');box.innerHTML='';const d=derived();
+  for(const [k,[n,ds]] of Object.entries(ATTRS)){const el=document.createElement('div');el.className='stat';el.innerHTML=`<div><b>${n}</b> ${d.a[k]}${d.a[k]!==C.attr[k]?` <span style="color:var(--rMagic)">(${C.attr[k]}+${d.a[k]-C.attr[k]})</span>`:''}<small>${ds}</small></div><button ${C.pts?'':'disabled'}>+</button>`;
+    el.querySelector('button').addEventListener('click',()=>{if(!C.pts)return;C.pts--;C.attr[k]++;D=derived();save();buildChar();});box.appendChild(el);}
+  const g=d.g;$('#kv').innerHTML=`<span>Unspent points</span><b>${C.pts}</b><span>Life</span><b>${d.maxLife}</b><span>Mana / regen</span><b>${d.maxMana} / ${d.manaRegen.toFixed(1)}s</b><span>Stamina / regen</span><b>${d.maxStam} / ${d.stamRegen.toFixed(1)}s</b><span>Speed</span><b>${Math.round(d.speed)}</b><span>Attack · spell power</span><b>${Math.round(d.atkMult*100*(1+g.atkPct/100))}% · ${Math.round(d.splMult*100*(1+g.spellPct/100))}%</b><span>Weapon damage · fire</span><b>${g.wdmg+g.atkFlat} · +${g.firePct}%</b><span>Armor</span><b>${d.armor.toFixed(1)}</b><span>Chain length</span><b>${d.maxSlots}</b><span>Experience</span><b>${C.xp} / ${xpFor(C.lvl)}</b>`;
+  $('#dTitle').textContent=C.pts?`Skill tracks · ${C.pts} point${C.pts>1?'s':''} to spend`:'Skill tracks';$('#tSlot').textContent=slotIdx+1;
+  const jn=$('#journal');jn.innerHTML=STORY.filter(st=>C.story.includes(st.id)).map(st=>`<div class="card" style="text-align:left"><h3 style="font-size:13px">${st.title}</h3>${st.text}</div>`).join('')||'<div class="hint">Nothing written yet. Go down.</div>';}
+$('#btnSwitch').addEventListener('pointerdown',()=>{if(!inTown){toast('Switch characters in town');return;}save();closeDrawer();paused=true;buildChars();$('#ovStart').classList.add('on');});
+function buildChars(){const box=$('#chars');box.innerHTML='';for(let i=0;i<3;i++){const c=loadSlot(i);const el=document.createElement('div');el.className='cslot'+(i===slotIdx?' on':'');
+    el.innerHTML=c?`<div>Character ${i+1}<small>level ${c.lvl} · depth ${c.depth} · ${c.kills} kills</small></div><div class="del">delete</div>`:`<div>Character ${i+1}<small>empty — a new fighter</small></div>`;
+    el.addEventListener('pointerdown',ev=>{if(ev.target.classList.contains('del')){const d=ev.target;if(d.dataset.armed){localStorage.removeItem(KEY+i);if(i===slotIdx){slotIdx=i;load();depth=C.depth;dungeon=null;goTown();}buildChars();}else{d.dataset.armed='1';d.textContent='tap again to delete';d.style.color='#ff6d7c';setTimeout(()=>{delete d.dataset.armed;d.textContent='delete';d.style.color='';},3000);}return;}slotIdx=i;load();depth=C.depth||1;dungeon=null;$$('.tk').forEach(t=>t.classList.toggle('on',+t.dataset.t===C.track));goTown();buildChars();});box.appendChild(el);}}
+
+// ================================================================
+//  Flow
+// ================================================================
+function clearWorld(){telegraphs.length=0;mines.length=0;enemies.length=projectiles.length=zones.length=particles.length=floats.length=loot.length=timers.length=0;P.buffs.length=0;boss=null;$('#boss').style.display='none';P.focusBoss=false;P.slots=[0,0,0];P.busy=0;P.cast=null;tapPlay=null;shake=0;}
+function placePlayer(t){const w=worldPos(t);P.x=w.x;P.y=w.y;cam.u=toU(P.x,P.y)-VW/2;cam.v=toV(P.x,P.y)-VH/2;}
+function goTown(){clearWorld();genTown();placePlayer(L.start);D=derived();P.life=D.maxLife;P.mana=D.maxMana;P.stam=D.maxStam;P.dead=false;updateHud();}
+function stow(){dungeon={L,enemies:[...enemies],loot:[...loot],mines:[...mines],boss,depth,variant,px:P.x,py:P.y};}
+function returnToTown(){stow();goTown();toast('Town. The portal will take you back to depth '+depth,2200);}
+function enterDungeon(){clearWorld();
+  if(dungeon&&dungeon.depth===depth){L=dungeon.L;enemies.push(...dungeon.enemies);loot.push(...dungeon.loot);mines.push(...(dungeon.mines||[]));boss=dungeon.boss;if(boss)$('#boss').style.display='block';variant=dungeon.variant;npcs.length=0;portals.length=0;inTown=false;$('#btnPortal').classList.remove('hide');P.x=dungeon.px;P.y=dungeon.py;
+    if(dungeon.deathPortal){portals.push({x:dungeon.deathPortal.x+40,y:dungeon.deathPortal.y+40,to:'town',t:0});toast('You return to where you fell',1600);}cam.u=toU(P.x,P.y)-VW/2;cam.v=toV(P.x,P.y)-VH/2;dungeon=null;toast('Depth '+depth,1200);}
+  else{genLevel(depth,variant);for(const pk of L.packs)spawnPack(pk,pk.lvl,pk.tier,L.biome);placePlayer(L.start);C.maxDepth=Math.max(C.maxDepth||0,depth);later(1.5,storyCheck);D=derived();P.life=D.maxLife;P.mana=D.maxMana;P.stam=D.maxStam;C.depth=depth;save();toast('Depth '+depth+(L.mandatory?' — a gatekeeper guards the exit':''),2200);}P.inv=.6;}
+let pendingExit=null;
+function askExit(ex){pendingExit=ex;paused=true;joy.on=false;const nd=depth+1;$('#exitTitle').textContent='Depth '+nd;
+  const bn=BIOMES[ex.biome].name;$('#exitTitle').textContent=bn;$('#exitTxt').innerHTML=`This gate leads down into the ${bn}, depth ${nd}${nd%2===0?', where a gatekeeper bars the way out':''}. Enemies there will be around level ${nd}–${nd+Math.round(5*Math.min(1,.35+nd*.12))}. Anything left on this floor stays behind.`+(ex.mods.length?'<br><br>'+ex.mods.map(m=>`<span style="color:${m.good?'var(--stam)':'#ff8a95'}">${m.text}</span>`).join('<br>'):'<br><br>No area modifiers.');
+  $('#ovExit').classList.add('on');}
+$('#btnGo').addEventListener('pointerdown',()=>{$('#ovExit').classList.remove('on');const v=pendingExit.variant;pendingExit=null;nextLevel(v);paused=false;});
+$('#btnStay').addEventListener('pointerdown',()=>{$('#ovExit').classList.remove('on');const w=worldPos(pendingExit);const a=Math.atan2(P.y-w.y,P.x-w.x);P.x=w.x+Math.cos(a)*48;P.y=w.y+Math.sin(a)*48;pendingExit=null;paused=false;});
+function nextLevel(v){depth++;variant=v;dungeon=null;C.maxDepth=Math.max(C.maxDepth||0,depth);later(1.5,storyCheck);genLevel(depth,variant);clearWorld();for(const pk of L.packs)spawnPack(pk,pk.lvl,pk.tier,L.biome);placePlayer(L.start);C.depth=depth;save();toast('Depth '+depth+(L.mandatory?' — a gatekeeper guards the exit':''),2200);P.inv=.6;}
+$('#btnStart').addEventListener('pointerdown',()=>{$('#ovStart').classList.remove('on');paused=false;storyCheck();});
+$('#btnRespawn').addEventListener('pointerdown',()=>{$('#ovDead').classList.remove('on');const keep=dungeon;goTown();dungeon=keep;paused=false;});
+
+load();depth=C.depth||1;goTown();buildChars();$('#ovStart').classList.add('on');
+let last=performance.now();const fpsS={n:0,t:0,worst:0,upd:0,rend:0};
+let dtS=1/60,lowT=0;
+function frame(now){const raw=(now-last)/1000;last=now;dtS=dtS*.8+Math.min(.05,raw)*.2;const dt=Math.min(.05,dtS);frameDt=dt;
+  fpsS.n++;fpsS.t+=raw;fpsS.worst=Math.max(fpsS.worst,raw);
+  if(fpsS.t>=.5){const f=fpsS.n/fpsS.t;if(SET.res==='auto'&&f<48&&DPR_CAP>1){lowT+=fpsS.t;if(lowT>3){DPR_CAP=1;resize();toast('Lowered render resolution for smoother play',1600);}}else lowT=0;const el=$('#fps');el.style.display=SET.fps?'':'none';el.innerHTML=`${Math.round(fpsS.n/fpsS.t)} fps @${DPR}x<br>worst ${Math.round(fpsS.worst*1000)} ms<br>upd ${fpsS.upd.toFixed(1)} · draw ${fpsS.rend.toFixed(1)} ms<br>${enemies.length} en · ${particles.length} fx`;fpsS.n=0;fpsS.t=0;fpsS.worst=0;}
+  const t0=performance.now();if(!paused)update(dt);const t1=performance.now();shake*=Math.pow(.01,dt);if(shake<.05)shake=0;render();const t2=performance.now();fpsS.upd=fpsS.upd*.9+(t1-t0)*.1;fpsS.rend=fpsS.rend*.9+(t2-t1)*.1;requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
